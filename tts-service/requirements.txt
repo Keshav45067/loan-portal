@@ -1,0 +1,4 @@
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+google-cloud-texttospeech>=2.16.0
+python-dotenv>=1.0.0

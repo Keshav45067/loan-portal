@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package chayan.llm;
+
+option go_package = "github.com/ChayanAI/services/proto/llm";
+
+// LLM Service — stateless prompt → response wrapper for Gemini and future models.
+service LanguageModel {
+  // Unary text generation
+  rpc Generate (GenerateRequest) returns (GenerateResponse);
+
+  // Structured JSON extraction (returns raw JSON string for caller to parse)
+  rpc Extract (ExtractRequest) returns (ExtractResponse);
+
+  // Server-side streaming text generation
+  rpc GenerateStream (GenerateRequest) returns (stream TextChunk);
+
+  // Multimodal generation (images + text)
+  rpc GenerateMultimodal (MultimodalRequest) returns (GenerateResponse);
+}
+
+message GenerateRequest {
+  string prompt = 1;
+  string model = 2;              // e.g. "gemini-2.5-flash", "gemini-2.5-pro"
+  float temperature = 3;
+  int32 max_tokens = 4;
+  int32 thinking_budget = 5;     // >0 = specific thinking budget
+  string system_instruction = 6; // Optional system prompt
+  bool disable_thinking = 7;     // true = force thinking off (budget=0)
+}
+
+message GenerateResponse {
+  string text = 1;
+  int32 prompt_tokens = 2;
+  int32 completion_tokens = 3;
+}
+
+message ExtractRequest {
+  string prompt = 1;
+  string model = 2;
+  float temperature = 3;
+  string system_instruction = 4;
+  int32 thinking_budget = 5;
+  bool disable_thinking = 6;     // true = force thinking off (budget=0)
+}
+
+message ExtractResponse {
+  string json_text = 1;          // Raw JSON string for caller to parse
+  bool success = 2;
+  string error = 3;
+}
+
+message TextChunk {
+  string text = 1;
+  bool is_last = 2;
+}
+
+message MultimodalRequest {
+  string prompt = 1;
+  repeated bytes images = 2;     // JPEG/PNG bytes
+  string model = 3;
+  float temperature = 4;
+  string system_instruction = 5;
+  int32 thinking_budget = 6;
+  bool disable_thinking = 7;     // true = force thinking off (budget=0)
+}

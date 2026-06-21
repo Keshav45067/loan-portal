@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package chayan.stt;
+
+option go_package = "github.com/ChayanAI/services/proto/stt";
+
+// Speech-to-Text Service — stateless audio → text.
+// Supports batch and streaming transcription across multiple engines.
+service SpeechToText {
+  // Batch transcription (unary)
+  rpc Transcribe (TranscribeRequest) returns (TranscribeResponse);
+
+  // Streaming transcription (bidirectional)
+  // Client sends audio chunks, server returns partial/final transcripts
+  rpc StreamTranscribe (stream AudioChunk) returns (stream TranscriptChunk);
+}
+
+message TranscribeRequest {
+  bytes audio_data = 1;          // Raw PCM or WAV bytes
+  string language = 2;           // "hi", "en", "ar", "kn"
+  string engine = 3;             // "google", "nemo", "faster_whisper"
+  int32 sample_rate = 4;         // 16000 (default)
+  string encoding = 5;           // "LINEAR16", "FLAC" etc.
+}
+
+message TranscribeResponse {
+  string text = 1;
+  float confidence = 2;
+  string language_detected = 3;
+}
+
+message AudioChunk {
+  bytes audio_data = 1;          // Raw PCM bytes (chunk)
+  string language = 2;           // "hi", "en", "ar", "kn"
+  string engine = 3;             // "google", "nemo", "faster_whisper"
+  int32 sample_rate = 4;         // 16000
+  bool is_final = 5;             // True on last chunk to flush buffer
+  string session_id = 6;         // For correlating chunks in a session
+}
+
+message TranscriptChunk {
+  string text = 1;
+  bool is_final = 2;             // True when this is the final result for this segment
+  float confidence = 3;
+  string language_detected = 4;
+}

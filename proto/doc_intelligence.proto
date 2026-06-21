@@ -1,0 +1,118 @@
+syntax = "proto3";
+
+package chayan.doc;
+
+option go_package = "github.com/ChayanAI/services/proto/doc";
+
+// Document Intelligence Service — document verification, OCR extraction,
+// CIBIL checks, business classification, activity scoring.
+service DocumentIntelligence {
+  // Verify a document image (quick quality/validity check)
+  rpc VerifyDocument (VerifyRequest) returns (VerifyResponse);
+
+  // Extract structured data from document
+  rpc ExtractDocument (ExtractDocRequest) returns (ExtractDocResponse);
+
+  // Classify business category from purpose description
+  rpc ClassifyBusiness (ClassifyRequest) returns (ClassifyResponse);
+
+  // CIBIL credit check via Surepass Experian API
+  rpc CheckCibil (CibilRequest) returns (CibilResponse);
+
+  // Activity score from business photos
+  rpc ScoreActivity (ActivityScoreRequest) returns (ActivityScoreResponse);
+
+  // Upload document image to GCS
+  rpc UploadDocument (UploadRequest) returns (UploadResponse);
+}
+
+// ─── Verify ───
+
+message VerifyRequest {
+  bytes image_data = 1;
+  string document_type = 2;     // "aadhaar_front", "pan", "udyam", "selfie", etc.
+  string scheme_id = 3;
+  string session_id = 4;
+}
+
+message VerifyResponse {
+  bool is_valid = 1;
+  repeated string issues = 2;   // List of issues found (blur, wrong doc, etc.)
+  float confidence = 3;
+}
+
+// ─── Extract ───
+
+message ExtractDocRequest {
+  bytes image_data = 1;
+  string document_type = 2;
+  string scheme_id = 3;
+  string session_id = 4;
+}
+
+message ExtractDocResponse {
+  bool success = 1;
+  string json_data = 2;         // Extracted fields as JSON string
+  string raw_llm_output = 3;
+  string gcs_path = 4;          // Where image was stored
+  string error = 5;
+}
+
+// ─── Classify Business ───
+
+message ClassifyRequest {
+  string business_purpose = 1;   // Free-text description
+  bytes udyam_image = 2;         // Optional UDYAM certificate image
+}
+
+message ClassifyResponse {
+  string category = 1;           // "GROCERY", "DAIRY", "POULTRY", etc.
+  float confidence = 2;
+}
+
+// ─── CIBIL ───
+
+message CibilRequest {
+  string name = 1;
+  string mobile = 2;
+  string pan = 3;
+  string session_id = 4;
+  string pan_type = 5;           // "applicant" or "spouse"
+}
+
+message CibilResponse {
+  bool success = 1;
+  int32 credit_score = 2;
+  string gcs_report_path = 3;
+  string error = 4;
+}
+
+// ─── Activity Score ───
+
+message ActivityScoreRequest {
+  repeated bytes images = 1;     // Business photos (JPEG bytes)
+  string extracted_text = 2;     // Optional context from OCR
+  string session_id = 3;
+}
+
+message ActivityScoreResponse {
+  bool success = 1;
+  string json_result = 2;       // { activity_score, reasoning }
+  string error = 3;
+}
+
+// ─── Upload ───
+
+message UploadRequest {
+  bytes image_data = 1;
+  string content_type = 2;       // "image/jpeg", "image/png"
+  string session_id = 3;
+  string document_type = 4;
+  string filename = 5;
+}
+
+message UploadResponse {
+  bool success = 1;
+  string gcs_uri = 2;           // "gs://bucket/path"
+  string error = 3;
+}

@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package chayan.config;
+
+option go_package = "github.com/ChayanAI/services/proto/config";
+
+// Config Registry Service — single source of truth for all loan scheme definitions.
+// Configs stored server-side in Redis, referenced by scheme_id. No bulk payloads.
+service ConfigRegistry {
+  // Full config (used at session init, cached by caller)
+  rpc GetSchemeConfig (SchemeRequest) returns (SchemeConfig);
+
+  // Interview graph only (used by Voice Engine)
+  rpc GetInterviewGraph (SchemeRequest) returns (InterviewGraph);
+
+  // Document requirements (used by Doc Intelligence)
+  rpc GetDocumentRequirements (SchemeRequest) returns (DocumentRequirements);
+
+  // Single field instruction (used during extraction)
+  rpc GetFieldInstruction (FieldRequest) returns (FieldInstruction);
+
+  // Financial rules (used by Orchestrator)
+  rpc GetFinancialRules (SchemeRequest) returns (FinancialRules);
+
+  // TTS/STT config (used by Voice Engine)
+  rpc GetMediaConfig (MediaConfigRequest) returns (MediaConfig);
+
+  // Admin CRUD
+  rpc CreateScheme (SchemeConfig) returns (SchemeResponse);
+  rpc UpdateScheme (SchemeConfig) returns (SchemeResponse);
+  rpc ListSchemes (ListSchemesRequest) returns (SchemeList);
+  rpc DeleteScheme (SchemeRequest) returns (SchemeResponse);
+}
+
+// ─── Request Messages ───
+
+message SchemeRequest {
+  string scheme_id = 1;
+}
+
+message FieldRequest {
+  string scheme_id = 1;
+  string field_name = 2;
+}
+
+message MediaConfigRequest {
+  string scheme_id = 1;
+  string language = 2;           // "hi", "en", "ar"
+}
+
+message ListSchemesRequest {
+  // Empty for now, can add pagination later
+}
+
+// ─── Interview Graph Messages ───
+
+message GraphEdge {
+  string condition = 1;          // "always", "routing_decision == 'YES'", etc.
+  string next_node_id = 2;
+}
+
+message GraphNode {
+  string node_id = 1;
+  string text_template = 2;     // Template with {name} placeholder, e.g. "{name} जी, ..."
+  repeated string targets = 3;  // Fields to extract at this node
+  repeated GraphEdge edges = 4;
+  string routing_prompt = 5;    // Optional LLM routing prompt
+  string type = 6;              // "voice-qa" or "capture"
+  string document_id = 7;       // e.g., "aadhaar_front", "pan" (if type == "capture")
+}
+
+message InterviewGraph {
+  string scheme_id = 1;
+  map<string, GraphNode> nodes = 2;  // node_id → GraphNode
+  string start_node_id = 3;         // Usually "START"
+  map<string, ContextDeps> context_map = 4; // node_id → dependent node_ids
+}
+
+message ContextDeps {
+  repeated string dependencies = 1;
+}
+
+// ─── Document Messages ───
+
+message DocumentRequirement {
+  string document_type = 1;     // "aadhaar_front", "pan", "udyam"
+  string verify_prompt = 2;     // LLM prompt for verification
+  string extract_prompt = 3;    // LLM prompt for extraction
+  bool required = 4;
+  int32 max_pages = 5;          // For multi-page docs like bank statements
+}
+
+message DocumentRequirements {
+  string scheme_id = 1;
+  repeated DocumentRequirement documents = 2;
+}
+
+// ─── Field Instruction Messages ───
+
+message FieldInstruction {
+  string field_name = 1;
+  string instruction = 2;       // Extraction instruction text
+}
+
+// ─── Financial Rules Messages ───
+
+message RangeRule {
+  float min = 1;
+  float max = 2;
+}
+
+message FinancialRules {
+  string scheme_id = 1;
+  RangeRule inventory_multiplier = 2;
+  RangeRule profit_margin = 3;
+  map<string, int32> working_cycle_months = 4;  // business_type → months
+  float max_loan_amount = 5;
+  float promoter_contribution_pct = 6;           // 0.25 default
+  float term_loan_pct = 7;                       // 0.90 default
+}
+
+// ─── Media Config Messages ───
+
+message MediaConfig {
+  string scheme_id = 1;
+  string language = 2;
+  // TTS config
+  string tts_voice_name = 3;    // e.g. "hi-IN-Chirp3-HD-Leda"
+  string tts_engine = 4;        // "google", "kokoro"
+  int32 tts_sample_rate = 5;    // 24000
+  // STT config
+  string stt_engine = 6;        // "google", "nemo", "faster_whisper"
+  string stt_language_code = 7;  // "hi-IN", "en-US"
+}
+
+// ─── Full Scheme Config ───
+
+message SchemeConfig {
+  string scheme_id = 1;
+  string display_name = 2;
+  repeated string languages = 3;
+  InterviewGraph interview_graph = 4;
+  DocumentRequirements document_requirements = 5;
+  map<string, FieldInstruction> field_instructions = 6;
+  FinancialRules financial_rules = 7;
+  map<string, MediaConfig> media_configs = 8;  // language → config
+  map<string, string> db_mapping = 9;          // extracted_field → db_column
+}
+
+// ─── Response Messages ───
+
+message SchemeResponse {
+  bool success = 1;
+  string scheme_id = 2;
+  string error = 3;
+}
+
+message SchemeList {
+  repeated SchemeSummary schemes = 1;
+}
+
+message SchemeSummary {
+  string scheme_id = 1;
+  string display_name = 2;
+  repeated string languages = 3;
+  int32 total_nodes = 4;
+}

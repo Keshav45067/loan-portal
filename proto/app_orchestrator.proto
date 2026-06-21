@@ -1,0 +1,244 @@
+syntax = "proto3";
+
+package chayan.orchestrator;
+
+option go_package = "github.com/ChayanAI/services/proto/orchestrator";
+
+// Application Orchestrator — manages the full loan application lifecycle.
+// Registration → Documentation → Interview → Financials → Report.
+service ApplicationOrchestrator {
+  // ─── Auth & Registration ───
+  rpc SendOtp (SendOtpRequest) returns (SendOtpResponse);
+  rpc VerifyOtp (VerifyOtpRequest) returns (VerifyOtpResponse);
+
+  // ─── Application Lifecycle ───
+  rpc CreateApplication (CreateAppRequest) returns (Application);
+  rpc GetApplication (AppIdRequest) returns (Application);
+  rpc AdvanceStage (AdvanceStageRequest) returns (Application);
+  rpc GetApplicationStatus (AppIdRequest) returns (ApplicationStatus);
+
+  // ─── Panchayat / Location ───
+  rpc SavePanchayat (SavePanchayatRequest) returns (SavePanchayatResponse);
+  rpc GetLocationTree (GetLocationTreeRequest) returns (LocationTree);
+
+  // ─── Data Operations ───
+  rpc UpsertExtractedData (UpsertDataRequest) returns (UpsertDataResponse);
+  rpc GetExtractedData (AppIdRequest) returns (ExtractedData);
+
+  // ─── Financial Calculations ───
+  rpc CalculateFinancials (FinancialCalcRequest) returns (FinancialCalcResponse);
+
+  // ─── Report Generation ───
+  rpc GenerateReport (ReportRequest) returns (ReportResponse);
+
+  // ─── Admin Queries ───
+  rpc ListApplications (ListAppRequest) returns (ApplicationList);
+  rpc UpdateApplicationStatus (UpdateStatusRequest) returns (Application);
+
+  // ─── Document Operations ───
+  rpc SaveDocument (SaveDocRequest) returns (SaveDocResponse);
+  rpc GetDocuments (AppIdRequest) returns (DocumentList);
+}
+
+// ─── Auth Messages ───
+
+message SendOtpRequest {
+  string phone = 1;
+}
+
+message SendOtpResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message VerifyOtpRequest {
+  string phone = 1;
+  string otp = 2;
+  string rseti = 3;              // "yes" or empty
+}
+
+message VerifyOtpResponse {
+  bool success = 1;
+  string session_id = 2;
+  bool requires_panchayat = 3;
+  string error = 4;
+}
+
+// ─── Application Messages ───
+
+message CreateAppRequest {
+  string scheme_id = 1;
+  string phone = 2;
+  string name = 3;
+  string session_id = 4;         // From OTP verification
+}
+
+message AppIdRequest {
+  string application_id = 1;
+}
+
+message Application {
+  string application_id = 1;
+  string session_id = 2;
+  string scheme_id = 3;
+  string stage = 4;              // "REGISTRATION", "DOCUMENTATION", "INTERVIEW", "COMPLETE"
+  string completion_status = 5;  // "NEW", "IN_PROGRESS", "COMPLETED"
+  string phone = 6;
+  string panchayat = 7;
+  string cadre_id = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message AdvanceStageRequest {
+  string application_id = 1;
+  string new_stage = 2;
+}
+
+message ApplicationStatus {
+  string application_id = 1;
+  string stage = 2;
+  string completion_status = 3;
+  string documentation_stage = 4;  // Which doc step user is on
+}
+
+// ─── Panchayat / Location Messages ───
+
+message SavePanchayatRequest {
+  string session_id = 1;
+  string panchayat = 2;
+  string block = 3;
+  string district = 4;
+  string state = 5;
+  bool skip = 6;                  // Skip panchayat selection
+  string cadre_id = 7;           // Provided when skipping
+  string rseti = 8;              // "yes" or empty
+}
+
+message SavePanchayatResponse {
+  bool success = 1;
+  string application_id = 2;     // Generated: YYYY/MM/{BLOCK}-{001-999}
+  bool admin_found = 3;
+  bool rseti_approved = 4;
+  string error = 5;
+}
+
+message GetLocationTreeRequest {
+  string level = 1;              // "states", "districts", "blocks", "panchayats"
+  string parent_id = 2;          // Parent location ID for filtering
+}
+
+message LocationTree {
+  repeated LocationItem items = 1;
+}
+
+message LocationItem {
+  string id = 1;
+  string name = 2;
+  string parent_id = 3;
+}
+
+// ─── Data Messages ───
+
+message UpsertDataRequest {
+  string application_id = 1;
+  string json_fields = 2;        // Key-value pairs as JSON string
+  string source = 3;             // "interview", "document", "manual"
+}
+
+message UpsertDataResponse {
+  bool success = 1;
+  int32 fields_updated = 2;
+  string error = 3;
+}
+
+message ExtractedData {
+  string application_id = 1;
+  string json_data = 2;          // All extracted data as JSON string
+}
+
+// ─── Financial Calculation Messages ───
+
+message FinancialCalcRequest {
+  string application_id = 1;
+  string scheme_id = 2;
+  string business_type = 3;
+}
+
+message FinancialCalcResponse {
+  bool success = 1;
+  string derived_data_json = 2;  // All calculated fields as JSON
+  string error = 3;
+}
+
+// ─── Report Messages ───
+
+message ReportRequest {
+  string application_id = 1;
+  string format = 2;             // "csv", "pdf"
+  string scheme_id = 3;
+}
+
+message ReportResponse {
+  bool success = 1;
+  bytes report_data = 2;         // Raw CSV/PDF bytes
+  string gcs_url = 3;            // URL in Cloud Storage
+  string error = 4;
+}
+
+// ─── Admin Messages ───
+
+message ListAppRequest {
+  string scheme_id = 1;
+  string status = 2;             // Filter by status
+  string cadre_id = 3;           // Filter by assigned admin
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message ApplicationList {
+  repeated ApplicationSummary applications = 1;
+  int32 total_count = 2;
+}
+
+message ApplicationSummary {
+  string application_id = 1;
+  string session_id = 2;
+  string phone = 3;
+  string stage = 4;
+  string completion_status = 5;
+  string panchayat = 6;
+  string created_at = 7;
+}
+
+message UpdateStatusRequest {
+  string application_id = 1;
+  string new_status = 2;         // "APPROVED_BY_LVL_1", "REJECTED", etc.
+  string admin_id = 3;
+}
+
+// ─── Document Messages ───
+
+message SaveDocRequest {
+  string session_id = 1;
+  string doc_type = 2;
+  string key = 3;
+  string name = 4;
+}
+
+message SaveDocResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DocumentItem {
+  string id = 1;
+  string key = 2;
+  string doc_type = 3;
+  string name = 4;
+}
+
+message DocumentList {
+  repeated DocumentItem documents = 1;
+}
+

@@ -1,0 +1,118 @@
+# ================================================================
+# Mudra Loan — Document Q&A Graph Configuration
+# ================================================================
+scheme_id: documents-qa
+display_name: "Documents Q&A Session"
+languages: [hi, en]
+
+# ─── TTS/STT Configuration ───
+tts:
+  hi:
+    voice_name: "hi-IN-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  en:
+    voice_name: "en-US-Neural2-F"
+    engine: "google"
+    sample_rate: 24000
+
+stt:
+  hi:
+    engine: "google"
+    language_code: "hi-IN"
+  en:
+    engine: "google"
+    language_code: "en-US"
+
+# ─── Interview Graph ───
+interview_graph:
+  start_node_id: "START"
+  nodes:
+    START:
+      text_template: "{name} जी, अब मैं आपसे दस्तावेज़ सत्यापन के लिए कुछ प्रश्न पूछूँगी। बोलने का संकेत मिलने पर कृपया जवाब दें। क्या आप तैयार हैं?"
+      targets: []
+      edges:
+        - condition: "always"
+          next: "Q_NAME_CONFIRMED"
+
+    Q_NAME_CONFIRMED:
+      text_template: "कृपया बताएं, क्या मेरी बात {name} से हो रही है?"
+      targets: [is_name_confirmed, corrected_name]
+      routing_prompt: "Determine if user confirmed their name. Set 'routing_decision' to 'YES' if confirmed, or 'NO' if they denied it or corrected it."
+      edges:
+        - condition: "always"
+          next: "Q_BUSINESS_PURPOSE"
+
+    Q_BUSINESS_PURPOSE:
+      text_template: "बढ़िया, और आप किस व्यवसाय के लिए मुद्रा लोन चाहते हैं?"
+      targets: [business_purpose]
+      edges:
+        - condition: "always"
+          next: "Q_IS_MARRIED"
+
+    Q_IS_MARRIED:
+      text_template: "ठीक है। क्या आप विवाहित हैं?"
+      targets: [is_married]
+      routing_prompt: "Evaluate if user is married. Set 'routing_decision' to 'YES' if married, 'NO' if not."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_SPOUSE_MOBILE"
+        - condition: "always"
+          next: "Q_MOTHER_NAME"
+
+    Q_SPOUSE_MOBILE:
+      text_template: "कृपया अपने पति या पत्नी का मोबाइल नंबर बोलें।"
+      targets: [spouse_mobile]
+      edges:
+        - condition: "always"
+          next: "Q_MOTHER_NAME"
+
+    Q_MOTHER_NAME:
+      text_template: "आपकी माता जी का पूरा नाम क्या है?"
+      targets: [mother_name]
+      edges:
+        - condition: "always"
+          next: "Q_ACADEMIC_QUALIFICATION"
+
+    Q_ACADEMIC_QUALIFICATION:
+      text_template: "आपकी पढ़ाई कहाँ तक हुई है?"
+      targets: [academic_qualification]
+      edges:
+        - condition: "always"
+          next: "Q_EXISTING_BUSINESS"
+
+    Q_EXISTING_BUSINESS:
+      text_template: "आपका व्यवसाय पहले से चल रहा है या नया शुरू कर रहे हैं?"
+      targets: [existing_business]
+      edges:
+        - condition: "always"
+          next: "Q_PROPERTY_OWNED"
+
+    Q_PROPERTY_OWNED:
+      text_template: "जहाँ आप काम करेंगे, वह जगह आपकी अपनी है या किराए पर है?"
+      targets: [is_property_owned]
+      edges:
+        - condition: "always"
+          next: "Q_OTHER_SCHEME"
+
+    Q_OTHER_SCHEME:
+      text_template: "क्या आपने इस व्यवसाय के लिए पहले कभी किसी अन्य योजना का लाभ लिया है?"
+      targets: [other_scheme]
+      edges: []
+
+  context_map:
+    Q_SPOUSE_MOBILE: [Q_IS_MARRIED]
+    Q_MOTHER_NAME: [Q_NAME_CONFIRMED]
+
+# ─── Extraction Field Instructions ───
+field_instructions:
+  is_name_confirmed: "Extract true if the user confirmed their name matches {name}, false if they denied or corrected it."
+  corrected_name: "If the user denied that their name is {name} and gave a corrected name, extract that corrected name as a string."
+  business_purpose: "Extract the name or purpose of the user's business (e.g. KIRANA, GROCERY, SALON, CLOTHING)."
+  is_married: "Extract true if the user is married, false if single/unmarried/widowed."
+  spouse_mobile: "Extract the spouse's 10-digit mobile number as a string."
+  mother_name: "Extract the user's mother's full name as a string."
+  academic_qualification: "Extract the user's educational status (e.g. Graduate, 12th pass, illiterate, etc.)."
+  existing_business: "Extract true if the business is already running (existing), false if it is a new business."
+  is_property_owned: "Extract 'OWNED' if the business location is owned by the user, 'RENTED' if rented."
+  other_scheme: "Extract true if they have received benefits under other government schemes, false otherwise."

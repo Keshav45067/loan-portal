@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package chayan.tts;
+
+option go_package = "github.com/ChayanAI/services/proto/tts";
+
+// Text-to-Speech Service — stateless text → audio.
+// Abstracts over Google TTS (Chirp3, Neural2, Wavenet), Kokoro, and future engines.
+service TextToSpeech {
+  // Batch synthesis (unary) — returns complete WAV
+  rpc Synthesize (SynthesizeRequest) returns (SynthesizeResponse);
+
+  // Streaming synthesis (server-side streaming)
+  // Splits text into sentences, synthesizes each, streams back AudioFragments
+  rpc SynthesizeStream (SynthesizeRequest) returns (stream AudioFragment);
+}
+
+message SynthesizeRequest {
+  string text = 1;
+  string language = 2;            // "hi", "en", "ar", "kn"
+  string voice_name = 3;          // e.g. "hi-IN-Chirp3-HD-Leda"
+  string engine = 4;              // "google", "kokoro"
+  int32 output_sample_rate = 5;   // 24000 (enforced everywhere)
+  string session_id = 6;          // For correlation
+}
+
+message SynthesizeResponse {
+  bytes audio_data = 1;           // Complete WAV binary (24kHz, 16-bit PCM)
+  int32 sample_rate = 2;
+  float duration_seconds = 3;
+}
+
+message AudioFragment {
+  bytes audio_data = 1;           // WAV fragment (one sentence chunk)
+  int32 sample_rate = 2;
+  bool is_last = 3;               // True when this is the last fragment
+  int32 fragment_index = 4;       // 0-indexed fragment number
+  float duration_seconds = 5;
+}

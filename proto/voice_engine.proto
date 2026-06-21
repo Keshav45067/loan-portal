@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package chayan.voice;
+
+option go_package = "github.com/ChayanAI/services/proto/voice";
+
+// Voice Conversation Engine — real-time interview brain.
+// Manages interview state machine, 2-call pipeline, audio streaming.
+// The API Gateway bridges WebSocket ↔ this gRPC bidirectional stream.
+service VoiceConversation {
+  // Main voice session (bidirectional streaming)
+  // Gateway bridges: WebSocket ↔ this gRPC stream
+  rpc Session (stream VoiceInput) returns (stream VoiceOutput);
+
+  // Get current session state (unary, for debugging/admin)
+  rpc GetSessionState (SessionStateRequest) returns (SessionState);
+}
+
+// ─── Input Messages (Client → Engine via Gateway) ───
+
+message VoiceInput {
+  oneof input {
+    SessionStart session_start = 1;
+    bytes audio_chunk = 2;         // Raw PCM from client mic (16kHz, 16-bit)
+    ControlSignal control = 3;
+    string text_input = 4;
+  }
+}
+
+message SessionStart {
+  string scheme_id = 1;           // e.g. "mudra-grocery"
+  string session_id = 2;         // Application/user session ID
+  string language = 3;            // "hi", "en", "ar"
+  string applicant_name = 4;     // For personalized questions
+  string application_id = 5;     // For data correlation
+}
+
+message ControlSignal {
+  string signal = 1;              // "speech_start", "speech_end"
+}
+
+// ─── Output Messages (Engine → Client via Gateway) ───
+
+message VoiceOutput {
+  oneof output {
+    StatusUpdate status = 1;
+    TranscriptionUpdate transcription = 2;
+    AudioData audio = 3;
+    ProgressUpdate progress = 4;
+    ExtractionData extraction = 5;
+    bool audio_end = 6;            // Signals end of current audio playback
+    ErrorMessage error = 7;
+    SessionComplete complete = 8;  // Interview finished
+    NodeChange node_change = 9;    // Instructs UI to switch to a different mode (e.g. capture)
+  }
+}
+
+message NodeChange {
+  string node_type = 1;           // "voice-qa", "capture"
+  string document_id = 2;         // If "capture", specifies which document
+}
+
+message StatusUpdate {
+  string status = 1;              // "listening", "processing", "speaking", "connected"
+}
+
+message TranscriptionUpdate {
+  string text = 1;
+  bool is_final = 2;
+}
+
+message AudioData {
+  bytes wav_data = 1;             // WAV audio chunk (24kHz)
+  int32 sample_rate = 2;
+}
+
+message ProgressUpdate {
+  int32 current_step = 1;
+  int32 total_steps = 2;
+  string current_node_id = 3;
+}
+
+message ExtractionData {
+  string node_id = 1;
+  string json_fields = 2;        // Extracted key-value pairs as JSON string
+}
+
+message ErrorMessage {
+  string code = 1;
+  string message = 2;
+}
+
+message SessionComplete {
+  string session_id = 1;
+  string json_extracted_data = 2;  // All extracted data as JSON
+  int32 total_turns = 3;
+}
+
+// ─── Session State (for admin/debug) ───
+
+message SessionStateRequest {
+  string session_id = 1;
+}
+
+message SessionState {
+  string session_id = 1;
+  string scheme_id = 2;
+  string current_node_id = 3;
+  int32 current_step = 4;
+  int32 total_steps = 5;
+  string json_extracted_data = 6;
+  string status = 7;              // "active", "completed", "disconnected"
+  string started_at = 8;
+  int32 total_turns = 9;
+}
