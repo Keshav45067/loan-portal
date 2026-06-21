@@ -15,6 +15,24 @@ fi
 BASE_DIR="/var/www/augmen/testing-services"
 USER_NAME="${SUDO_USER:-$(logname 2>/dev/null || echo "ubuntu")}"
 
+# Ensure make is installed
+if ! command -v make &> /dev/null; then
+    echo "⚙️ Installing 'make'..."
+    apt-get update -q -y && apt-get install -q -y make
+fi
+
+# ─── 0. Compile Protobuf Files ───
+echo "🔨 Compiling protobuf stubs..."
+SERVICES_ALL=("config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator")
+for SERVICE in "${SERVICES_ALL[@]}" "gateway"; do
+    if [ -f "${BASE_DIR}/${SERVICE}/Makefile" ]; then
+        echo "  Compiling protos for $SERVICE..."
+        cd "${BASE_DIR}/${SERVICE}"
+        make proto
+    fi
+done
+cd "${BASE_DIR}"
+
 # ─── 1. Setup gRPC Services ───
 SERVICES=("config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator")
 PORTS=(50051 50054 50052 50053 50056 50055 50057)
