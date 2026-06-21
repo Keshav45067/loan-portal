@@ -41,6 +41,7 @@ export default function DashboardPage() {
         const name = exData.applicant_name || exData.name || exData.full_name || '';
         if (name) {
           setApplicantName(name);
+          localStorage.setItem('applicant_name', name);
         }
 
         setHasData(exData.onboarding_finished === true);

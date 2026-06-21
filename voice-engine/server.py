@@ -313,7 +313,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         # ─── Guard: Discard speech on capture nodes ───
                         # If the current node is a capture type, voice input is irrelevant.
                         # Clean up progressive_stt and skip processing.
-                        if session and session._walker.current_node.get("type") == "capture":
+                        if session and session._walker.current_node and session._walker.current_node.get("type") == "capture":
                             logger.info("Discarding speech_end on capture node — voice not applicable",
                                          session_id=session_id)
                             if progressive_stt is not None:

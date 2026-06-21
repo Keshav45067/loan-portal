@@ -136,10 +136,25 @@ async def get_application(application_id: str, request: Request,
                 app_orchestrator_pb2.AppIdRequest(application_id=application_id),
                 metadata=[("x-request-id", req_id)]
             )
+            import hmac
+            import hashlib
+            import time
+            from urllib.parse import quote
+            from config import JWT_SECRET
+
+            base_url = str(request.base_url).rstrip('/')
+
             for d in docs_resp.documents:
+                # Build signed URL
+                key = d.key
+                expires_at = int(time.time()) + 3600  # 1 hour expiration
+                msg = f"{key}:{expires_at}".encode('utf-8')
+                signature = hmac.new(JWT_SECRET.encode('utf-8'), msg, hashlib.sha256).hexdigest()
+                signed_url = f"{base_url}/api/documents/download?key={quote(key)}&expires={expires_at}&signature={signature}"
+
                 docs_list.append({
                     "id": d.id,
-                    "key": d.key,
+                    "key": signed_url, # Frontend will render this signed_url directly
                     "doc_type": d.doc_type,
                     "name": d.name
                 })

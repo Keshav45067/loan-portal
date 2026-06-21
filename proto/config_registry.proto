@@ -67,6 +67,8 @@ message GraphNode {
   string routing_prompt = 5;    // Optional LLM routing prompt
   string type = 6;              // "voice-qa" or "capture"
   string document_id = 7;       // e.g., "aadhaar_front", "pan" (if type == "capture")
+  string text_template_en = 8;
+  string text_template_te = 9;
 }
 
 message InterviewGraph {

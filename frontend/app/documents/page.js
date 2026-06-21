@@ -7,17 +7,43 @@ import styles from './documents.module.css';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
 
-const DOCUMENT_METADATA = {
-  'selfie': { label: 'सेल्फी', icon: '🤳', facingMode: 'user', tips: ['चेहरा साफ दिखे', 'अच्छी रोशनी हो'] },
-  'aadhaar_front': { label: 'आधार (आगे)', icon: '🪪', facingMode: 'environment', tips: ['पूरा कार्ड दिखे', 'नंबर साफ हो'] },
-  'aadhaar_back': { label: 'आधार (पीछे)', icon: '🪪', facingMode: 'environment', tips: ['QR कोड साफ हो'] },
-  'pan': { label: 'पैन कार्ड', icon: '💳', facingMode: 'environment', tips: ['पूरा पैन कार्ड फ्रेम में हो'] },
-  'spouse_pan': { label: 'पति/पत्नी पैन', icon: '💳', facingMode: 'environment', tips: ['पति या पत्नी का पैन कार्ड रखें'] },
-  'udyam': { label: 'उद्यम प्रमाणपत्र', icon: '📜', facingMode: 'environment', tips: ['पूरा उद्यम पत्र रखें'] },
-  'bank_statement': { label: 'बैंक स्टेटमेंट', icon: '🏦', facingMode: 'environment', tips: ['सभी पेज शामिल हों'] },
-  'company_id': { label: 'कंपनी आईडी', icon: '🏢', facingMode: 'environment', tips: ['आईडी साफ हो'] },
-  'office_id': { label: 'ऑफिस आईडी', icon: '🪪', facingMode: 'environment', tips: ['ऑफिस आईडी साफ हो'] },
-  'address_proof': { label: 'पता का प्रमाण', icon: '📄', facingMode: 'environment', tips: ['पता साफ दिखना चाहिए'] }
+const DOCUMENT_METADATA_LOCALIZED = {
+  hi: {
+    'selfie': { label: 'सेल्फी', icon: '🤳', facingMode: 'user', tips: ['चेहरा साफ दिखे', 'अच्छी रोशनी हो'] },
+    'aadhaar_front': { label: 'आधार (आगे)', icon: '🪪', facingMode: 'environment', tips: ['पूरा कार्ड दिखे', 'नंबर साफ हो'] },
+    'aadhaar_back': { label: 'आधार (पीछे)', icon: '🪪', facingMode: 'environment', tips: ['QR कोड साफ हो'] },
+    'pan': { label: 'पैन कार्ड', icon: '💳', facingMode: 'environment', tips: ['पूरा पैन कार्ड फ्रेम में हो'] },
+    'spouse_pan': { label: 'पति/पत्नी पैन', icon: '💳', facingMode: 'environment', tips: ['पति या पत्नी का पैन कार्ड रखें'] },
+    'udyam': { label: 'उद्यम प्रमाणपत्र', icon: '📜', facingMode: 'environment', tips: ['पूरा उद्यम पत्र रखें'] },
+    'bank_statement': { label: 'बैंक स्टेटमेंट', icon: '🏦', facingMode: 'environment', tips: ['सभी पेज शामिल हों'] },
+    'company_id': { label: 'कंपनी आईडी', icon: '🏢', facingMode: 'environment', tips: ['आईडी साफ हो'] },
+    'office_id': { label: 'ऑफिस आईडी', icon: '🪪', facingMode: 'environment', tips: ['ऑफिस आईडी साफ हो'] },
+    'address_proof': { label: 'पता का प्रमाण', icon: '📄', facingMode: 'environment', tips: ['पता साफ दिखना चाहिए'] }
+  },
+  en: {
+    'selfie': { label: 'Selfie', icon: '🤳', facingMode: 'user', tips: ['Face should be clearly visible', 'Good lighting is required'] },
+    'aadhaar_front': { label: 'Aadhaar (Front)', icon: '🪪', facingMode: 'environment', tips: ['Full card should be visible', 'Number must be clear'] },
+    'aadhaar_back': { label: 'Aadhaar (Back)', icon: '🪪', facingMode: 'environment', tips: ['QR code should be clear'] },
+    'pan': { label: 'PAN Card', icon: '💳', facingMode: 'environment', tips: ['Full PAN card should be in frame'] },
+    'spouse_pan': { label: 'Spouse PAN', icon: '💳', facingMode: 'environment', tips: ['Keep spouse\'s PAN card ready'] },
+    'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
+    'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
+    'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
+    'office_id': { label: 'Office ID', icon: '🪪', facingMode: 'environment', tips: ['Office ID should be clear'] },
+    'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] }
+  },
+  te: {
+    'selfie': { label: 'సెల్ఫీ', icon: '🤳', facingMode: 'user', tips: ['ముఖం స్పష్టంగా కనిపించాలి', 'మంచి వెలుతురు ఉండాలి'] },
+    'aadhaar_front': { label: 'ఆధార్ (ముందు)', icon: '🪪', facingMode: 'environment', tips: ['కార్డు మొత్తం కనిపించాలి', 'నంబర్ స్పష్టంగా ఉండాలి'] },
+    'aadhaar_back': { label: 'ఆధార్ (వెనుక)', icon: '🪪', facingMode: 'environment', tips: ['QR కోడ్ స్పష్టంగా ఉండాలి'] },
+    'pan': { label: 'పాన్ కార్డ్', icon: '💳', facingMode: 'environment', tips: ['పాన్ కార్డ్ మొత్తం ఫ్రేమ్‌లో ఉండాలి'] },
+    'spouse_pan': { label: 'భర్త/భార్య పాన్', icon: '💳', facingMode: 'environment', tips: ['భర్త లేదా భార్య పాన్ కార్డ్ ఉంచండి'] },
+    'udyam': { label: 'ఉద్యమ ధృవీకరణ పత్రం', icon: '📜', facingMode: 'environment', tips: ['ఉద్యమ పత్రం మొత్తం ఉంచండి'] },
+    'bank_statement': { label: 'బ్యాంక్ స్టేట్‌మెంట్', icon: '🏦', facingMode: 'environment', tips: ['అన్ని పేజీలు ఉండాలి'] },
+    'company_id': { label: 'కంపెనీ ఐడి', icon: '🏢', facingMode: 'environment', tips: ['ఐడి స్పష్టంగా ఉండాలి'] },
+    'office_id': { label: 'ఆఫీస్ ఐడి', icon: '🪪', facingMode: 'environment', tips: ['ఆఫీస్ ఐడి స్పష్టంగా ఉండాలి'] },
+    'address_proof': { label: 'చిరునామా రుజువు', icon: '📄', facingMode: 'environment', tips: ['చిరునామా స్పష్టంగా కనిపించాలి'] }
+  }
 };
 
 export default function DocumentsPage() {
@@ -47,6 +73,7 @@ export default function DocumentsPage() {
   const [verified, setVerified] = useState({});
   const [verifying, setVerifying] = useState(false);
   const [errors, setErrors] = useState({});
+  const [selectedLanguage, setSelectedLanguage] = useState('hi');
 
   // Live Camera Refs & State
   const fileInputRef = useRef(null);
@@ -107,6 +134,7 @@ export default function DocumentsPage() {
         applicationId,
         applicantName: localStorage.getItem('applicant_name') || 'आवेदक',
         schemeId: schemeId,
+        language: selectedLanguage,
         wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/voice`,
         onStateChange: (state) => {
           console.log('[DEBUG Frontend] onStateChange:', state);
@@ -126,12 +154,31 @@ export default function DocumentsPage() {
           setNodeType(type);
           if (docId) setDocumentId(docId);
         },
-        onComplete: () => {
-          if (schemeId === 'sbi-account-opening') {
-            router.push('/sbi-report');
-          } else {
-            router.push('/dashboard');
+        onComplete: async () => {
+          console.log('[DEBUG Frontend] onComplete triggered, saving state and redirecting...');
+          try {
+            const savedToken = localStorage.getItem('token') || token;
+            const savedSessionId = localStorage.getItem('session_id') || sessionId;
+            if (savedToken && savedSessionId) {
+              await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${savedToken}`
+                },
+                body: JSON.stringify({
+                  session_id: savedSessionId,
+                  fields: {
+                    onboarding_finished: true,
+                    completion_status: 'COMPLETED'
+                  }
+                })
+              });
+            }
+          } catch (e) {
+            console.error('Failed to update onboarding_finished status:', e);
           }
+          router.push('/dashboard/details');
         },
         onSystemMessage: (type, msg) => {
            if (type === 'error' || type === 'system_error') {
@@ -217,6 +264,9 @@ export default function DocumentsPage() {
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || data.error || 'Failed to upload');
+      if (data.success === false) {
+        throw new Error(data.error || 'दस्तावेज़ सत्यापन विफल रहा। कृपया सही दस्तावेज़ अपलोड करें।');
+      }
 
       setVerified(prev => ({ ...prev, [documentId]: true }));
       
@@ -257,37 +307,39 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     if (isStarted && nodeType === 'capture' && !docs[documentId]) {
-      const meta = DOCUMENT_METADATA[documentId] || {};
+      const meta = (DOCUMENT_METADATA_LOCALIZED[selectedLanguage] || DOCUMENT_METADATA_LOCALIZED['hi'])[documentId] || {};
       const facing = meta.facingMode || activeFacingMode;
       startCamera(facing);
     } else {
       stopCamera();
     }
     return () => stopCamera();
-  }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], startCamera, stopCamera]);
+  }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], selectedLanguage, startCamera, stopCamera]);
 
 
   // Render Neural Voice Core
   const renderVoiceUI = () => {
     let sphereClass = styles.coreSphere;
     let ringClass = '';
-    let statusText = 'कनेक्ट कर रहे हैं...';
+    const isEn = selectedLanguage === 'en';
+    const isTe = selectedLanguage === 'te';
+    let statusText = isEn ? 'Connecting...' : isTe ? 'కనెక్ట్ అవుతోంది...' : 'कनेक्ट कर रहे हैं...';
     let isCallActive = false;
 
     if (qaState === 'listening') {
       sphereClass = `${styles.coreSphere} ${styles.sphereListening}`;
       ringClass = styles.ringActive;
-      statusText = transcript || 'सुन रही हूँ...';
+      statusText = transcript || (isEn ? 'Listening...' : isTe ? 'వింటున్నారు...' : 'सुन रही हूँ...');
       isCallActive = true;
     } else if (qaState === 'processing') {
       sphereClass = `${styles.coreSphere} ${styles.sphereProcessing}`;
       ringClass = styles.ringActive;
-      statusText = 'प्रोसेसिंग...';
+      statusText = isEn ? 'Processing...' : isTe ? 'ప్రాసెస్ అవుతోంది...' : 'प्रोसेसिंग...';
       isCallActive = true;
     } else if (qaState === 'speaking') {
       sphereClass = `${styles.coreSphere} ${styles.sphereSpeaking}`;
       ringClass = styles.ringActive;
-      statusText = transcript || 'बोल रही हूँ...';
+      statusText = transcript || (isEn ? 'Speaking...' : isTe ? 'మాట్లాడుతున్నారు...' : 'बोल रही हूँ...');
       isCallActive = true;
     }
 
@@ -353,7 +405,7 @@ export default function DocumentsPage() {
 
   // Render Camera UI
   const renderCameraUI = () => {
-    const meta = DOCUMENT_METADATA[documentId] || DOCUMENT_METADATA['selfie'];
+    const meta = (DOCUMENT_METADATA_LOCALIZED[selectedLanguage] || DOCUMENT_METADATA_LOCALIZED['hi'])[documentId] || (DOCUMENT_METADATA_LOCALIZED[selectedLanguage] || DOCUMENT_METADATA_LOCALIZED['hi'])['selfie'];
     const docData = docs[documentId];
 
     return (
@@ -629,16 +681,65 @@ export default function DocumentsPage() {
 
       <main className={styles.mainGrid}>
         {!isStarted ? (
-            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', gap: '20px' }}>
-               <h2>आपकी लोन आवेदन प्रक्रिया में आपका स्वागत है।</h2>
+            <div style={{ gridColumn: 'span 2', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '65vh', gap: '20px' }}>
+               <h2>आपकी आवेदन प्रक्रिया में आपका स्वागत है।</h2>
                <p>यह प्रक्रिया स्वचालित है। आपसे कुछ दस्तावेज़ मांगे जाएंगे और कुछ प्रश्न पूछे जाएंगे।</p>
+
+               {/* Premium Language Selection Card */}
+               <div style={{
+                 background: 'rgba(255, 255, 255, 0.03)',
+                 border: '1px solid rgba(255, 255, 255, 0.08)',
+                 borderRadius: '16px',
+                 padding: '24px',
+                 width: '100%',
+                 maxWidth: '480px',
+                 textAlign: 'center',
+                 boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                 backdropFilter: 'blur(12px)',
+                 display: 'flex',
+                 flexDirection: 'column',
+                 gap: '16px',
+                 marginTop: '10px',
+                 marginBottom: '10px'
+               }}>
+                 <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#a0aec0' }}>
+                   अपनी पसंदीदा भाषा चुनें / Choose your preferred language
+                 </span>
+                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                   {[
+                     { code: 'hi', label: 'हिंदी (Hindi)' },
+                     { code: 'en', label: 'English' },
+                     { code: 'te', label: 'తెలుగు (Telugu)' }
+                   ].map(lang => (
+                     <button
+                       key={lang.code}
+                       onClick={() => setSelectedLanguage(lang.code)}
+                       style={{
+                         padding: '12px 20px',
+                         borderRadius: '10px',
+                         border: selectedLanguage === lang.code ? '2px solid #7c3aed' : '1px solid rgba(255, 255, 255, 0.1)',
+                         background: selectedLanguage === lang.code ? 'rgba(124, 58, 237, 0.15)' : 'rgba(255, 255, 255, 0.02)',
+                         color: selectedLanguage === lang.code ? '#fff' : '#a0aec0',
+                         fontWeight: 600,
+                         cursor: 'pointer',
+                         transition: 'all 0.2s ease',
+                         outline: 'none',
+                         boxShadow: selectedLanguage === lang.code ? '0 0 15px rgba(124, 58, 237, 0.3)' : 'none'
+                       }}
+                     >
+                       {lang.label}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+
                <button 
                   onClick={startSession}
                   className={styles.btnNeural}
                   data-state="start"
-                  style={{ marginTop: '20px' }}
+                  style={{ marginTop: '10px' }}
                 >
-                  <span>प्रक्रिया शुरू करें</span>
+                  <span>प्रक्रिया शुरू करें / Start Process</span>
                   <div className={styles.btnGlow}></div>
                 </button>
             </div>

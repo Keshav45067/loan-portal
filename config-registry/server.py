@@ -59,6 +59,8 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
         routing_prompt=node_data.get("routing_prompt", ""),
         type=node_data.get("type", "voice-qa"),
         document_id=node_data.get("document_id", ""),
+        text_template_en=node_data.get("text_template_en", ""),
+        text_template_te=node_data.get("text_template_te", ""),
     )
 
 

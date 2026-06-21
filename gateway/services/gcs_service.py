@@ -49,3 +49,14 @@ def generate_signed_url(blob_path: str, expiration_minutes: int = 15) -> str:
         logger.error(f"Failed to generate signed URL for {blob_path}: {e}")
         # Fallback to direct URL if permissions fail (will only work if public, which it shouldn't be)
         return f"https://storage.googleapis.com/{GCS_BUCKET_NAME}/{blob_path}"
+
+def download_blob_bytes(blob_path: str) -> tuple[bytes, str]:
+    """Download a blob's bytes and get its content type."""
+    bucket = get_bucket()
+    blob = bucket.blob(blob_path)
+    if not blob.exists():
+        raise FileNotFoundError(f"Blob {blob_path} not found")
+    blob.reload()  # load metadata to get content_type
+    content_type = blob.content_type or "application/octet-stream"
+    return blob.download_as_bytes(), content_type
+

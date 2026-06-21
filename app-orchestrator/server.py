@@ -518,8 +518,8 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         existing_data["completion_status"] = "NEW"
                         existing_data["onboarding_finished"] = False
                         
-                        cur.execute("DELETE FROM docs WHERE user_id = %s", (session_id,))
-                        logger.info(f"Reset application state and deleted documents for session {session_id}", req_id=req_id)
+                        cur.execute("DELETE FROM docs_test WHERE user_id = %s", (session_id,))
+                        logger.info(f"Reset application state and deleted documents from docs_test for session {session_id}", req_id=req_id)
                     else:
                         # Update main user fields inside JSON data
                         user_fields = {
@@ -733,12 +733,13 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
             if db_doc_type not in VALID_ENUM_VALUES:
                 db_doc_type = "ADDITIONAL_DOCUMENT"
 
+            doc_name = request.name or "document"
             with get_db_cursor(self._db_pool) as cur:
                 doc_id = str(uuid.uuid4())
                 cur.execute(
-                    """INSERT INTO docs (id, key, user_id, doc_type, name, created_at, updated_at)
-                       VALUES (%s, %s, %s, %s, %s, NOW(), NOW())""",
-                    (doc_id, request.key, request.session_id, db_doc_type, request.name)
+                    """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
+                       VALUES (%s, %s, %s, %s, NOW(), NOW())""",
+                    (doc_id, request.key, request.session_id, doc_name)
                 )
             return pb2.SaveDocResponse(success=True)
         except Exception as e:
@@ -760,17 +761,23 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 
                 session_id = row[0]
                 cur.execute(
-                    "SELECT id, key, doc_type, name FROM docs WHERE user_id = %s",
+                    "SELECT id, key, name FROM docs_test WHERE user_id = %s",
                     (session_id,)
                 )
                 rows = cur.fetchall()
                 docs_list = []
                 for r in rows:
+                    key = r[1]
+                    doc_type = ""
+                    if key and "/" in key:
+                        parts = key.split("/")
+                        if len(parts) >= 3:
+                            doc_type = parts[2]
                     docs_list.append(pb2.DocumentItem(
                         id=str(r[0]),
-                        key=r[1],
-                        doc_type=str(r[2]),
-                        name=r[3] or ""
+                        key=key,
+                        doc_type=doc_type,
+                        name=r[2] or ""
                     ))
                 return pb2.DocumentList(documents=docs_list)
         except Exception as e:

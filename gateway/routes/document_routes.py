@@ -185,7 +185,7 @@ class PreviewResponse(BaseModel):
 
 @router.get("/preview", response_model=PreviewResponse)
 async def get_document_preview(key: str, request: Request):
-    """Generate a signed URL for a given document key."""
+    """Generate a proxy-signed URL for a given document key."""
     req_id = request.state.req_id
     logger.info(f"Generating preview URL for key: {key}", req_id=req_id)
     
@@ -193,10 +193,65 @@ async def get_document_preview(key: str, request: Request):
         return PreviewResponse(success=False, error="Key is required")
         
     try:
-        from services.gcs_service import generate_signed_url
-        url = generate_signed_url(key)
+        import hmac
+        import hashlib
+        import time
+        from urllib.parse import quote
+        from config import JWT_SECRET
+        
+        # 15 minutes expiration
+        expires_at = int(time.time()) + 900
+        
+        # Generate signature
+        msg = f"{key}:{expires_at}".encode('utf-8')
+        signature = hmac.new(JWT_SECRET.encode('utf-8'), msg, hashlib.sha256).hexdigest()
+        
+        # Get base URL dynamically from request base_url
+        base_url = str(request.base_url).rstrip('/')
+        
+        # Build signed preview URL
+        url = f"{base_url}/api/documents/download?key={quote(key)}&expires={expires_at}&signature={signature}"
+        
         return PreviewResponse(success=True, url=url)
     except Exception as e:
         logger.error(f"Failed to generate preview URL: {e}", req_id=req_id)
         return PreviewResponse(success=False, error=str(e))
+
+from fastapi import Response, HTTPException
+
+@router.get("/download")
+async def download_document(
+    key: str,
+    expires: int,
+    signature: str,
+    request: Request
+):
+    """Securely download and serve document blob from GCS using signature verification."""
+    req_id = request.state.req_id
+    import time
+    import hmac
+    import hashlib
+    from config import JWT_SECRET
+    
+    # 1. Verify expiration
+    if expires < int(time.time()):
+        raise HTTPException(status_code=403, detail="URL has expired")
+        
+    # 2. Verify signature
+    msg = f"{key}:{expires}".encode('utf-8')
+    expected_sig = hmac.new(JWT_SECRET.encode('utf-8'), msg, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected_sig, signature):
+        raise HTTPException(status_code=403, detail="Invalid signature")
+        
+    # 3. Download from GCS
+    try:
+        from services.gcs_service import download_blob_bytes
+        data, content_type = download_blob_bytes(key)
+        return Response(content=data, media_type=content_type)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail="Document not found")
+    except Exception as e:
+        logger.error(f"Download failed: {e}", req_id=req_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
 

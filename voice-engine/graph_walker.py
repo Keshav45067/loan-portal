@@ -29,17 +29,19 @@ class GraphWalker:
     - routing_prompt: Optional LLM routing instruction
     """
 
-    def __init__(self, graph_data: dict, applicant_name: str = ""):
+    def __init__(self, graph_data: dict, applicant_name: str = "", language: str = "hi"):
         """
         Args:
             graph_data: Interview graph dict from Config Registry
                         { "start_node_id": ..., "nodes": {...}, "context_map": {...} }
             applicant_name: For {name} template interpolation
+            language: Selected language code (e.g. hi, en, te)
         """
         self._nodes: Dict[str, dict] = graph_data.get("nodes", {})
         self._start_node_id: str = graph_data.get("start_node_id", "START")
         self._context_map: Dict[str, list] = graph_data.get("context_map", {})
-        self._name = applicant_name or "आप"
+        self._name = applicant_name or ("आप" if language == "hi" else "you" if language == "en" else "మీరు")
+        self._language = language
 
         # State
         self._current_node_id: Optional[str] = None
@@ -81,6 +83,13 @@ class GraphWalker:
     def turn_history(self) -> list:
         return self._turn_history.copy()
 
+    def _get_node_text(self, node: dict) -> str:
+        if self._language == "en":
+            return node.get("text_template_en", "") or node.get("text_template", "")
+        elif self._language == "te":
+            return node.get("text_template_te", "") or node.get("text_template", "")
+        return node.get("text_template", "")
+
     # ─── Core Operations ───
 
     def start(self) -> dict:
@@ -94,7 +103,7 @@ class GraphWalker:
         self._step_number = 1
 
         node = self._nodes.get(self._current_node_id, {})
-        text = self._interpolate(node.get("text_template", ""))
+        text = self._interpolate(self._get_node_text(node))
 
         logger.info("Graph started",
                      node_id=self._current_node_id,
@@ -163,7 +172,7 @@ class GraphWalker:
         self._step_number += 1
 
         next_node = self._nodes.get(next_node_id, {})
-        text = self._interpolate(next_node.get("text_template", ""))
+        text = self._interpolate(self._get_node_text(next_node))
 
         logger.info("Advanced to node",
                      node_id=next_node_id,
@@ -184,7 +193,7 @@ class GraphWalker:
         """Record the initial user response for a node."""
         if node_id not in self._history_objects:
             node = self._nodes.get(node_id, {})
-            text = self._interpolate(node.get("text_template", ""))
+            text = self._interpolate(self._get_node_text(node))
             if targets is None:
                 targets = node.get("targets", [])
             self._history_objects[node_id] = {
@@ -255,7 +264,7 @@ class GraphWalker:
             if turn["node_id"] in deps:
                 # Include the question and answer for dependent nodes
                 node = self._nodes.get(turn["node_id"], {})
-                text = self._interpolate(node.get("text_template", ""))
+                text = self._interpolate(self._get_node_text(node))
                 history.append({"role": "assistant", "content": text})
                 # We don't have the raw answer here, but extracted data is available
                 if turn.get("extracted"):

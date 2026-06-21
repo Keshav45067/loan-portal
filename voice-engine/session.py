@@ -371,6 +371,8 @@ class VoiceSession:
                 graph_nodes[node_id] = {
                     "node_id": node_id,
                     "text_template": proto_node.text_template,
+                    "text_template_en": proto_node.text_template_en,
+                    "text_template_te": proto_node.text_template_te,
                     "targets": list(proto_node.targets),
                     "edges": edges,
                     "routing_prompt": proto_node.routing_prompt,
@@ -436,6 +438,11 @@ class VoiceSession:
                     logger.info("Successfully synced extracted data from DB",
                                  session_id=self.session_id,
                                  keys=list(data.keys()))
+                    # Extract and sync applicant name from historical data
+                    ext_name = data.get("applicant_name") or data.get("name") or data.get("full_name")
+                    if ext_name and ext_name != "आवेदक":
+                        self.applicant_name = ext_name
+                        self._walker._name = ext_name
         except Exception as e:
             logger.error(f"Failed to sync extracted data: {e}", session_id=self.session_id)
 
@@ -462,7 +469,7 @@ class VoiceSession:
         Set graph data directly (used in v1 until Config Registry is wired).
         In production, this is fetched via gRPC in init().
         """
-        self._walker = GraphWalker(graph_data, self.applicant_name)
+        self._walker = GraphWalker(graph_data, self.applicant_name, self.language)
         self._field_instructions = field_instructions or {}
         self._media_config = media_config or {}
 
@@ -710,7 +717,7 @@ class VoiceSession:
                     prompt=f"{conversation_prompt}",
                     model="gemini-2.5-flash",
                     temperature=0.3,
-                    system_instruction="",
+                    system_instruction=f"You must use {self.language} only.",
                     disable_thinking=True,
                     thinking_budget=0,
                 ),
@@ -889,12 +896,44 @@ class VoiceSession:
                                 )
 
                     yield pb2.VoiceOutput(audio_end=True)
-                    yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+                    if next_node["node_id"] == "END":
+                        self._status = "completed"
+                        self._walker._extracted_data["onboarding_finished"] = True
+                        self._walker._extracted_data["completion_status"] = "COMPLETED"
+                        if self._orchestrator_stub:
+                            try:
+                                from generated import app_orchestrator_pb2
+                                await self._orchestrator_stub.UpsertExtractedData(
+                                    app_orchestrator_pb2.UpsertDataRequest(
+                                        application_id=self.session_id,
+                                        source="voice-qa-complete",
+                                        json_fields=json.dumps({
+                                            "onboarding_finished": True,
+                                            "completion_status": "COMPLETED"
+                                        }, ensure_ascii=False)
+                                    ),
+                                    metadata=[("x-request-id", self.req_id)]
+                                )
+                                logger.info("Direct complete persist successful from voice-engine", session_id=self.session_id)
+                            except Exception as db_err:
+                                logger.error(f"Failed to direct complete persist from voice-engine: {db_err}", session_id=self.session_id)
+
+                        yield pb2.VoiceOutput(
+                            complete=pb2.SessionComplete(
+                                session_id=self.session_id,
+                                json_extracted_data=json.dumps(self._walker.extracted_data, ensure_ascii=False),
+                                total_turns=self._total_turns,
+                            )
+                        )
+                    else:
+                        yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
                 total_turn_ms = (time.perf_counter() - t_turn_start) * 1000
                 logger.info(f"⏱ TOTAL TURN (next-q path): {total_turn_ms:.0f}ms",
                              session_id=self.session_id)
-                yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+                if next_node["node_id"] != "END":
+                    yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+
             else:
                 # Interview complete
                 self._status = "completed"
@@ -1018,7 +1057,12 @@ class VoiceSession:
         """
         from generated import tts_pb2
 
-        voice_name = "hi-IN-Neural2-A" if self.language == "hi" else "en-US-Neural2-F"
+        if self.language == "hi":
+            voice_name = "hi-IN-Neural2-A"
+        elif self.language == "te":
+            voice_name = "te-IN-Wavenet-A"
+        else:
+            voice_name = "en-US-Neural2-F"
         engine = "google"
         sample_rate = 24000
 
@@ -1084,6 +1128,15 @@ class VoiceSession:
                     "2) Answer user questions sweetly. 3) Ask followup to extract the target.\n"
                 )
             },
+            "te": {
+                "lang_name": "Telugu",
+                "filler": (
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
+                    "1) Start with a warm reaction using Telugu words (e.g., 'అవును', 'మంచిది', 'అర్థమైంది', 'చాలా బాగుంది'). "
+                    "End acknowledgment with '.' or ','. "
+                    "2) Answer user questions sweetly. 3) Ask followup to extract the target.\n"
+                )
+            },
         }
 
         p_config = lang_prompts.get(self.language, lang_prompts["hi"])
@@ -1100,8 +1153,23 @@ class VoiceSession:
         extracted_data_str = json.dumps(self._walker.extracted_data if self._walker else {}, ensure_ascii=False, indent=2)
         targets_str = json.dumps(target_instructions, ensure_ascii=False, indent=2)
 
+        if self.applicant_name and self.applicant_name != "आवेदक":
+            name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
+        else:
+            extracted_name = self._walker.extracted_data.get("full_name") or self._walker.extracted_data.get("name") if self._walker else None
+            if extracted_name and extracted_name != "आवेदक":
+                self.applicant_name = extracted_name
+                name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
+            else:
+                if self.language == "hi":
+                    name_instruction = "You are talking to the applicant. Their name is not known yet. Do NOT use placeholder names like 'आवेदक' or 'आवेदक जी'. Address them politely without using a name."
+                elif self.language == "te":
+                    name_instruction = "You are talking to the applicant. Their name is not known yet. Address them politely without using a name."
+                else:
+                    name_instruction = "You are talking to the applicant. Their name is not known yet. Address them politely as 'sir/ma'am' or just speak without a name. Do NOT use Hindi words like 'Aavedak ji' or 'Aavedak'."
+
         return (
-            f"You are talking to the applicant. Their name is: {self.applicant_name}\n"
+            f"{name_instruction}\n"
             f"Here is the data you have already extracted so far:\n{extracted_data_str}\n\n"
             f"{context_str}\n\n"
             f"You are acting as a highly expressive, sweet, and friendly female customer service agent conducting a {scheme_type} interview in {p_config['lang_name']}. Do not sound like a robot.\n"

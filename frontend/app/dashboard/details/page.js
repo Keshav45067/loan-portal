@@ -37,24 +37,21 @@ export default function DetailsPage() {
         setAppData(data);
         setExtractedData(data.extracted_data || {});
         
-        // Fetch preview URLs for GCS documents
-        const docsWithUrls = await Promise.all((data.documents || []).map(async (doc) => {
-          if (doc.key && doc.key.startsWith('govt_id/')) {
-            try {
-              const previewRes = await fetch(`${API_BASE_URL}/api/documents/preview?key=${encodeURIComponent(doc.key)}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              const previewData = await previewRes.json();
-              if (previewData.success) {
-                return { ...doc, preview_url: previewData.url };
-              }
-            } catch (e) {
-              console.error('Failed to fetch preview URL for', doc.key, e);
+        // Parse documents directly using the signed URL in doc.key
+        const docsWithUrls = (data.documents || []).map((doc) => {
+          let docType = doc.doc_type || '';
+          if (!docType && doc.key && doc.key.includes('/')) {
+            const parts = doc.key.split('/');
+            if (parts.length >= 3) {
+              docType = parts[2];
             }
           }
-          // Fallback if not a GCS key (e.g. legacy local upload)
-          return { ...doc, preview_url: doc.key.startsWith('/') ? `${API_BASE_URL}${doc.key}` : doc.key };
-        }));
+          return {
+            ...doc,
+            doc_type: docType,
+            preview_url: doc.key // Already proxy-signed by the gateway
+          };
+        });
         setDocuments(docsWithUrls);
       } catch (err) {
         console.error('Failed to fetch details:', err);

@@ -178,6 +178,7 @@ export class VoiceSessionManager {
     this.pendingText = ''; // Stores text from audio_chunk header before binary audio
     this._disconnected = false; // Guard against post-disconnect operations
     this._inCaptureMode = false; // True when in document capture mode (suppress VAD)
+    this.pendingComplete = null;
   }
 
   async connect() {
@@ -370,8 +371,13 @@ export class VoiceSessionManager {
               }
             } else if (data.type === 'complete') {
               this.onStateChange('idle');
-              this.disconnect();
-              this.onComplete(data);
+              if (this.isPlayingAudio || this.audioQueue.length > 0) {
+                console.log('[VoiceSessionManager] Complete received but audio is playing/queued. Deferring complete.');
+                this.pendingComplete = data;
+              } else {
+                this.disconnect();
+                this.onComplete(data);
+              }
             }
           } catch (ex) {
             console.error('Failed to parse WS text message:', ex);
@@ -425,7 +431,7 @@ export class VoiceSessionManager {
     if (this.isPlayingAudio && !isFirstOfTurn) return;
 
     if (this.audioQueue.length === 0) {
-      if (this.audioEndReceived) {
+      if (this.audioEndReceived || this.pendingComplete) {
         this.finalizeSpeakingTurn();
       }
       return;
@@ -504,6 +510,15 @@ export class VoiceSessionManager {
     this.isProcessing = false;
 
     if (this._disconnected) return;
+
+    if (this.pendingComplete) {
+      console.log('[VoiceSessionManager] Final audio ended. Executing pending complete.');
+      const completeData = this.pendingComplete;
+      this.pendingComplete = null;
+      this.disconnect();
+      this.onComplete(completeData);
+      return;
+    }
 
     if (this.isRecording) {
       this.onStateChange('listening');
