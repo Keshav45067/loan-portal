@@ -90,7 +90,7 @@ Environment=GOOGLE_APPLICATION_CREDENTIALS=${BASE_DIR}/../hindi/backend/credenti
 ExecStart=${BASE_DIR}/gateway/venv/bin/gunicorn main:app \
           -w 4 \
           -k uvicorn.workers.UvicornWorker \
-          -b 127.0.0.1:8080 \
+          -b 127.0.0.1:8889 \
           --access-logfile - \
           --error-logfile -
 Restart=always

@@ -444,6 +444,11 @@ class VoiceSession:
             self._audio_buffer = bytearray()
         self._audio_buffer.extend(chunk)
 
+    def get_audio_buffer(self) -> bytes:
+        if not hasattr(self, "_audio_buffer"):
+            self._audio_buffer = bytearray()
+        return bytes(self._audio_buffer)
+
     def clear_audio_buffer(self) -> bytes:
         if not hasattr(self, "_audio_buffer"):
             self._audio_buffer = bytearray()
