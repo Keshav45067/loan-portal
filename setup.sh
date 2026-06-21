@@ -13,7 +13,7 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 BASE_DIR="/var/www/augmen/testing-services"
-USER_NAME="ubuntu" # Change if your VM user is different (e.g. debian, root, etc.)
+USER_NAME="${SUDO_USER:-$(logname 2>/dev/null || echo "ubuntu")}"
 
 # ─── 1. Setup gRPC Services ───
 SERVICES=("config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator")
