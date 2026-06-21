@@ -1,0 +1,555 @@
+/* ============================================
+   Test Voice Assistant — Neural Core UI
+   Ported 1:1 from Hindi repo call-screen.css
+   ============================================ */
+
+/* --- Full-screen container (with CSS Custom Properties) --- */
+.callContainer {
+    --bgc: rgba(10, 10, 10, 0.4);
+    --bgc2: rgba(20, 20, 25, 0.6);
+    --brd: rgba(255, 255, 255, 0.1);
+    --brds: rgba(255, 255, 255, 0.05);
+    --accent: #4A78FF;
+    --ab: rgba(74, 120, 255, 0.3);
+    --ag: rgba(74, 120, 255, 0.1);
+    --g: #22C968;
+    --gb: rgba(34, 201, 104, 0.3);
+    --gbg: rgba(34, 201, 104, 0.1);
+    --danger: #EF4444;
+    --danger-b: rgba(239, 68, 68, 0.3);
+    --danger-bg: rgba(239, 68, 68, 0.1);
+    --t1: #FFFFFF;
+    --t2: #A1A1AA;
+    --t3: #71717A;
+    --rf: 99px;
+    --rx: 24px;
+    --rl: 16px;
+    --shg: 0 10px 30px rgba(0,0,0,0.5);
+    --e: cubic-bezier(0.16, 1, 0.3, 1);
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    padding: 2.5rem;
+    box-sizing: border-box;
+    z-index: 10;
+    background-color: #030305;
+    color: var(--t1);
+    font-family: 'Satoshi', 'Inter', sans-serif;
+    overflow: hidden;
+}
+
+/* Background Glows */
+.heroGlow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: radial-gradient(ellipse 50% 45% at 50% 50%, rgba(74,120,255,.07), transparent 55%),
+                radial-gradient(ellipse 35% 30% at 65% 55%, rgba(34,201,104,.035), transparent 45%);
+    pointer-events: none;
+}
+
+/* --- Top Bar --- */
+.topBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    z-index: 20;
+}
+
+.langSelector {
+    background: rgba(20, 20, 25, 0.4);
+    color: var(--t1);
+    border: 1px solid var(--brd);
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--rf);
+    font-size: 0.9rem;
+    font-weight: 500;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s var(--e);
+    position: relative;
+}
+
+.langSelector:hover {
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(30, 30, 35, 0.6);
+}
+
+.langOptions {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    background: rgba(15, 15, 18, 0.85);
+    border: 1px solid var(--brd);
+    border-radius: var(--rl);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    box-shadow: var(--shg);
+    margin: 0;
+    padding: 0.5rem;
+    list-style: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s var(--e);
+    min-width: 180px;
+    z-index: 100;
+}
+
+.langOptionsOpen {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.langOption {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    color: var(--t2);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s var(--e);
+}
+
+.langOption:hover {
+    background: var(--ag);
+    color: var(--t1);
+}
+
+.langOptionSelected {
+    background: var(--ab);
+    color: var(--accent);
+}
+
+/* Connection Indicator */
+.connectionIndicator {
+    background: rgba(20, 20, 25, 0.4);
+    color: var(--t1);
+    border: 1px solid var(--brd);
+    padding: 0.6rem 1.2rem;
+    border-radius: var(--rf);
+    font-size: 0.9rem;
+    font-weight: 500;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s var(--e);
+}
+
+.connectionDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--t3);
+    box-shadow: 0 0 8px var(--t3);
+    transition: all 0.3s var(--e);
+}
+
+.connectionDotConnected {
+    background: var(--g);
+    box-shadow: 0 0 12px var(--g);
+}
+
+.connectionText {
+    font-size: 0.85rem;
+    color: var(--t2);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+/* --- Center Area (Neural Core) --- */
+.callCenter {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    width: 100%;
+    z-index: 10;
+}
+
+.heroH1Wrapper {
+    text-align: center;
+    margin-bottom: 4rem;
+    z-index: 20;
+}
+
+.heroH1 {
+    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    margin: 0;
+}
+
+.heroLangWord {
+    background: linear-gradient(135deg, var(--accent) 20%, var(--g) 80%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.callStatus {
+    font-size: 1rem;
+    color: var(--t3);
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    margin-top: 1rem;
+    min-height: 48px;
+    max-width: 400px;
+    line-height: 1.5;
+    transition: color 0.3s ease;
+}
+
+.callStatusActive {
+    color: var(--t1);
+}
+
+/* --- Neural Core Wrapper --- */
+.neuralCoreWrapper {
+    position: relative;
+    width: 300px;
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+/* The Sphere */
+.coreSphere {
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(74, 120, 255, 0.4), rgba(10, 10, 15, 0.8) 70%);
+    box-shadow: inset 0 0 30px rgba(74, 120, 255, 0.3), 0 10px 40px rgba(0,0,0,0.5);
+    border: 1px solid rgba(74, 120, 255, 0.2);
+    backdrop-filter: blur(10px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5;
+    transition: box-shadow 0.8s ease, border-color 0.8s ease;
+    overflow: hidden;
+}
+
+/* Color overlay for smooth gradient transitions */
+.coreSphere::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.8s ease, background 0.8s ease;
+    z-index: -1;
+}
+
+/* Listening Mode (Blue) */
+.coreSphereListening {
+    box-shadow: inset 0 0 50px rgba(74, 120, 255, 0.4), 0 0 60px rgba(74, 120, 255, 0.25);
+    border-color: rgba(74, 120, 255, 0.4);
+}
+.coreSphereListening::after {
+    opacity: 1;
+    background: radial-gradient(circle at 30% 30%, rgba(74, 120, 255, 0.5), rgba(10, 10, 15, 0.8) 70%);
+}
+
+/* Speaking Mode (Green) */
+.coreSphereSpeaking {
+    box-shadow: inset 0 0 50px rgba(34, 201, 104, 0.4), 0 0 60px rgba(34, 201, 104, 0.25);
+    border-color: rgba(34, 201, 104, 0.4);
+}
+.coreSphereSpeaking::after {
+    opacity: 1;
+    background: radial-gradient(circle at 30% 30%, rgba(34, 201, 104, 0.5), rgba(10, 10, 15, 0.8) 70%);
+}
+
+/* Processing Mode (Purple) */
+.coreSphereProcessing {
+    box-shadow: inset 0 0 50px rgba(167, 139, 250, 0.4), 0 0 60px rgba(167, 139, 250, 0.25);
+    border-color: rgba(167, 139, 250, 0.4);
+}
+.coreSphereProcessing::after {
+    opacity: 1;
+    background: radial-gradient(circle at 30% 30%, rgba(167, 139, 250, 0.5), rgba(10, 10, 15, 0.8) 70%);
+}
+
+/* User Speaking (Bright Blue Pulse) */
+.coreSphereUserSpeaking {
+    box-shadow: inset 0 0 60px rgba(74, 120, 255, 0.5), 0 0 80px rgba(74, 120, 255, 0.35);
+    border-color: rgba(74, 120, 255, 0.6);
+    animation: userSpeakPulse 1.2s ease-in-out infinite alternate;
+}
+.coreSphereUserSpeaking::after {
+    opacity: 1;
+    background: radial-gradient(circle at 30% 30%, rgba(74, 120, 255, 0.7), rgba(10, 10, 15, 0.8) 70%);
+}
+
+@keyframes userSpeakPulse {
+    0% { box-shadow: inset 0 0 50px rgba(74, 120, 255, 0.4), 0 0 60px rgba(74, 120, 255, 0.2); }
+    100% { box-shadow: inset 0 0 70px rgba(74, 120, 255, 0.6), 0 0 100px rgba(74, 120, 255, 0.4); }
+}
+
+.coreGlowInner {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--accent) 0%, transparent 60%);
+    opacity: 0.2;
+    transition: opacity 0.5s ease, transform 0.5s ease, background 0.5s ease;
+}
+
+.coreGlowListening {
+    opacity: 0.5;
+    background: radial-gradient(circle, #4A78FF 0%, transparent 60%);
+    animation: breathe 2.5s ease-in-out infinite alternate;
+}
+
+.coreGlowSpeaking {
+    opacity: 0.6;
+    background: radial-gradient(circle, #22C968 0%, transparent 60%);
+    animation: breathe 2s ease-in-out infinite alternate;
+}
+
+.coreGlowProcessing {
+    opacity: 0.5;
+    background: radial-gradient(circle, #A78BFA 0%, transparent 60%);
+    animation: breathePurple 1.5s ease-in-out infinite alternate;
+}
+
+.coreGlowUserSpeaking {
+    opacity: 0.7;
+    background: radial-gradient(circle, #4A78FF 0%, transparent 60%);
+    animation: breathe 1s ease-in-out infinite alternate;
+}
+
+@keyframes breathe {
+    0% { transform: scale(0.9); opacity: 0.4; }
+    100% { transform: scale(1.2); opacity: 0.8; }
+}
+
+@keyframes breathePurple {
+    0% { transform: scale(0.95); opacity: 0.3; }
+    100% { transform: scale(1.15); opacity: 0.7; }
+}
+
+.aiLogo {
+    width: 50px;
+    height: 50px;
+    z-index: 10;
+    opacity: 0.8;
+}
+
+/* Orbiting Rings */
+.coreRing {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--brds);
+    top: 50%;
+    left: 50%;
+    pointer-events: none;
+    transition: border-color 0.8s ease, animation-duration 0.8s ease;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+}
+
+.ring1 {
+    width: 180px;
+    height: 180px;
+    border-top: 1px solid var(--accent);
+    animation: spin 8s linear infinite;
+}
+
+.ring2 {
+    width: 230px;
+    height: 230px;
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-bottom: 1px solid var(--g);
+    animation: spinReverse 12s linear infinite;
+}
+
+.ring3 {
+    width: 280px;
+    height: 280px;
+    border-right: 1px solid rgba(74, 120, 255, 0.4);
+    animation: spin 15s linear infinite;
+}
+
+/* Ring active colors per mode */
+.ring1Active { border-top-color: var(--g); animation-duration: 4s; }
+.ring2Active { border-bottom-color: var(--accent); animation-duration: 6s; }
+.ring3Active { border-right-color: var(--g); animation-duration: 8s; }
+
+.ring1Listening { border-top-color: #4A78FF; animation-duration: 5s; }
+.ring2Listening { border-bottom-color: #6366f1; animation-duration: 7s; }
+.ring3Listening { border-right-color: #4A78FF; animation-duration: 9s; }
+
+.ring1Speaking { border-top-color: #22C968; animation-duration: 3s; }
+.ring2Speaking { border-bottom-color: #10B981; animation-duration: 5s; }
+.ring3Speaking { border-right-color: #22C968; animation-duration: 6s; }
+
+.ring1Processing { border-top-color: #A78BFA; animation-duration: 3s; }
+.ring2Processing { border-bottom-color: #8B5CF6; animation-duration: 4s; }
+.ring3Processing { border-right-color: #A78BFA; animation-duration: 5s; }
+
+@keyframes spin {
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+@keyframes spinReverse {
+    100% { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+/* Visualizer Integration */
+.visualizerWrapper {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    z-index: 4;
+    opacity: 0;
+    transition: opacity 0.5s var(--e);
+    pointer-events: none;
+}
+
+.visualizerWrapperActive {
+    opacity: 1;
+}
+
+/* --- Bottom Controls --- */
+.callControls {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 2rem;
+    z-index: 20;
+}
+
+.btnCall {
+    position: relative;
+    height: 64px;
+    padding: 0 48px;
+    border-radius: var(--rf);
+    border: 1px solid rgba(255,255,255,0.1);
+    background: var(--bgc);
+    color: var(--t1);
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: 'Satoshi', 'Inter', sans-serif;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.4s var(--e);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.btnText {
+    position: relative;
+    z-index: 2;
+    letter-spacing: 0.02em;
+}
+
+.btnGlow {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transform: translateX(-100%);
+    z-index: 1;
+    transition: transform 0.5s ease;
+}
+
+.btnCall:hover {
+    border-color: rgba(255,255,255,0.3);
+    transform: translateY(-3px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+}
+
+.btnCall:hover .btnGlow {
+    transform: translateX(100%);
+}
+
+.btnCall:active {
+    transform: translateY(1px) scale(0.98);
+}
+
+/* Button States */
+.btnStart {
+    background: rgba(74, 120, 255, 0.1);
+    border-color: var(--ab);
+    box-shadow: 0 0 20px rgba(74, 120, 255, 0.15);
+}
+
+.btnStart:hover {
+    background: rgba(74, 120, 255, 0.2);
+    border-color: var(--accent);
+    box-shadow: 0 10px 40px rgba(74, 120, 255, 0.3);
+}
+
+.btnConnecting {
+    background: rgba(229, 165, 48, 0.1);
+    border-color: rgba(229, 165, 48, 0.3);
+    color: #E5A530;
+    animation: pulseConn 1.5s infinite alternate;
+}
+
+@keyframes pulseConn {
+    0% { box-shadow: 0 0 10px rgba(229, 165, 48, 0.1); }
+    100% { box-shadow: 0 0 30px rgba(229, 165, 48, 0.3); }
+}
+
+.btnEnd {
+    background: var(--danger-bg);
+    border-color: var(--danger-b);
+    color: var(--danger);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+}
+
+.btnEnd:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--danger);
+    box-shadow: 0 10px 40px rgba(239, 68, 68, 0.3);
+}
+
+/* Hidden */
+.hidden {
+    display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .callContainer {
+        padding: 1.5rem;
+    }
+    
+    .neuralCoreWrapper {
+        transform: scale(0.85);
+    }
+    
+    .heroH1 {
+        font-size: 2.5rem;
+    }
+    
+    .btnCall {
+        width: 100%;
+        max-width: 300px;
+    }
+}
