@@ -98,6 +98,24 @@ export default function DetailsPage() {
     return fallback;
   };
 
+  const getFullAddress = () => {
+    const addr = extractedData.address;
+    if (!addr || typeof addr !== 'object') {
+      return getVal(['address.address_line', 'address.full_address', 'address.state']);
+    }
+    const parts = [
+      addr.care_of ? `C/O ${addr.care_of}` : null,
+      addr.house,
+      addr.street,
+      addr.locality,
+      addr.vtc,
+      addr.district,
+      addr.state,
+      addr.pincode
+    ].filter(Boolean);
+    return parts.join(', ') || 'Not Available';
+  };
+
   // Group Details
   const personalInfo = [
     { label: 'Full Name', value: getVal(['applicant_name', 'name', 'full_name', 'holder.full_name']) },
@@ -110,7 +128,7 @@ export default function DetailsPage() {
 
   const aadhaarInfo = [
     { label: 'Aadhaar Number', value: getVal(['aadhaar_number']) },
-    { label: 'Address', value: getVal(['address.address_line', 'address.full_address', 'address.state']) },
+    { label: 'Address', value: getFullAddress() },
     { label: 'Pincode', value: getVal(['address.pincode', 'address.pin_code']) },
   ];
 

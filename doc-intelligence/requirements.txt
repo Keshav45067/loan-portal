@@ -8,3 +8,4 @@ dateparser
 numpy
 Pillow
 google-genai
+redis>=5.0.0

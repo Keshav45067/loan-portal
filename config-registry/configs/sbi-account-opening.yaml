@@ -506,6 +506,7 @@ context_map:
   - Q_FAMILY_MEMBERS
   Q_SOURCES_OF_INCOME:
   - Q_EDUCATION
+  - Q_OCCUPATION
   Q_ANNUAL_INCOME:
   - Q_SOURCES_OF_INCOME
   Q_NET_WORTH:
@@ -559,3 +560,84 @@ field_instructions:
     lakh' to 1000000.
   religion: EXTRACT the religion (such as Hindu, Muslim, Christian, Sikh, Jain, Buddhist).
   caste_category: 'INFER as one of: ''General'', ''OBC'', ''SC'', ''ST''.'
+documents_required:
+- type: aadhaar_front
+  required: true
+  schema:
+    is_aadhaar: true
+    document_type: aadhaar_card
+    holder:
+      full_name: true
+      date_of_birth: true
+      year_of_birth: true
+      gender: true
+    aadhaar_number: true
+    language: true
+    raw_text: true
+    warnings: true
+- type: aadhaar_back
+  required: true
+  schema:
+    is_aadhaar: true
+    document_type: aadhaar_card
+    address:
+      care_of: true
+      house: true
+      street: true
+      landmark: true
+      locality: true
+      vtc: true
+      district: true
+      state: true
+      pincode: true
+    language: true
+    raw_text: true
+    warnings: true
+- type: pan
+  required: true
+  schema:
+    is_pan: true
+    document_type: pan_card
+    holder:
+      full_name: true
+      father_name: true
+      date_of_birth: true
+      year_of_birth: true
+    pan_number: true
+    pan_format_valid: true
+    raw_text: true
+    warnings: true
+- type: address_proof
+  required: false
+  schema:
+    is_address_proof: true
+    document_type: address_proof
+    holder_name: true
+    address:
+      house: true
+      street: true
+      locality: true
+      district: true
+      state: true
+      pincode: true
+- type: correspondence_proof
+  required: false
+  extract_prompt: "You are a document extractor for Indian correspondence address\
+    \ proofs.\nExtract the holder name and address details from the image.\nReturn\
+    \ valid JSON with the format:\n{\n  \"is_address_proof\": true,\n  \"document_type\"\
+    : \"address_proof\",\n  \"holder_name\": \"string\",\n  \"holder_name_confidence\"\
+    : \"high\"|\"medium\"|\"low\",\n  \"address\": {\n    \"house\": \"string\",\n\
+    \    \"street\": \"string\",\n    \"locality\": \"string\",\n    \"district\"\
+    : \"string\",\n    \"state\": \"string\",\n    \"pincode\": \"6-digit string\"\
+    \n  }\n}"
+  schema:
+    is_address_proof: true
+    document_type: address_proof
+    holder_name: true
+    address:
+      house: true
+      street: true
+      locality: true
+      district: true
+      state: true
+      pincode: true

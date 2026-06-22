@@ -36,7 +36,9 @@ from generated import doc_intelligence_pb2 as pb2
 from generated import doc_intelligence_pb2_grpc as pb2_grpc
 from generated import llm_pb2
 from generated import llm_pb2_grpc
-from config import DOC_INTELLIGENCE_PORT, LLM_SERVICE_ADDR
+from generated import config_registry_pb2
+from generated import config_registry_pb2_grpc
+from config import DOC_INTELLIGENCE_PORT, LLM_SERVICE_ADDR, CONFIG_REGISTRY_ADDR, REDIS_URL, REDIS_TTL_SECONDS
 
 from utils.prompts import (
     AADHAAR_PROMPT, AADHAAR_VERIFY_PROMPT,
@@ -47,6 +49,7 @@ from utils.prompts import (
 )
 from utils.helpers import extract_json_clean, fill_nulls
 from utils.response_builders import build_clean_response
+from utils.cache import DocIntelCache
 
 logger = get_logger("doc-intelligence")
 
@@ -56,6 +59,8 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
 
     def __init__(self):
         self._llm_stub = None
+        self._config_stub = None
+        self._cache = None
         # TODO: Initialize GCS client for uploads
 
     async def VerifyDocument(self, request, context):
@@ -68,39 +73,78 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
                      details={"image_size": len(request.image_data)})
 
         try:
-            # Determine verify prompt
+            # Determine verify prompt fallback
             doc_type = request.document_type.lower()
             prompt_text = ""
             target_key = ""
+            fallback_prompt = ""
             
             if "aadhaar" in doc_type:
-                prompt_text = AADHAAR_VERIFY_PROMPT
                 target_key = "is_aadhaar"
+                fallback_prompt = AADHAAR_VERIFY_PROMPT
             elif "pan" in doc_type:
-                prompt_text = PAN_VERIFY_PROMPT
                 target_key = "is_pan"
+                fallback_prompt = PAN_VERIFY_PROMPT
             elif "voter" in doc_type:
-                prompt_text = VOTER_VERIFY_PROMPT
                 target_key = "is_voterid"
+                fallback_prompt = VOTER_VERIFY_PROMPT
             elif "udyam" in doc_type:
-                prompt_text = UDYAM_VERIFY_PROMPT
                 target_key = "is_udyam"
+                fallback_prompt = UDYAM_VERIFY_PROMPT
             elif "bank_statement" in doc_type or "bank" in doc_type:
-                prompt_text = BANK_STATEMENT_VERIFY_PROMPT
                 target_key = "is_bank_statement"
+                fallback_prompt = BANK_STATEMENT_VERIFY_PROMPT
             elif "office_id" in doc_type or "company_id" in doc_type:
                 from utils.prompts import OFFICE_ID_VERIFY_PROMPT
-                prompt_text = OFFICE_ID_VERIFY_PROMPT
                 target_key = "is_office_id"
-            elif "address_proof" in doc_type:
+                fallback_prompt = OFFICE_ID_VERIFY_PROMPT
+            elif "address_proof" in doc_type or "correspondence" in doc_type:
                 from utils.prompts import ADDRESS_PROOF_VERIFY_PROMPT
-                prompt_text = ADDRESS_PROOF_VERIFY_PROMPT
                 target_key = "is_address_proof"
+                fallback_prompt = ADDRESS_PROOF_VERIFY_PROMPT
             elif "selfie" in doc_type:
                 logger.info("Selfie document verification bypassed successfully", req_id=req_id)
                 return pb2.VerifyResponse(is_valid=True, confidence=1.0)
             else:
-                logger.warning(f"Unrecognized document type for verification: {request.document_type}")
+                target_key = "is_valid"
+                fallback_prompt = ""
+
+            # Check config registry / cache
+            cached_req = None
+            if request.scheme_id:
+                cached_req = await self._cache.get_requirement(request.scheme_id, request.document_type)
+                if not cached_req:
+                    try:
+                        logger.info("Fetching requirements from Config Registry", req_id=req_id, scheme_id=request.scheme_id)
+                        resp = await self._config_stub.GetDocumentRequirements(
+                            config_registry_pb2.SchemeRequest(scheme_id=request.scheme_id),
+                            metadata=[("x-request-id", req_id)],
+                            timeout=5
+                        )
+                        for doc_req in resp.documents:
+                            req_dict = {
+                                "document_type": doc_req.document_type,
+                                "verify_prompt": doc_req.verify_prompt,
+                                "extract_prompt": doc_req.extract_prompt,
+                                "required": doc_req.required,
+                                "max_pages": doc_req.max_pages,
+                                "schema_json": doc_req.schema_json
+                            }
+                            await self._cache.set_requirement(request.scheme_id, doc_req.document_type, req_dict)
+                            if doc_req.document_type == request.document_type:
+                                cached_req = req_dict
+                    except Exception as config_err:
+                        logger.warning("Failed to fetch requirements from Config Registry", req_id=req_id, error=str(config_err))
+
+            # Select prompt
+            if cached_req and cached_req.get("verify_prompt"):
+                prompt_text = cached_req["verify_prompt"]
+            else:
+                prompt_text = fallback_prompt
+
+            if not prompt_text:
+                if not request.scheme_id:
+                    logger.warning(f"Unrecognized document type for verification: {request.document_type}")
                 return pb2.VerifyResponse(is_valid=True, confidence=1.0)
 
             from PIL import Image
@@ -196,34 +240,80 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
             doc_type = request.document_type.lower()
             prompt_text = ""
             schema_key = ""
+            fallback_prompt = ""
             
             if "aadhaar" in doc_type:
-                prompt_text = AADHAAR_PROMPT
-                schema_key = "aadhaar_front" if "front" in doc_type else "aadhaar_back"
+                fallback_prompt = AADHAAR_PROMPT
+                schema_key = "aadhaar_back" if "back" in doc_type else "aadhaar_front"
             elif "pan" in doc_type:
-                prompt_text = PAN_PROMPT
+                fallback_prompt = PAN_PROMPT
                 schema_key = "pan"
             elif "voter" in doc_type:
-                prompt_text = VOTER_PROMPT
-                schema_key = "voter_front" if "front" in doc_type else "voter_back"
+                fallback_prompt = VOTER_PROMPT
+                schema_key = "voter_back" if "back" in doc_type else "voter_front"
             elif "udyam" in doc_type:
-                prompt_text = UDYAM_PROMPT
+                fallback_prompt = UDYAM_PROMPT
                 schema_key = "udyam"
             elif "bank" in doc_type:
-                prompt_text = BANK_STATEMENT_PROMPT
+                fallback_prompt = BANK_STATEMENT_PROMPT
                 schema_key = "bank_statement"
             elif "office_id" in doc_type or "company_id" in doc_type:
                 from utils.prompts import OFFICE_ID_PROMPT
-                prompt_text = OFFICE_ID_PROMPT
+                fallback_prompt = OFFICE_ID_PROMPT
                 schema_key = "office_id"
-            elif "address_proof" in doc_type:
+            elif "address_proof" in doc_type or "correspondence" in doc_type:
                 from utils.prompts import ADDRESS_PROOF_PROMPT
-                prompt_text = ADDRESS_PROOF_PROMPT
+                fallback_prompt = ADDRESS_PROOF_PROMPT
                 schema_key = "address_proof"
             elif "selfie" in doc_type:
                 return pb2.ExtractDocResponse(success=True, json_data="{}")
             else:
+                fallback_prompt = ""
+                schema_key = "custom"
+
+            # Check config registry / cache
+            cached_req = None
+            if request.scheme_id:
+                cached_req = await self._cache.get_requirement(request.scheme_id, request.document_type)
+                if not cached_req:
+                    try:
+                        logger.info("Fetching requirements from Config Registry", req_id=req_id, scheme_id=request.scheme_id)
+                        resp = await self._config_stub.GetDocumentRequirements(
+                            config_registry_pb2.SchemeRequest(scheme_id=request.scheme_id),
+                            metadata=[("x-request-id", req_id)],
+                            timeout=5
+                        )
+                        for doc_req in resp.documents:
+                            req_dict = {
+                                "document_type": doc_req.document_type,
+                                "verify_prompt": doc_req.verify_prompt,
+                                "extract_prompt": doc_req.extract_prompt,
+                                "required": doc_req.required,
+                                "max_pages": doc_req.max_pages,
+                                "schema_json": doc_req.schema_json
+                            }
+                            await self._cache.set_requirement(request.scheme_id, doc_req.document_type, req_dict)
+                            if doc_req.document_type == request.document_type:
+                                cached_req = req_dict
+                    except Exception as config_err:
+                        logger.warning("Failed to fetch requirements from Config Registry", req_id=req_id, error=str(config_err))
+
+            # Select prompt
+            if cached_req and cached_req.get("extract_prompt"):
+                prompt_text = cached_req["extract_prompt"]
+            else:
+                prompt_text = fallback_prompt
+
+            if not prompt_text:
                 return pb2.ExtractDocResponse(success=False, error=f"Unknown document type {request.document_type}")
+
+            # Parse custom schema if provided
+            custom_schema = None
+            if cached_req and cached_req.get("schema_json"):
+                try:
+                    custom_schema = json.loads(cached_req["schema_json"])
+                except Exception as parse_err:
+                    logger.warning("Failed to parse dynamic schema JSON", req_id=req_id, error=str(parse_err))
 
             from PIL import Image
             import io
@@ -263,6 +353,8 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
 
             # Clean and format response
             cleaned = build_clean_response(parsed, schema_key)
+            if custom_schema:
+                fill_nulls(cleaned, custom_schema)
 
             # Strict validation
             is_valid_doc = True
@@ -373,7 +465,6 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
                     raw_llm_output=llm_resp.text
                 )
 
-            import json
             return pb2.ExtractDocResponse(
                 success=True,
                 json_data=json.dumps(cleaned, ensure_ascii=False),
@@ -456,9 +547,17 @@ async def serve():
 
     servicer = DocumentIntelligenceServicer()
 
+    # Initialize Cache
+    cache = DocIntelCache(REDIS_URL, REDIS_TTL_SECONDS)
+    await cache.connect()
+    servicer._cache = cache
+
     # Initialize gRPC client stubs
     llm_channel = grpc.aio.insecure_channel(LLM_SERVICE_ADDR)
     servicer._llm_stub = llm_pb2_grpc.LanguageModelStub(llm_channel)
+
+    config_channel = grpc.aio.insecure_channel(CONFIG_REGISTRY_ADDR)
+    servicer._config_stub = config_registry_pb2_grpc.ConfigRegistryStub(config_channel)
 
     pb2_grpc.add_DocumentIntelligenceServicer_to_server(servicer, server)
 
@@ -466,7 +565,8 @@ async def serve():
     server.add_insecure_port(listen_addr)
 
     logger.info(f"Doc Intelligence starting on {listen_addr}",
-                details={"port": DOC_INTELLIGENCE_PORT})
+                details={"port": DOC_INTELLIGENCE_PORT,
+                         "redis": cache._available})
 
     await server.start()
     logger.info("Doc Intelligence ready ✅")
@@ -474,6 +574,7 @@ async def serve():
     async def shutdown(sig):
         logger.info(f"Received {sig.name}, shutting down...")
         await server.stop(grace=5)
+        await cache.close()
 
     loop = asyncio.get_event_loop()
     for sig_name in (signal.SIGINT, signal.SIGTERM):

@@ -230,7 +230,8 @@ const DOCUMENT_METADATA = {
   'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
   'office_id': { label: 'Office ID', icon: '🪪', facingMode: 'environment', tips: ['Office ID should be clear'] },
-  'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] }
+  'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] },
+  'correspondence_proof': { label: 'Correspondence Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] }
 };
 
 export default function InterviewPage() {

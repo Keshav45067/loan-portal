@@ -90,6 +90,7 @@ message DocumentRequirement {
   string extract_prompt = 3;    // LLM prompt for extraction
   bool required = 4;
   int32 max_pages = 5;          // For multi-page docs like bank statements
+  string schema_json = 6;       // JSON-serialized structure for validation/defaults
 }
 
 message DocumentRequirements {

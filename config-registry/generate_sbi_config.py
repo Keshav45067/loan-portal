@@ -380,6 +380,118 @@ CONTEXT_MAP = {
     "END": []
 }
 
+SBI_DOCUMENTS_REQUIRED = [
+    {
+        "type": "aadhaar_front",
+        "required": True,
+        "schema": {
+            "is_aadhaar": True,
+            "document_type": "aadhaar_card",
+            "holder": {
+                "full_name": True,
+                "date_of_birth": True,
+                "year_of_birth": True,
+                "gender": True
+            },
+            "aadhaar_number": True,
+            "language": True,
+            "raw_text": True,
+            "warnings": True
+        }
+    },
+    {
+        "type": "aadhaar_back",
+        "required": True,
+        "schema": {
+            "is_aadhaar": True,
+            "document_type": "aadhaar_card",
+            "address": {
+                "care_of": True,
+                "house": True,
+                "street": True,
+                "landmark": True,
+                "locality": True,
+                "vtc": True,
+                "district": True,
+                "state": True,
+                "pincode": True
+            },
+            "language": True,
+            "raw_text": True,
+            "warnings": True
+        }
+    },
+    {
+        "type": "pan",
+        "required": True,
+        "schema": {
+            "is_pan": True,
+            "document_type": "pan_card",
+            "holder": {
+                "full_name": True,
+                "father_name": True,
+                "date_of_birth": True,
+                "year_of_birth": True
+            },
+            "pan_number": True,
+            "pan_format_valid": True,
+            "raw_text": True,
+            "warnings": True
+        }
+    },
+    {
+        "type": "address_proof",
+        "required": False,
+        "schema": {
+            "is_address_proof": True,
+            "document_type": "address_proof",
+            "holder_name": True,
+            "address": {
+                "house": True,
+                "street": True,
+                "locality": True,
+                "district": True,
+                "state": True,
+                "pincode": True
+            }
+        }
+    },
+    {
+        "type": "correspondence_proof",
+        "required": False,
+        "extract_prompt": """You are a document extractor for Indian correspondence address proofs.
+Extract the holder name and address details from the image.
+Return valid JSON with the format:
+{
+  "is_address_proof": true,
+  "document_type": "address_proof",
+  "holder_name": "string",
+  "holder_name_confidence": "high"|"medium"|"low",
+  "address": {
+    "house": "string",
+    "street": "string",
+    "locality": "string",
+    "district": "string",
+    "state": "string",
+    "pincode": "6-digit string"
+  }
+}""",
+        "schema": {
+            "is_address_proof": True,
+            "document_type": "address_proof",
+            "holder_name": True,
+            "address": {
+                "house": True,
+                "street": True,
+                "locality": True,
+                "district": True,
+                "state": True,
+                "pincode": True
+            }
+        }
+    }
+]
+
 # The config registry expects scheme_id and interview_graph containing start_node_id and nodes
 config_wrapper = {
     "schema_version": "1.0",
@@ -390,7 +502,8 @@ config_wrapper = {
         "nodes": SBI_GRAPH
     },
     "context_map": CONTEXT_MAP,
-    "field_instructions": FIELD_INSTRUCTIONS
+    "field_instructions": FIELD_INSTRUCTIONS,
+    "documents_required": SBI_DOCUMENTS_REQUIRED
 }
 
 if __name__ == "__main__":
@@ -419,7 +532,8 @@ if __name__ == "__main__":
         "description": "SBI Account Opening Form",
         "graph": SBI_GRAPH,
         "context_map": CONTEXT_MAP,
-        "field_instructions": FIELD_INSTRUCTIONS
+        "field_instructions": FIELD_INSTRUCTIONS,
+        "documents_required": SBI_DOCUMENTS_REQUIRED
     }
     with open(shared_file, "w", encoding="utf-8") as f:
         yaml.dump(legacy_wrapper, f, allow_unicode=True, sort_keys=False)

@@ -1,6 +1,6 @@
 PROTO_DIR = ../proto
 OUT_DIR = ./generated
-PROTO_FILES = doc_intelligence.proto common.proto llm.proto
+PROTO_FILES = doc_intelligence.proto common.proto llm.proto config_registry.proto
 
 .PHONY: proto run docker clean install venv
 

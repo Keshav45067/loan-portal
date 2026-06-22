@@ -120,12 +120,15 @@ def _dict_to_doc_requirements(data: dict) -> pb2.DocumentRequirements:
     """Convert doc requirements dict to protobuf."""
     docs = []
     for doc in data.get("documents", []):
+        schema_dict = doc.get("schema", {})
+        schema_str = json.dumps(schema_dict, ensure_ascii=False) if schema_dict else ""
         docs.append(pb2.DocumentRequirement(
             document_type=doc.get("type", ""),
             verify_prompt=doc.get("verify_prompt", ""),
             extract_prompt=doc.get("extract_prompt", ""),
             required=doc.get("required", True),
             max_pages=doc.get("max_pages", 1),
+            schema_json=schema_str,
         ))
     return pb2.DocumentRequirements(
         scheme_id=data.get("scheme_id", ""),

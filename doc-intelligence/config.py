@@ -9,6 +9,8 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 GCS_BUCKET = os.getenv("GCS_BUCKET", "chayan-documents")
 LLM_SERVICE_ADDR = os.getenv("LLM_SERVICE_ADDR", "localhost:50054")
 CONFIG_REGISTRY_ADDR = os.getenv("CONFIG_REGISTRY_ADDR", "localhost:50051")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+REDIS_TTL_SECONDS = int(os.getenv("REDIS_TTL_SECONDS", "3600"))
 SUREPASS_API_KEY = os.getenv("SUREPASS_API_KEY", "")
 
 from pathlib import Path
