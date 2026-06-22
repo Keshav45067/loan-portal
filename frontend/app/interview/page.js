@@ -7,6 +7,219 @@ import styles from './interview.module.css';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
 
+class AudioVisualizer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.animationId = null;
+    this.isActive = false;
+    this.mode = 'idle'; // 'idle', 'recording', 'processing', 'speaking'
+
+    // Audio data
+    this.frequencyData = null;
+    this.volumeLevel = 0;
+
+    // Animation state
+    this.time = 0;
+    this.bars = [];
+    this.initBars();
+
+    // Setup canvas resolution
+    this._setupCanvas();
+
+    // Start ambient/idle loop
+    this._animate();
+  }
+
+  initBars() {
+    const barCount = 40;
+    this.bars = [];
+    for (let i = 0; i < barCount; i++) {
+      this.bars.push({
+        height: 0,
+        targetHeight: 0,
+        velocity: 0,
+      });
+    }
+  }
+
+  _setupCanvas() {
+    if (!this.canvas) return;
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const rect = this.canvas.getBoundingClientRect();
+    this.canvas.width = rect.width * dpr;
+    this.canvas.height = rect.height * dpr;
+    this.ctx.scale(dpr, dpr);
+    this.width = rect.width;
+    this.height = rect.height;
+  }
+
+  updateAudioData(frequencyData, volumeLevel) {
+    this.frequencyData = frequencyData;
+    this.volumeLevel = volumeLevel;
+  }
+
+  setMode(mode) {
+    this.mode = mode;
+  }
+
+  _animate() {
+    this.time += 0.016; // ~60fps
+    if (this.ctx && this.width && this.height) {
+      this.ctx.clearRect(0, 0, this.width, this.height);
+
+      switch (this.mode) {
+        case 'recording':
+          this._drawRecording();
+          break;
+        case 'processing':
+          this._drawProcessing();
+          break;
+        case 'speaking':
+          this._drawSpeaking();
+          break;
+        default:
+          this._drawIdle();
+      }
+    }
+
+    this.animationId = requestAnimationFrame(() => this._animate());
+  }
+
+  _drawIdle() {
+    const centerY = this.height / 2;
+    const barCount = this.bars.length;
+    const barWidth = 3;
+    const gap = (this.width - barCount * barWidth) / (barCount + 1);
+
+    for (let i = 0; i < barCount; i++) {
+      const x = gap + i * (barWidth + gap);
+      const wave = Math.sin(this.time * 2 + i * 0.3) * 3 + 4;
+
+      this.bars[i].targetHeight = wave;
+      this.bars[i].height += (this.bars[i].targetHeight - this.bars[i].height) * 0.1;
+
+      const h = this.bars[i].height;
+      const alpha = 0.15 + Math.sin(this.time * 1.5 + i * 0.2) * 0.05;
+
+      this.ctx.fillStyle = `rgba(74, 120, 255, ${alpha})`;
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) {
+        this.ctx.roundRect(x, centerY - h / 2, barWidth, h, 1.5);
+      } else {
+        this.ctx.rect(x, centerY - h / 2, barWidth, h);
+      }
+      this.ctx.fill();
+    }
+  }
+
+  _drawRecording() {
+    const centerY = this.height / 2;
+    const barCount = this.bars.length;
+    const barWidth = 4;
+    const gap = (this.width - barCount * barWidth) / (barCount + 1);
+    const maxHeight = this.height * 0.8;
+
+    for (let i = 0; i < barCount; i++) {
+      let targetHeight;
+
+      if (this.frequencyData && this.frequencyData.length > 0) {
+        const freqIndex = Math.floor((i / barCount) * this.frequencyData.length);
+        const freqValue = this.frequencyData[freqIndex] / 255;
+        targetHeight = Math.max(4, freqValue * maxHeight);
+      } else {
+        const wave = Math.sin(this.time * 4 + i * 0.4);
+        targetHeight = 4 + this.volumeLevel * maxHeight * 0.5 * (0.5 + wave * 0.5);
+      }
+
+      const spring = 0.15;
+      const damping = 0.8;
+      this.bars[i].velocity = (this.bars[i].velocity + (targetHeight - this.bars[i].height) * spring) * damping;
+      this.bars[i].height += this.bars[i].velocity;
+
+      const x = gap + i * (barWidth + gap);
+      const h = Math.max(2, this.bars[i].height);
+
+      const intensity = h / maxHeight;
+      const r = Math.floor(74 + intensity * 181);
+      const g = Math.floor(120 + intensity * 135);
+      const b = Math.floor(255 - intensity * 0);
+
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) {
+        this.ctx.roundRect(x, centerY - h / 2, barWidth, h, 2);
+      } else {
+        this.ctx.rect(x, centerY - h / 2, barWidth, h);
+      }
+      this.ctx.fill();
+    }
+  }
+
+  _drawProcessing() {
+    const centerY = this.height / 2;
+    const barCount = this.bars.length;
+    const barWidth = 3;
+    const gap = (this.width - barCount * barWidth) / (barCount + 1);
+
+    for (let i = 0; i < barCount; i++) {
+      const x = gap + i * (barWidth + gap);
+      const wave = Math.sin(this.time * 3 + i * 0.25) * 8 + 10;
+      const alpha = 0.3 + Math.sin(this.time * 2 + i * 0.15) * 0.2;
+
+      this.bars[i].height += (wave - this.bars[i].height) * 0.08;
+      const h = this.bars[i].height;
+
+      const t = (Math.sin(this.time * 2 + i * 0.1) + 1) / 2;
+      const r = Math.floor(167 * (1 - t) + 244 * t);
+      const g = Math.floor(139 * (1 - t) + 114 * t);
+      const b = Math.floor(250 * (1 - t) + 182 * t);
+
+      this.ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) {
+        this.ctx.roundRect(x, centerY - h / 2, barWidth, h, 1.5);
+      } else {
+        this.ctx.rect(x, centerY - h / 2, barWidth, h);
+      }
+      this.ctx.fill();
+    }
+  }
+
+  _drawSpeaking() {
+    const centerY = this.height / 2;
+    const barCount = this.bars.length;
+    const barWidth = 4;
+    const gap = (this.width - barCount * barWidth) / (barCount + 1);
+
+    for (let i = 0; i < barCount; i++) {
+      const x = gap + i * (barWidth + gap);
+      const wave1 = Math.sin(this.time * 3 + i * 0.25) * 12;
+      const wave2 = Math.sin(this.time * 5 + i * 0.4) * 6;
+      const targetH = Math.abs(wave1 + wave2) + 4;
+
+      this.bars[i].height += (targetH - this.bars[i].height) * 0.12;
+      const h = this.bars[i].height;
+
+      const alpha = 0.4 + Math.sin(this.time * 2.5 + i * 0.2) * 0.2;
+      this.ctx.fillStyle = `rgba(34, 201, 104, ${alpha})`;
+      this.ctx.beginPath();
+      if (this.ctx.roundRect) {
+        this.ctx.roundRect(x, centerY - h / 2, barWidth, h, 2);
+      } else {
+        this.ctx.rect(x, centerY - h / 2, barWidth, h);
+      }
+      this.ctx.fill();
+    }
+  }
+
+  destroy() {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+    }
+  }
+}
+
 const DOCUMENT_METADATA = {
   'selfie': { label: 'Selfie', icon: '🤳', facingMode: 'user', tips: ['Face should be clearly visible', 'Good lighting is required'] },
   'aadhaar_front': { label: 'Aadhaar (Front)', icon: '🪪', facingMode: 'environment', tips: ['Full card should be visible', 'Number must be clear'] },
@@ -57,6 +270,10 @@ export default function InterviewPage() {
   const streamRef = useRef(null);
   const [activeFacingMode, setActiveFacingMode] = useState('environment');
 
+  // Canvas visualizer refs
+  const visualizerCanvasRef = useRef(null);
+  const visualizerInstanceRef = useRef(null);
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedSessionId = localStorage.getItem('session_id');
@@ -79,8 +296,34 @@ export default function InterviewPage() {
       if (voiceSessionRef.current) {
         voiceSessionRef.current.disconnect();
       }
+      if (visualizerInstanceRef.current) {
+        visualizerInstanceRef.current.destroy();
+        visualizerInstanceRef.current = null;
+      }
     };
   }, [router]);
+
+  // Handle visualizer lifecycle
+  useEffect(() => {
+    if (isStarted && nodeType === 'voice-qa' && visualizerCanvasRef.current) {
+      if (!visualizerInstanceRef.current) {
+        visualizerInstanceRef.current = new AudioVisualizer(visualizerCanvasRef.current);
+      }
+      let mode = 'idle';
+      if (qaState === 'listening') mode = 'recording';
+      else if (qaState === 'processing') mode = 'processing';
+      else if (qaState === 'speaking') mode = 'speaking';
+      visualizerInstanceRef.current.setMode(mode);
+    }
+    return () => {
+      if (!isStarted || nodeType !== 'voice-qa') {
+        if (visualizerInstanceRef.current) {
+          visualizerInstanceRef.current.destroy();
+          visualizerInstanceRef.current = null;
+        }
+      }
+    };
+  }, [isStarted, nodeType, qaState]);
 
   const startSession = async () => {
     setErrors(prev => ({ ...prev, global: null, warning: null }));
@@ -118,6 +361,14 @@ export default function InterviewPage() {
 
           if (state !== 'speaking' || prev !== 'speaking') {
             setTranscript('');
+          }
+
+          if (visualizerInstanceRef.current) {
+            let mode = 'idle';
+            if (state === 'listening') mode = 'recording';
+            else if (state === 'processing') mode = 'processing';
+            else if (state === 'speaking') mode = 'speaking';
+            visualizerInstanceRef.current.setMode(mode);
           }
         },
         onTranscript: (text, isFinal) => {
@@ -178,6 +429,17 @@ export default function InterviewPage() {
 
       voiceSessionRef.current = manager;
       await manager.connect();
+
+      // Hook visualizer to AudioProcessor volume level callback
+      if (manager.audioProcessor) {
+        manager.audioProcessor.onVolumeLevel = (level) => {
+          if (visualizerInstanceRef.current) {
+            visualizerInstanceRef.current.updateAudioData(null, level);
+          }
+        };
+      }
+
+
     } catch (err) {
       setErrors({ global: err.message });
       setQaState('error');
@@ -295,7 +557,7 @@ export default function InterviewPage() {
     return () => stopCamera();
   }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], startCamera, stopCamera]);
 
-  // Render Neural Voice Core (No Text display per user request)
+  // Render Neural Voice Core (Fully aligned with visualizer canvas)
   const renderVoiceUI = () => {
     let sphereClass = styles.coreSphere;
     let ringClass = '';
@@ -332,6 +594,11 @@ export default function InterviewPage() {
           <div className={`${sphereClass} ${isCallActive ? styles.sphereActive : ''}`}>
             <div className={styles.coreGlowInner}></div>
           </div>
+
+          {/* Canvas Waveforms Visualizer (from visualizer.js) */}
+          <div className={`${styles.visualizerWrapper} ${isCallActive ? styles.visualizerActive : ''}`}>
+            <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px' }}></canvas>
+          </div>
         </div>
 
         {/* Transcription and Status Display */}
@@ -357,7 +624,6 @@ export default function InterviewPage() {
             {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
           </p>
         </div>
-
 
         {/* Text Input Row */}
         {isStarted && (
@@ -608,7 +874,7 @@ export default function InterviewPage() {
                 <li key={i} className={styles.tipItem}>
                   <span className={styles.checkMarker}>✓</span> {tip}
                 </li>
-               ))}
+              ))}
             </ul>
           </div>
         )}
@@ -688,7 +954,6 @@ export default function InterviewPage() {
           </button>
         </div>
       )}
-
 
       {/* ─── Main Content ─── */}
       <main className={styles.mainGrid}>
