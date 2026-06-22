@@ -68,15 +68,15 @@ export default function DetailsPage() {
     return (
       <div className={styles.container} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at center, #0f111a 0%, #050508 100%)', color: '#fff' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 500, color: '#a0aec0' }}>लोड हो रहा है...</h2>
+          <div style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#4a78ff', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 500, color: '#a0aec0' }}>Loading Details...</h2>
         </div>
       </div>
     );
   }
 
   // Value Accessors with Fallbacks
-  const getVal = (paths, fallback = 'उपलब्ध नहीं') => {
+  const getVal = (paths, fallback = 'Not Available') => {
     for (const path of paths) {
       const parts = path.split('.');
       let current = extractedData;
@@ -100,57 +100,57 @@ export default function DetailsPage() {
 
   // Group Details
   const personalInfo = [
-    { label: 'पूरा नाम (Full Name)', value: getVal(['applicant_name', 'name', 'full_name', 'holder.full_name']) },
-    { label: 'जन्म तिथि (Date of Birth)', value: getVal(['date_of_birth', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
-    { label: 'लिंग (Gender)', value: getVal(['gender', 'holder.gender']) },
-    { label: 'पिता/पति का नाम (Father/Spouse Name)', value: getVal(['father_name', 'spouse_name', 'holder.father_name']) },
-    { label: 'मोबाइल नंबर (Phone)', value: appData?.phone || getVal(['phone', 'mobile_number']) },
-    { label: 'ईमेल आईडी (Email)', value: getVal(['email', 'email_id']) },
+    { label: 'Full Name', value: getVal(['applicant_name', 'name', 'full_name', 'holder.full_name']) },
+    { label: 'Date of Birth', value: getVal(['date_of_birth', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
+    { label: 'Gender', value: getVal(['gender', 'holder.gender']) },
+    { label: 'Father/Spouse Name', value: getVal(['father_name', 'spouse_name', 'holder.father_name']) },
+    { label: 'Phone Number', value: appData?.phone || getVal(['phone', 'mobile_number']) },
+    { label: 'Email ID', value: getVal(['email', 'email_id']) },
   ];
 
   const aadhaarInfo = [
-    { label: 'आधार नंबर (Aadhaar Number)', value: getVal(['aadhaar_number']) },
-    { label: 'पता (Address)', value: getVal(['address.address_line', 'address.full_address', 'address.state']) },
-    { label: 'पिन कोड (Pincode)', value: getVal(['address.pincode', 'address.pin_code']) },
+    { label: 'Aadhaar Number', value: getVal(['aadhaar_number']) },
+    { label: 'Address', value: getVal(['address.address_line', 'address.full_address', 'address.state']) },
+    { label: 'Pincode', value: getVal(['address.pincode', 'address.pin_code']) },
   ];
 
   const panInfo = [
-    { label: 'पैन नंबर (PAN Number)', value: getVal(['pan_number']) },
-    { label: 'क्या पैन सत्यापित है? (PAN Verified?)', value: getVal(['pan_confirmed']) },
+    { label: 'PAN Number', value: getVal(['pan_number']) },
+    { label: 'PAN Verified?', value: getVal(['pan_confirmed']) },
   ];
 
   const socioEconomicInfo = [
-    { label: 'वैवाहिक स्थिति (Marital Status)', value: getVal(['marital_status']) },
-    { label: 'परिवार के सदस्य (Family Members)', value: getVal(['number_of_family_members', 'family_members']) },
-    { label: 'धर्म (Religion)', value: getVal(['religion']) },
-    { label: 'जाति (Caste Category)', value: getVal(['caste_category', 'social_category']) },
-    { label: 'शैक्षिक योग्यता (Education)', value: getVal(['educational_qualification', 'education']) },
-    { label: 'कुल संपत्ति (Net Worth)', value: getVal(['net_worth']) },
+    { label: 'Marital Status', value: getVal(['marital_status']) },
+    { label: 'Family Members', value: getVal(['number_of_family_members', 'family_members']) },
+    { label: 'Religion', value: getVal(['religion']) },
+    { label: 'Caste Category', value: getVal(['caste_category', 'social_category']) },
+    { label: 'Education', value: getVal(['educational_qualification', 'education']) },
+    { label: 'Net Worth', value: getVal(['net_worth']) },
   ];
 
   const financeInfo = [
-    { label: 'व्यवसाय का प्रकार (Occupation)', value: getVal(['occupation', 'occupation_type', 'business_type']) },
-    { label: 'व्यवसाय की प्रकृति (Nature of Business)', value: getVal(['nature_of_business']) },
-    { label: 'मासिक बिक्री (Monthly Revenue)', value: getVal(['monthly_revenue', 'business_revenue', 'business_details.monthly_revenue', 'annual_income']) },
-    { label: 'मासिक लाभ (Net Profit)', value: getVal(['monthly_profit', 'business_details.monthly_profit']) },
-    { label: 'स्टॉक/इन्वेंट्री (Inventory)', value: getVal(['inventory_amount', 'business_details.inventory_amount']) },
+    { label: 'Occupation Type', value: getVal(['occupation', 'occupation_type', 'business_type']) },
+    { label: 'Nature of Business', value: getVal(['nature_of_business']) },
+    { label: 'Monthly Revenue', value: getVal(['monthly_revenue', 'business_revenue', 'business_details.monthly_revenue', 'annual_income']) },
+    { label: 'Net Profit', value: getVal(['monthly_profit', 'business_details.monthly_profit']) },
+    { label: 'Inventory', value: getVal(['inventory_amount', 'business_details.inventory_amount']) },
   ];
 
   const udyamInfo = [
-    { label: 'उद्यम नंबर (Udyam Number)', value: getVal(['udyam_number']) },
-    { label: 'उद्यम का नाम (Enterprise Name)', value: getVal(['enterprise_name']) },
-    { label: 'पंजीकरण तिथि (Registration Date)', value: getVal(['date_of_registration', 'date_of_commencement']) },
+    { label: 'Udyam Number', value: getVal(['udyam_number']) },
+    { label: 'Enterprise Name', value: getVal(['enterprise_name']) },
+    { label: 'Registration Date', value: getVal(['date_of_registration', 'date_of_commencement']) },
   ];
 
   const bankInfo = [
-    { label: 'खाता नंबर (Account Number)', value: getVal(['account_number']) },
-    { label: 'बैंक का नाम (Bank Name)', value: getVal(['bank_name']) },
-    { label: 'IFSC कोड (IFSC Code)', value: getVal(['ifsc_code']) },
+    { label: 'Account Number', value: getVal(['account_number']) },
+    { label: 'Bank Name', value: getVal(['bank_name']) },
+    { label: 'IFSC Code', value: getVal(['ifsc_code']) },
   ];
 
   const renderCard = (title, icon, data) => {
     // Only render if at least one field is available
-    const hasData = data.some(d => d.value && d.value !== 'उपलब्ध नहीं' && d.value !== '{}');
+    const hasData = data.some(d => d.value && d.value !== 'Not Available' && d.value !== '{}');
     if (!hasData) return null;
 
     return (
@@ -171,18 +171,18 @@ export default function DetailsPage() {
   };
 
   return (
-    <div style={{ background: '#090a10', color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ background: '#05070f', color: '#fff', minHeight: '100vh', fontFamily: 'sans-serif' }}>
       {/* Header */}
       <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <Link href="/dashboard" style={{ textDecoration: 'none', color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem' }}>
-            <span>← डैशबोर्ड पर लौटें</span>
+            <span>← Return to Dashboard</span>
           </Link>
           <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-          <span style={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>बैंक फॉर्म विवरण (SBI Saving Account Details)</span>
+          <span style={{ fontSize: '1rem', fontWeight: 600, color: '#fff' }}>Verified SBI Savings Account Details</span>
         </div>
-        <div style={{ fontSize: '0.8125rem', color: '#7c3aed', background: 'rgba(124, 58, 237, 0.1)', padding: '6px 12px', borderRadius: '12px', border: '1px solid rgba(124, 58, 237, 0.2)' }}>
-          {appData?.application_id || 'लंबित'}
+        <div style={{ fontSize: '0.8125rem', color: '#4a78ff', background: 'rgba(74, 120, 255, 0.1)', padding: '6px 12px', borderRadius: '12px', border: '1px solid rgba(74, 120, 255, 0.2)' }}>
+          {appData?.application_id || 'Pending'}
         </div>
       </nav>
 
@@ -191,33 +191,33 @@ export default function DetailsPage() {
         
         {/* Left Side: Parameters Grid */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-          {renderCard('व्यक्तिगत विवरण (Personal Information)', '👤', personalInfo)}
-          {renderCard('आधार विवरण (Aadhaar Details)', '🆔', aadhaarInfo)}
-          {renderCard('पैन विवरण (PAN Details)', '💳', panInfo)}
-          {renderCard('सामाजिक-आर्थिक विवरण (Socio-Economic)', '👨‍👩‍👧', socioEconomicInfo)}
-          {renderCard('व्यवसाय और वित्त (Business & Financials)', '💼', financeInfo)}
-          {renderCard('उद्यम विवरण (Udyam Details)', '🏢', udyamInfo)}
-          {renderCard('बैंक विवरण (Bank Details)', '🏦', bankInfo)}
+          {renderCard('Personal Information', '👤', personalInfo)}
+          {renderCard('Aadhaar Details', '🆔', aadhaarInfo)}
+          {renderCard('PAN Details', '💳', panInfo)}
+          {renderCard('Socio-Economic Details', '👨‍👩‍👧', socioEconomicInfo)}
+          {renderCard('Occupation & Financials', '💼', financeInfo)}
+          {renderCard('Udyam Details', '🏢', udyamInfo)}
+          {renderCard('Bank Account Details', '🏦', bankInfo)}
         </div>
 
         {/* Right Side: Uploaded Documents */}
         <div>
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '18px', padding: '24px', position: 'sticky', top: '100px' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '24px', color: '#a7b4fc' }}>
-              📄 अपलोड किए गए दस्तावेज़ ({documents.length})
+              📄 Uploaded Documents ({documents.length})
             </h3>
             
             {documents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
                 <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>📁</span>
-                कोई दस्तावेज़ अपलोड नहीं किया गया है
+                No documents have been uploaded.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {documents.map((doc, idx) => (
                   <div key={idx} style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#e2e8f0' }}>
+                      <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#e2e8f0', textTransform: 'capitalize' }}>
                         {doc.doc_type.replace(/_/g, ' ')}
                       </span>
                       <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
@@ -236,7 +236,7 @@ export default function DetailsPage() {
                         }}
                       />
                       <div style={{ display: 'none', color: '#64748b', fontSize: '0.875rem' }}>
-                        [दस्तावेज़ लोड करने में असमर्थ]
+                        [Unable to load document]
                       </div>
                     </div>
                   </div>

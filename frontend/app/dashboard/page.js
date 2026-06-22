@@ -81,18 +81,18 @@ export default function DashboardPage() {
     } catch (e) {
       console.error("Failed to reset fields:", e);
     }
-    router.push('/documents');
+    router.push('/interview');
   };
 
   if (loading) {
     return (
       <div className={styles.container} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at center, #0f111a 0%, #050508 100%)', color: '#fff' }}>
         <div style={{ textAlign: 'center' }}>
-          <div className={styles.spinner} style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#7c3aed', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
+          <div className={styles.spinner} style={{ width: '50px', height: '50px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#4a78ff', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto 20px' }}></div>
           <style jsx global>{`
             @keyframes spin { to { transform: rotate(360deg); } }
           `}</style>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 500, color: '#a0aec0' }}>लोड हो रहा है...</h2>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 500, color: '#a0aec0' }}>Loading Dashboard...</h2>
         </div>
       </div>
     );
@@ -109,18 +109,18 @@ export default function DashboardPage() {
               <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
               <defs>
                 <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
-                  <stop stopColor="#7c3aed" /><stop offset="1" stopColor="#06b6d4" />
+                  <stop stopColor="#4a78ff" /><stop offset="1" stopColor="#06b6d4" />
                 </linearGradient>
               </defs>
             </svg>
-            <span>Augmen</span>
+            <span>Augmen.io</span>
           </div>
         </div>
 
         <div className={styles.navRight} style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           {applicantName && (
             <div className={styles.userChip} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px', background: 'rgba(255, 255, 255, 0.04)', borderRadius: '20px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></div>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c968' }}></div>
               <span style={{ fontSize: '0.875rem', fontWeight: 500 }}>{applicantName}</span>
             </div>
           )}
@@ -129,7 +129,7 @@ export default function DashboardPage() {
             className="btn btn-ghost"
             style={{ color: '#ef4444', fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <span>लॉगआउट</span> 🚪
+            <span>Logout</span> 🚪
           </button>
         </div>
       </nav>
@@ -143,13 +143,13 @@ export default function DashboardPage() {
           </div>
 
           <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '12px', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            {hasData ? 'विवरण प्राप्त हो चुका है' : 'खाता खोलने की प्रक्रिया'}
+            {hasData ? 'Onboarding Completed' : 'SBI Savings Account Opening'}
           </h1>
 
           <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', marginBottom: '40px', maxWidth: '460px', margin: '0 auto 40px' }}>
             {hasData
-              ? 'आपके बैंक फॉर्म का विवरण और अपलोड किए गए दस्तावेज़ सुरक्षित रूप से सहेज लिए गए हैं। आप नीचे विवरण देख सकते हैं या प्रक्रिया को फिर से कर सकते हैं।'
-              : 'एसबीआई बचत खाता खोलने की प्रक्रिया शुरू करने के लिए नीचे दिए गए बटन पर क्लिक करें।'}
+              ? 'Your bank account form details and uploaded documents have been securely processed. You can review your verified details below or redo the onboarding process.'
+              : 'Click the button below to start the conversational SBI savings account opening process.'}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -160,16 +160,16 @@ export default function DashboardPage() {
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '16px', fontSize: '1.05rem', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444 0%, #c2410c 100%)', color: '#fff', border: 'none', transition: 'all 0.2s', boxShadow: '0 4px 15px rgba(239, 68, 68, 0.2)' }}
               >
-                🔄 प्रक्रिया पुनः शुरू करें (Re-do Process)
+                🔄 Re-do Onboarding Process
               </button>
             ) : (
               <button
                 id="start-process-btn"
-                onClick={() => router.push('/documents')}
+                onClick={() => router.push('/interview')}
                 className="btn btn-primary"
-                style={{ width: '100%', padding: '16px', fontSize: '1.05rem', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)', color: '#fff', border: 'none', transition: 'all 0.2s', boxShadow: '0 4px 20px rgba(124, 58, 237, 0.3)' }}
+                style={{ width: '100%', padding: '16px', fontSize: '1.05rem', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #4a78ff 0%, #7c3aed 100%)', color: '#fff', border: 'none', transition: 'all 0.2s', boxShadow: '0 4px 20px rgba(74, 120, 255, 0.3)' }}
               >
-                ⚡ प्रक्रिया शुरू करें (Start Process)
+                ⚡ Start Onboarding Process
               </button>
             )}
 
@@ -190,7 +190,7 @@ export default function DashboardPage() {
                 transition: 'all 0.2s'
               }}
             >
-              📋 विवरण देखें (View Details)
+              📋 View Verified Details
             </button>
           </div>
         </div>

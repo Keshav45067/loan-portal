@@ -26,7 +26,7 @@ export default function LoginPage() {
   const handleSendOtp = async (e) => {
     if (e) e.preventDefault();
     if (phone.length !== 10) {
-      setError('कृपया 10 अंकों का मोबाइल नंबर दर्ज करें');
+      setError('Please enter a valid 10-digit mobile number');
       return;
     }
     setLoading(true);
@@ -47,11 +47,11 @@ export default function LoginPage() {
         setOtp(['', '', '', '']);
         setTimeout(() => otpRefs.current[0]?.focus(), 100);
       } else {
-        setError(data.error || 'OTP भेजने में विफल। कृपया पुन: प्रयास करें।');
+        setError(data.error || 'Failed to send OTP. Please try again.');
       }
     } catch (err) {
       setLoading(false);
-      setError('सर्वर से कनेक्ट करने में विफल।');
+      setError('Failed to connect to the server.');
       console.error(err);
     }
   };
@@ -77,7 +77,7 @@ export default function LoginPage() {
     e.preventDefault();
     const otpStr = otp.join('');
     if (otpStr.length !== 4) {
-      setError('कृपया 4 अंकों का OTP दर्ज करें');
+      setError('Please enter a 4-digit OTP');
       return;
     }
     setLoading(true);
@@ -99,11 +99,11 @@ export default function LoginPage() {
 
         router.push('/dashboard');
       } else {
-        setError(data.error || 'अमान्य OTP। कृपया दोबारा प्रयास करें।');
+        setError(data.error || 'Invalid OTP. Please try again.');
       }
     } catch (err) {
       setLoading(false);
-      setError('सर्वर से कनेक्ट करने में विफल।');
+      setError('Failed to connect to the server.');
       console.error(err);
     }
   };
@@ -121,39 +121,39 @@ export default function LoginPage() {
               <circle cx="28" cy="20" r="2" fill="white" opacity="0.8" />
               <defs>
                 <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
-                  <stop stopColor="#7c3aed" />
-                  <stop offset="1" stopColor="#a855f7" />
+                  <stop stopColor="#4a78ff" />
+                  <stop offset="1" stopColor="#7c3aed" />
                 </linearGradient>
               </defs>
             </svg>
           </div>
           <h1 className={styles.brandTitle}>
-            <span className="text-gradient">Augmen</span> AI
+            <span className="text-gradient">Augmen.io</span>
           </h1>
           <p className={styles.brandSubtitle}>
-            स्मार्ट मुद्रा समाधान
+            Conversational Bank Onboarding Demo
           </p>
 
           <div className={styles.features}>
             <div className={`${styles.featureItem} animate-in animate-delay-1`}>
               <div className={styles.featureIcon}>🎙️</div>
               <div>
-                <p className={styles.featureTitle}>Voice-Powered</p>
-                <p className={styles.featureDesc}>हिंदी में बात करें, AI सब समझेगा</p>
+                <p className={styles.featureTitle}>Voice-Guided Onboarding</p>
+                <p className={styles.featureDesc}>Speak naturally to complete your account opening form.</p>
               </div>
             </div>
             <div className={`${styles.featureItem} animate-in animate-delay-2`}>
-              <div className={styles.featureIcon}>📄</div>
+              <div className={styles.featureIcon}>🪪</div>
               <div>
-                <p className={styles.featureTitle}>Smart Documents</p>
-                <p className={styles.featureDesc}>दस्तावेज़ स्कैन करें, AI डेटा निकालेगा</p>
+                <p className={styles.featureTitle}>Smart Document Extraction</p>
+                <p className={styles.featureDesc}>Scan your Aadhaar & PAN. AI automatically extracts verified details.</p>
               </div>
             </div>
             <div className={`${styles.featureItem} animate-in animate-delay-3`}>
               <div className={styles.featureIcon}>⚡</div>
               <div>
-                <p className={styles.featureTitle}>Fast Processing</p>
-                <p className={styles.featureDesc}>मिनटों में लोन रिपोर्ट तैयार</p>
+                <p className={styles.featureTitle}>Real-time Verification</p>
+                <p className={styles.featureDesc}>Your savings account details are processed instantly with zero typing.</p>
               </div>
             </div>
           </div>
@@ -169,8 +169,8 @@ export default function LoginPage() {
           {step === 'phone' ? (
             <form onSubmit={handleSendOtp} className={`${styles.form} animate-in`}>
               <div className={styles.formHeader}>
-                <h2>नमस्ते! 🙏</h2>
-                <p className="text-muted">अपना मोबाइल नंबर दर्ज करें</p>
+                <h2>Welcome 🚀</h2>
+                <p className="text-muted">Enter your mobile number to begin onboarding</p>
               </div>
 
               <div className={styles.phoneInput}>
@@ -204,7 +204,7 @@ export default function LoginPage() {
                   <span className={styles.spinner} />
                 ) : (
                   <>
-                    OTP भेजें
+                    Send OTP Code
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
@@ -213,7 +213,7 @@ export default function LoginPage() {
               </button>
 
               <p className={styles.terms}>
-                जारी रखकर आप हमारी <a href="#">गोपनीयता नीति</a> और <a href="#">सेवा शर्तों</a> से सहमत हैं
+                By continuing, you agree to our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>
               </p>
             </form>
           ) : (
@@ -223,16 +223,16 @@ export default function LoginPage() {
                   type="button"
                   className="btn btn-ghost"
                   onClick={() => { setStep('phone'); setOtp(['', '', '', '']); }}
-                  style={{ marginBottom: '8px', padding: '4px 0' }}
+                  style={{ marginBottom: '8px', padding: '4px 0', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                   </svg>
-                  वापस
+                  Back
                 </button>
-                <h2>OTP दर्ज करें</h2>
+                <h2>Enter OTP Code</h2>
                 <p className="text-muted">
-                  +91 {phone.slice(0, 5)} {phone.slice(5)} पर भेजा गया
+                  Sent to +91 {phone.slice(0, 5)} {phone.slice(5)}
                 </p>
               </div>
 
@@ -263,13 +263,13 @@ export default function LoginPage() {
                 disabled={loading || otp.join('').length !== 4}
                 style={{ width: '100%' }}
               >
-                {loading ? <span className={styles.spinner} /> : 'सत्यापित करें ✓'}
+                {loading ? <span className={styles.spinner} /> : 'Verify & Proceed ✓'}
               </button>
 
               <div className={styles.resend}>
                 {countdown > 0 ? (
                   <p className="text-muted text-sm">
-                    <span className={styles.countdown}>{countdown}</span> सेकंड में पुनः भेजें
+                    Resend code in <span className={styles.countdown}>{countdown}</span> seconds
                   </p>
                 ) : (
                   <button
@@ -277,7 +277,7 @@ export default function LoginPage() {
                     className="btn btn-ghost text-sm"
                     onClick={() => handleSendOtp()}
                   >
-                    OTP दोबारा भेजें
+                    Resend OTP Code
                   </button>
                 )}
               </div>

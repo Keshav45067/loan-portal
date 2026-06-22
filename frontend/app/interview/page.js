@@ -1,281 +1,187 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './interview.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
 
-const STEPS = [
-  { id: 'START', label: 'स्वागत', short: 'Welcome' },
-  { id: 'Q_STATUS', label: 'स्थिति', short: 'Status' },
-  { id: 'Q_MONTHLY_REV', label: 'मासिक बिक्री', short: 'Revenue' },
-  { id: 'Q_MONTHLY_PROFIT', label: 'मासिक लाभ', short: 'Profit' },
-  { id: 'Q_LAST_YEAR_REV', label: 'पिछले साल', short: 'Last Year' },
-  { id: 'Q_PERSONS', label: 'कर्मचारी', short: 'Staff' },
-  { id: 'Q_INVENTORY', label: 'माल/स्टॉक', short: 'Inventory' },
-  { id: 'Q_DEBTORS', label: 'उधारी', short: 'Debtors' },
-  { id: 'Q_CREDITORS', label: 'लेनदार', short: 'Creditors' },
-  { id: 'Q_PROPOSED', label: 'प्रस्तावित', short: 'Proposed' },
-  { id: 'Q_MACHINES', label: 'मशीन', short: 'Machines' },
-  { id: 'Q_PRIOR_LOAN', label: 'पूर्व कर्ज', short: 'Loan History' },
-  { id: 'Q_FAMILY', label: 'परिवार', short: 'Family' },
-  { id: 'Q_EDUCATION', label: 'शिक्षा', short: 'Education' },
-  { id: 'Q_COBORROWER', label: 'सह-कर्जदार', short: 'Co-borrower' },
-];
+const DOCUMENT_METADATA = {
+  'selfie': { label: 'Selfie', icon: '🤳', facingMode: 'user', tips: ['Face should be clearly visible', 'Good lighting is required'] },
+  'aadhaar_front': { label: 'Aadhaar (Front)', icon: '🪪', facingMode: 'environment', tips: ['Full card should be visible', 'Number must be clear'] },
+  'aadhaar_back': { label: 'Aadhaar (Back)', icon: '🪪', facingMode: 'environment', tips: ['QR code should be clear'] },
+  'pan': { label: 'PAN Card', icon: '💳', facingMode: 'environment', tips: ['Full PAN card should be in frame'] },
+  'spouse_pan': { label: 'Spouse PAN', icon: '💳', facingMode: 'environment', tips: ['Keep spouse\'s PAN card ready'] },
+  'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
+  'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
+  'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
+  'office_id': { label: 'Office ID', icon: '🪪', facingMode: 'environment', tips: ['Office ID should be clear'] },
+  'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] }
+};
 
-// Resample float32 buffer to 16000Hz
-function resample(buffer, sourceRate, targetRate) {
-  const ratio = sourceRate / targetRate;
-  const newLength = Math.round(buffer.length / ratio);
-  const result = new Float32Array(newLength);
-  let offsetResult = 0;
-  let offsetBuffer = 0;
-  while (offsetResult < result.length) {
-    const nextOffsetBuffer = Math.round((offsetResult + 1) * ratio);
-    let accum = 0, count = 0;
-    for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
-      accum += buffer[i];
-      count++;
-    }
-    result[offsetResult] = count > 0 ? accum / count : 0;
-    offsetResult++;
-    offsetBuffer = nextOffsetBuffer;
-  }
-  return result;
-}
-
-// Convert Float32 array to 16-bit PCM ArrayBuffer
-function floatTo16BitPCM(float32Array) {
-  const buffer = new ArrayBuffer(float32Array.length * 2);
-  const view = new DataView(buffer);
-  for (let i = 0; i < float32Array.length; i++) {
-    const s = Math.max(-1, Math.min(1, float32Array[i]));
-    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
-  return buffer;
-}
-
-function InterviewContent() {
-  const searchParams = useSearchParams();
+export default function InterviewPage() {
   const router = useRouter();
-  const applicantName = searchParams.get('name') || 'आवेदक';
-  const businessType = searchParams.get('type') || 'GROCERY';
 
-  // State
-  const [voiceState, setVoiceState] = useState('idle'); // idle, connecting, listening, speaking, processing
+  // Basic Session Info
+  const [token, setToken] = useState('');
+  const [sessionId, setSessionId] = useState('');
+  const [applicationId, setApplicationId] = useState('');
+  const [schemeId, setSchemeId] = useState('sbi-account-opening');
+
+  // Flow State (Driven by backend)
+  const [isStarted, setIsStarted] = useState(false);
+  const [nodeType, setNodeType] = useState('voice-qa'); // 'voice-qa' or 'capture'
+  const [documentId, setDocumentId] = useState('selfie');
   const [currentStep, setCurrentStep] = useState(0);
-  const [currentText, setCurrentText] = useState('');
+  const [totalSteps, setTotalSteps] = useState(0);
+
+  // Voice Assistant State
+  const [qaState, setQaState] = useState('idle');
   const [transcript, setTranscript] = useState('');
-  const [extractedData, setExtractedData] = useState({});
-  const [isConnected, setIsConnected] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [showComplete, setShowComplete] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
   const [textInputValue, setTextInputValue] = useState('');
-
-  // Audio recording state
-  const [isClientSpeaking, setIsClientSpeaking] = useState(false);
-
-  // Audio visualizer bars
-  const [bars, setBars] = useState(Array(8).fill(4));
-
-  // Global Audio Unlock on first interaction
-  useEffect(() => {
-    const unlock = () => {
-      if (typeof window !== 'undefined') {
-        window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
-        const ctx = window.globalAudioContext;
-        if (ctx.state === 'suspended') {
-          try { ctx.resume(); } catch (e) {}
-        }
-        if (!window.audioUnlocked) {
-          try {
-            const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
-            const source = ctx.createBufferSource();
-            source.buffer = buffer;
-            source.connect(ctx.destination);
-            source.start(0);
-            window.audioUnlocked = true;
-          } catch(e) {}
-        }
-      }
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-    document.addEventListener('click', unlock);
-    document.addEventListener('touchstart', unlock);
-    return () => {
-      document.removeEventListener('click', unlock);
-      document.removeEventListener('touchstart', unlock);
-    };
-  }, []);
-
-  // Timer
-  const animFrameRef = useRef();
-
-  // Shared Voice Session Ref
   const voiceSessionRef = useRef(null);
-  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const prevQaStateRef = useRef('');
 
-  // Timer
-  useEffect(() => {
-    if (!isConnected || showComplete) return;
-    const t = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(t);
-  }, [isConnected, showComplete]);
+  // Document Uploads State
+  const [docs, setDocs] = useState({});
+  const [verified, setVerified] = useState({});
+  const [verifying, setVerifying] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
 
-  // Voice bar animation
+  // Live Camera Refs & State
+  const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const [activeFacingMode, setActiveFacingMode] = useState('environment');
+
   useEffect(() => {
-    if (voiceState === 'speaking' || voiceState === 'listening' || isClientSpeaking) {
-      const animate = () => {
-        setBars(prev => prev.map(() => {
-          const intensity = voiceState === 'speaking' ? 0.7 : 0.3;
-          return Math.random() * 28 * intensity + 4;
-        }));
-        animFrameRef.current = requestAnimationFrame(() => {
-          setTimeout(animate, 100);
-        });
-      };
-      animate();
-      return () => cancelAnimationFrame(animFrameRef.current);
+    const savedToken = localStorage.getItem('token');
+    const savedSessionId = localStorage.getItem('session_id');
+    const savedApplicationId = localStorage.getItem('application_id');
+    const savedSchemeId = localStorage.getItem('scheme_id') || 'sbi-account-opening';
+    if (!savedToken || !savedSessionId) {
+      router.push('/');
     } else {
-      setBars(Array(12).fill(4));
+      setToken(savedToken);
+      setSessionId(savedSessionId);
+      setApplicationId(savedApplicationId || '');
+      setSchemeId(savedSchemeId);
     }
-  }, [voiceState, isClientSpeaking]);
 
-  // Disconnect socket & stop mic
-  const cleanup = useCallback(() => {
-    if (voiceSessionRef.current) {
-      voiceSessionRef.current.disconnect();
-      voiceSessionRef.current = null;
-    }
-    setIsUserSpeaking(false);
-    setIsConnected(false);
-  }, []);
-
-  useEffect(() => {
-    // Load VAD dependencies from CDN
     import('../utils/voiceHelper').then(({ loadVADScripts }) => {
-      loadVADScripts().then(success => {
-        if (success) console.log('Interview VAD loaded.');
-      });
+      loadVADScripts().catch(console.error);
     });
-    return () => cleanup();
-  }, [cleanup]);
+    
+    return () => {
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.disconnect();
+      }
+    };
+  }, [router]);
 
-  // Start Voice Session (Connect to WebSocket)
-  const startInterview = async () => {
-    cleanup();
-    setErrorMsg('');
-    setVoiceState('connecting');
+  const startSession = async () => {
+    setErrors(prev => ({ ...prev, global: null, warning: null }));
+    setIsStarted(true);
+    setQaState('connecting');
 
-    const token = localStorage.getItem('token');
-    const sessionId = localStorage.getItem('session_id');
-    const applicationId = localStorage.getItem('application_id');
-
-    if (!token || !sessionId) {
-      setErrorMsg('प्रमाणिकरण विवरण गुम हैं। कृपया पुनः लॉगिन करें।');
-      setVoiceState('idle');
-      return;
+    // Initialize and resume AudioContext synchronously in click handler
+    window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+    if (window.globalAudioContext.state === 'suspended') {
+      try { window.globalAudioContext.resume(); } catch (e) { console.error('Failed to resume AudioContext:', e); }
     }
 
     try {
-      const { loadVADScripts, VoiceSessionManager } = await import('../utils/voiceHelper');
-      const loaded = await loadVADScripts();
-      if (!loaded) {
-        throw new Error('VAD scripts could not be loaded.');
+      const { VoiceSessionManager, loadVADScripts } = await import('../utils/voiceHelper');
+
+      const isLoaded = await loadVADScripts();
+      if (!isLoaded) {
+        throw new Error('VAD scripts could not be loaded. Please check your connection and try again.');
       }
 
       const manager = new VoiceSessionManager({
         token,
         sessionId,
         applicationId,
-        applicantName,
-        schemeId: `mudra-${businessType.toLowerCase()}`,
+        applicantName: localStorage.getItem('applicant_name') || 'Applicant',
+        schemeId: schemeId,
+        language: selectedLanguage,
         wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/voice`,
         onStateChange: (state) => {
-          setVoiceState(state);
-        },
-        onTranscript: (text, isFinal) => {
-          if (isFinal) {
-            setTranscript(text);
-          } else {
-            // Assistant text question
-            setCurrentText(text);
+          console.log('[DEBUG Frontend] onStateChange:', state);
+          setQaState(state);
+
+          const prev = prevQaStateRef.current;
+          prevQaStateRef.current = state;
+
+          if (state !== 'speaking' || prev !== 'speaking') {
             setTranscript('');
           }
         },
-        onProgress: (current_step, total_steps, current_node_id) => {
-          const nodeIndex = STEPS.findIndex(s => s.id === current_node_id);
-          if (nodeIndex !== -1) {
-            setCurrentStep(nodeIndex);
+        onTranscript: (text, isFinal) => {
+          console.log('[DEBUG Frontend] onTranscript:', text, 'isFinal:', isFinal);
+          if (!isFinal) setTranscript(text);
+        },
+        onProgress: (step, total, nodeId) => {
+          console.log('[DEBUG Frontend] onProgress: step =', step, 'total =', total, 'nodeId =', nodeId);
+          setCurrentStep(step);
+          setTotalSteps(total);
+        },
+        onNodeChange: (type, docId) => {
+          console.log('[DEBUG Frontend] onNodeChange: type =', type, 'docId =', docId);
+          setNodeType(type);
+          if (docId) setDocumentId(docId);
+        },
+        onComplete: async () => {
+          console.log('[DEBUG Frontend] onComplete triggered, saving state and redirecting...');
+          try {
+            const savedToken = localStorage.getItem('token') || token;
+            const savedSessionId = localStorage.getItem('session_id') || sessionId;
+            if (savedToken && savedSessionId) {
+              await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${savedToken}`
+                },
+                body: JSON.stringify({
+                  session_id: savedSessionId,
+                  fields: {
+                    onboarding_finished: true,
+                    completion_status: 'COMPLETED'
+                  }
+                })
+              });
+            }
+          } catch (e) {
+            console.error('Failed to update onboarding_finished status:', e);
           }
-        },
-        onExtraction: (fields) => {
-          setExtractedData(prev => ({ ...prev, ...fields }));
-        },
-        onComplete: (data) => {
-          setVoiceState('idle');
-          cleanup();
           router.push('/dashboard/details');
         },
-        onSystemMessage: (role, text) => {
-          if (role === 'error') {
-            setErrorMsg(text);
-            setIsConnected(false);
-          } else if (role === 'connecting') {
-            setIsConnected(false);
-          } else {
-            setIsConnected(true);
+        onSystemMessage: (type, msg) => {
+          if (type === 'error' || type === 'system_error') {
+            setErrors(prev => ({ ...prev, global: msg }));
+            setQaState('error');
+            setIsStarted(false);
+          } else if (type === 'warning') {
+            setErrors(prev => ({ ...prev, warning: msg }));
           }
         },
         onError: (err) => {
-          setErrorMsg(err);
-          setIsConnected(false);
+          setErrors({ global: err });
+          setQaState('error');
+          setIsStarted(false);
         }
       });
 
       voiceSessionRef.current = manager;
-
       await manager.connect();
-
-      // Hook VAD speech triggers to our React state
-      const vadInstance = manager.audioProcessor?.vadInstance;
-      if (vadInstance) {
-        const originalOnSpeechStart = vadInstance.options.onSpeechStart;
-        vadInstance.options.onSpeechStart = () => {
-          setIsUserSpeaking(true);
-          originalOnSpeechStart();
-        };
-
-        const originalOnSpeechEnd = vadInstance.options.onSpeechEnd;
-        vadInstance.options.onSpeechEnd = () => {
-          setIsUserSpeaking(false);
-          originalOnSpeechEnd();
-        };
-
-        const originalOnFrameProcessed = vadInstance.options.onFrameProcessed;
-        vadInstance.options.onFrameProcessed = (probabilities, frame) => {
-          originalOnFrameProcessed(probabilities, frame);
-          
-          // Estimate volume for bar visualizer
-          let sum = 0;
-          for (let i = 0; i < frame.length; i++) {
-            sum += Math.abs(frame[i]);
-          }
-          const avgVolume = sum / frame.length;
-          const vol = Math.min(100, avgVolume * 500);
-          setBars(prev => prev.map(() => Math.random() * vol * 0.4 + 4));
-        };
-      }
-
     } catch (err) {
-      console.error('Failed to initialize microphone / VAD / WS connection:', err);
-      setErrorMsg('माइक्रोफोन अनुमति अस्वीकार कर दी गई है या उपलब्ध नहीं है।');
-      setVoiceState('idle');
-      cleanup();
+      setErrors({ global: err.message });
+      setQaState('error');
+      setIsStarted(false);
     }
   };
 
@@ -287,181 +193,610 @@ function InterviewContent() {
     }
   };
 
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60);
-    return `${m}:${String(s % 60).padStart(2, '0')}`;
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+  }, []);
+
+  const startCamera = useCallback(async (facingMode) => {
+    stopCamera();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(e => console.error(e));
+      }
+    } catch (err) {
+      console.error('Camera access error:', err);
+    }
+  }, [stopCamera]);
+
+  const handleFlipCamera = () => {
+    const newMode = activeFacingMode === 'user' ? 'environment' : 'user';
+    setActiveFacingMode(newMode);
+    startCamera(newMode);
   };
 
-  const extractedCount = Object.keys(extractedData).length;
+  const uploadFileDirectly = async (file) => {
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    setDocs(prev => ({ ...prev, [documentId]: { file, url: previewUrl, name: file.name } }));
+    setVerifying(true);
+    setErrors(prev => ({ ...prev, [documentId]: null }));
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('document_type', documentId);
+      formData.append('scheme_id', schemeId);
+      formData.append('session_id', sessionId);
+
+      const res = await fetch(`${API_BASE_URL}/api/documents/extract`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || data.error || 'Failed to upload');
+      if (data.success === false) {
+        throw new Error(data.error || 'Document verification failed. Please upload a valid document.');
+      }
+
+      setVerified(prev => ({ ...prev, [documentId]: true }));
+      
+      // Advance graph node
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.sendControlSignal('capture_complete');
+      }
+    } catch (err) {
+      setErrors(prev => ({ ...prev, [documentId]: err.message }));
+      setDocs(prev => {
+        const copy = { ...prev };
+        delete copy[documentId];
+        return copy;
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleCapture = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          const file = new File([blob], `${documentId}.jpg`, { type: 'image/jpeg' });
+          await uploadFileDirectly(file);
+        }
+      }, 'image/jpeg', 0.85);
+    }
+  };
+
+  useEffect(() => {
+    if (isStarted && nodeType === 'capture' && !docs[documentId]) {
+      const meta = DOCUMENT_METADATA[documentId] || {};
+      const facing = meta.facingMode || activeFacingMode;
+      startCamera(facing);
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], startCamera, stopCamera]);
+
+  // Render Neural Voice Core (No Text display per user request)
+  const renderVoiceUI = () => {
+    let sphereClass = styles.coreSphere;
+    let ringClass = '';
+    let isCallActive = false;
+
+    if (qaState === 'listening') {
+      sphereClass = `${styles.coreSphere} ${styles.sphereListening}`;
+      ringClass = styles.ringActive;
+      isCallActive = true;
+    } else if (qaState === 'processing') {
+      sphereClass = `${styles.coreSphere} ${styles.sphereProcessing}`;
+      ringClass = styles.ringActive;
+      isCallActive = true;
+    } else if (qaState === 'speaking') {
+      sphereClass = `${styles.coreSphere} ${styles.sphereSpeaking}`;
+      ringClass = styles.ringActive;
+      isCallActive = true;
+    }
+
+    return (
+      <div className={styles.neuralCoreContainer}>
+        <div className={styles.connectionBar}>
+          <div className={`${styles.connectionDot} ${isCallActive ? styles.connected : ''}`}></div>
+          <span className={styles.connectionText}>
+            {isCallActive ? 'Live Audio Link' : 'Standby'}
+          </span>
+        </div>
+
+        <div className={styles.neuralCoreWrapper}>
+          <div className={`${styles.coreRing} ${styles.ring1} ${ringClass}`}></div>
+          <div className={`${styles.coreRing} ${styles.ring2} ${ringClass}`}></div>
+          <div className={`${styles.coreRing} ${styles.ring3} ${ringClass}`}></div>
+
+          <div className={`${sphereClass} ${isCallActive ? styles.sphereActive : ''}`}>
+            <div className={styles.coreGlowInner}></div>
+          </div>
+        </div>
+
+        {/* Transcription and Status Display */}
+        <div style={{
+          marginTop: '24px',
+          marginBottom: '16px',
+          minHeight: '48px',
+          maxWidth: '480px',
+          textAlign: 'center',
+          zIndex: 10,
+          padding: '0 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          <p style={{
+            fontSize: '1rem',
+            color: '#a0aec0',
+            fontWeight: 500,
+            lineHeight: '1.6',
+            margin: 0
+          }}>
+            {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
+          </p>
+        </div>
+
+
+        {/* Text Input Row */}
+        {isStarted && (
+          <div className={styles.textInputContainer}>
+            <input
+              type="text"
+              className={styles.textInput}
+              placeholder="Type here..."
+              value={textInputValue}
+              onChange={(e) => setTextInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendText();
+              }}
+              disabled={qaState === 'connecting'}
+            />
+            <button 
+              className={styles.sendButton} 
+              onClick={handleSendText} 
+              aria-label="Send text"
+              disabled={qaState === 'connecting' || !textInputValue.trim()}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '16px', marginTop: '24px', justifyContent: 'center' }}>
+          <button
+            className="btn btn-secondary"
+            style={{
+              borderRadius: '99px',
+              padding: '10px 24px',
+              color: '#ef4444',
+              borderColor: 'rgba(239, 68, 68, 0.2)',
+              background: 'rgba(239, 68, 68, 0.05)',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => {
+              if (voiceSessionRef.current) {
+                voiceSessionRef.current.disconnect();
+              }
+              setIsStarted(false);
+              setQaState('idle');
+              router.push('/dashboard');
+            }}
+          >
+            ⏹️ Cancel Onboarding
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // Render Camera UI
+  const renderCameraUI = () => {
+    const meta = DOCUMENT_METADATA[documentId] || DOCUMENT_METADATA['selfie'];
+    const docData = docs[documentId];
+
+    return (
+      <div className={styles.detailCard}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardIconLarge}>{meta.icon}</div>
+          <div style={{ flex: 1 }}>
+            <h3 className={styles.cardTitle}>Upload {meta.label}</h3>
+            <p className={styles.cardDesc}>Scan with camera or upload a file</p>
+          </div>
+        </div>
+
+        <div className={styles.videoContainer}>
+          {/* 1. Live Video Stream */}
+          {!docData && (
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={styles.videoElement}
+              />
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '16px',
+                zIndex: 20
+              }}>
+                <button 
+                  onClick={handleFlipCamera}
+                  style={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '50%',
+                    width: '48px',
+                    height: '48px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '1.25rem',
+                    backdropFilter: 'blur(8px)',
+                    transition: 'transform 0.2s'
+                  }}
+                  title="Flip Camera"
+                >
+                  🔄
+                </button>
+                <button 
+                  onClick={handleCapture}
+                  style={{
+                    backgroundColor: '#4a78ff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '99px',
+                    padding: '0 24px',
+                    height: '48px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(74, 120, 255, 0.3)',
+                    transition: 'transform 0.2s'
+                  }}
+                >
+                  📸 Capture
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Captured Preview Image */}
+          {docData && (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <img 
+                src={docData.url || (docData instanceof File ? URL.createObjectURL(docData) : '')} 
+                alt="Preview" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                zIndex: 20
+              }}>
+                <button 
+                  onClick={() => {
+                    setDocs(prev => {
+                      const copy = { ...prev };
+                      delete copy[documentId];
+                      return copy;
+                    });
+                  }}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '99px',
+                    padding: '8px 20px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                  }}
+                >
+                  Retake
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Scanning Animation Overlay */}
+          {verifying && (
+            <div className={styles.scanningOverlay}>
+              <div className={styles.scanLine} />
+              <div className={styles.miniSpinner} />
+              <p style={{ marginTop: '12px', fontWeight: 600, color: '#fff' }}>
+                AI is verifying the document...
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* 4. Desktop/Fallback Uploader Button */}
+        {!docData && !verifying && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                backgroundColor: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-default)',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              📁 Choose File
+            </button>
+            <input 
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) uploadFileDirectly(file);
+              }}
+            />
+          </div>
+        )}
+
+        {/* 5. Hidden canvas for capturing */}
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+        {errors[documentId] && (
+          <div style={{ 
+            color: '#ef4444', 
+            fontSize: '0.9rem', 
+            marginTop: '8px',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            padding: '12px',
+            borderRadius: '6px',
+            border: '1px solid rgba(239, 68, 68, 0.15)'
+          }}>
+            ❌ {errors[documentId]}
+          </div>
+        )}
+
+        {meta.tips && meta.tips.length > 0 && (
+          <div style={{ marginTop: '1rem', borderTop: '1px solid var(--border-default)', paddingTop: '1rem' }}>
+            <strong>Tips:</strong>
+            <ul className={styles.tipsList}>
+              {meta.tips.map((tip, i) => (
+                <li key={i} className={styles.tipItem}>
+                  <span className={styles.checkMarker}>✓</span> {tip}
+                </li>
+               ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className={styles.container}>
       {/* ─── Header ─── */}
       <header className={styles.header}>
-        <div className={styles.logo}>
-          <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 700, fontSize: '1.25rem' }}>
+          <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
             <circle cx="24" cy="24" r="24" fill="url(#lg)" />
             <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9"/>
-            <defs><linearGradient id="lg" x1="0" y1="0" x2="48" y2="48"><stop stopColor="#7c3aed"/><stop offset="1" stopColor="#a855f7"/></linearGradient></defs>
+            <defs>
+              <linearGradient id="lg" x1="0" y1="0" x2="48" y2="48">
+                <stop stopColor="#4a78ff"/>
+                <stop offset="1" stopColor="#7c3aed"/>
+              </linearGradient>
+            </defs>
           </svg>
-          Chayan AI
-        </div>
-        <div className={styles.headerInfo}>
-          <span className="badge badge-accent">{applicantName} • {businessType}</span>
-          <span className={styles.timer}>{formatTime(elapsed)}</span>
+          <span>Augmen.io — Account Onboarding</span>
         </div>
       </header>
 
-      {/* ─── Main Center Content ─── */}
-      <main className={styles.main}>
-        {!isConnected && !showComplete ? (
+      {/* ─── Global Error and Warning Banners ─── */}
+      {errors.global && (
+        <div style={{
+          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+          color: '#f87171',
+          padding: '16px',
+          margin: '16px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          border: '1px solid rgba(239, 68, 68, 0.2)'
+        }}>
+          <span style={{ fontSize: '24px' }}>⚠️</span>
+          <div>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600 }}>System Error</h3>
+            <p style={{ margin: 0, fontSize: '14px' }}>{errors.global}</p>
+          </div>
+        </div>
+      )}
+
+      {errors.warning && (
+        <div style={{
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          color: '#fbbf24',
+          padding: '16px',
+          margin: '16px 16px 0 16px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          border: '1px solid rgba(245, 158, 11, 0.2)'
+        }}>
+          <span style={{ fontSize: '24px' }}>⚠️</span>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600 }}>Warning</h3>
+            <p style={{ margin: 0, fontSize: '14px' }}>{errors.warning}</p>
+          </div>
+          <button 
+            onClick={() => setErrors(prev => ({ ...prev, warning: null }))}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#fbbf24',
+              fontSize: '18px',
+              cursor: 'pointer',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+
+      {/* ─── Main Content ─── */}
+      <main className={styles.mainGrid}>
+        {!isStarted ? (
           /* Pre-connect screen */
-          <div className={styles.preConnect}>
-            <div className={styles.preConnectIcon}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <div style={{
+            gridColumn: 'span 2',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '65vh',
+            gap: '24px',
+            textAlign: 'center',
+            maxWidth: '600px',
+            margin: '0 auto',
+            padding: '20px'
+          }}>
+            <div style={{
+              width: '72px',
+              height: '72px',
+              borderRadius: '50%',
+              background: 'rgba(74, 120, 255, 0.1)',
+              border: '1px solid rgba(74, 120, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 30px rgba(74, 120, 255, 0.15)',
+              marginBottom: '8px'
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4a78ff" strokeWidth="2" strokeLinecap="round">
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                 <line x1="12" y1="19" x2="12" y2="23" />
                 <line x1="8" y1="23" x2="16" y2="23" />
               </svg>
             </div>
-            <h2>Live Interview</h2>
-            <p>
-              AI आपसे हिंदी में सवाल पूछेगा। बस सामान्य तरीके से बातचीत करें, <br/>सभी जानकारी अपने आप दर्ज़ हो जाएगी।
+
+            <h2 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Digital Bank Account Onboarding
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', maxWidth: '480px' }}>
+              Our AI Assistant will guide you through the savings account opening process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form.
             </p>
 
-            {errorMsg && (
-              <div className={styles.errorBox}>
-                <div className={styles.errorBoxTitle}>⚠️ कनेक्शन त्रुटि / Connection Issue</div>
-                <div className={styles.errorBoxMsg}>{errorMsg}</div>
-              </div>
-            )}
-
-            <button
-              className="btn btn-primary btn-lg"
-              onClick={startInterview}
-              style={{ marginTop: 'var(--space-md)', padding: '16px 40px', fontSize: '1.125rem', borderRadius: 'var(--radius-full)' }}
-            >
-              {errorMsg ? 'पुनः प्रयास करें / Retry Interview' : 'इंटरव्यू शुरू करें'}
-            </button>
-          </div>
-        ) : showComplete ? (
-          /* Complete screen */
-          <div className={styles.complete}>
-            <div className={styles.completeIcon}>✅</div>
-            <h2>इंटरव्यू पूरा हुआ!</h2>
-            <p className="text-muted" style={{ maxWidth: 400, textAlign: 'center' }}>
-              {applicantName} जी, आपकी सारी जानकारी सफलतापूर्वक दर्ज कर ली गई है।
-            </p>
-            <div className={styles.completeStats}>
-              <div className={styles.completeStat}>
-                <span className={styles.completeValue}>{extractedCount}</span>
-                <span className="text-muted text-sm">फ़ील्ड</span>
-              </div>
-              <div className={styles.completeStat}>
-                <span className={styles.completeValue}>{formatTime(elapsed)}</span>
-                <span className="text-muted text-sm">समय</span>
-              </div>
-              <div className={styles.completeStat}>
-                <span className={styles.completeValue}>{currentStep}</span>
-                <span className="text-muted text-sm">सवाल</span>
+            {/* Language Selection Card */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.02)',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
+              borderRadius: '20px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '480px',
+              textAlign: 'center',
+              backdropFilter: 'blur(20px)',
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              marginTop: '8px'
+            }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Select Voice Language
+              </span>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                {[
+                  { code: 'hi', label: 'Hindi' },
+                  { code: 'en', label: 'English' },
+                  { code: 'te', label: 'Telugu' }
+                ].map(lang => (
+                  <button
+                    key={lang.code}
+                    onClick={() => setSelectedLanguage(lang.code)}
+                    style={{
+                      flex: 1,
+                      padding: '12px 16px',
+                      borderRadius: '12px',
+                      border: selectedLanguage === lang.code ? '1.5px solid #4a78ff' : '1px solid rgba(255, 255, 255, 0.08)',
+                      background: selectedLanguage === lang.code ? 'rgba(74, 120, 255, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                      color: selectedLanguage === lang.code ? '#fff' : '#94a3b8',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: selectedLanguage === lang.code ? '0 0 15px rgba(74, 120, 255, 0.2)' : 'none'
+                    }}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
               </div>
             </div>
-            <button className="btn btn-primary btn-lg" onClick={() => router.push('/dashboard/details')} style={{ minWidth: 220, borderRadius: 'var(--radius-full)' }}>
-              डैशबोर्ड पर जाएँ →
+
+            <button 
+              onClick={startSession}
+              className={styles.btnNeural}
+              data-state="start"
+              style={{ marginTop: '16px', minWidth: '220px' }}
+            >
+              <span>Start Onboarding</span>
+              <div className={styles.btnGlow}></div>
             </button>
           </div>
         ) : (
-          /* Active interview */
-          <div className={styles.voiceInterface}>
-            <div className={`${styles.statusBadge} ${styles[`status-${voiceState}`]}`}>
-              <span className={styles.statusDot} />
-              {isUserSpeaking ? 'आप बोल रहे हैं...' :
-               voiceState === 'listening' ? 'सुन रहा है (शांत)...' :
-               voiceState === 'speaking' ? 'बोल रहा है...' :
-               voiceState === 'processing' ? 'समझ रहा है...' :
-               'जुड़ रहा है...'}
-            </div>
-
-            {/* Voice Orb (Light Theme) */}
-            <div className={styles.orbContainer}>
-              <div className={`${styles.coreRing} ${styles.ring1}`} />
-              <div className={`${styles.coreRing} ${styles.ring2}`} />
-              <div className={`${styles.coreRing} ${styles.ring3}`} />
-              <div className={`${styles.coreSphere} ${isUserSpeaking ? styles.sphereListening : styles[`sphere${voiceState.charAt(0).toUpperCase() + voiceState.slice(1)}`] || ''}`}>
-                <div className={styles.coreGlowInner} />
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--accent-primary)" strokeWidth="1.5">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Current Question / Transcript */}
-            <div className={styles.textArea}>
-              {voiceState === 'speaking' && currentText && (
-                <p className={styles.questionText}>
-                  {currentText}
-                </p>
-              )}
-              {(voiceState === 'listening' || isClientSpeaking || isUserSpeaking) && (
-                <p className={styles.transcriptText}>
-                  {transcript || 'आप बोल सकते हैं...'}
-                </p>
-              )}
-            </div>
-
-            {/* Direct Text Input */}
-            <div className={styles.textInputContainer}>
-              <input
-                type="text"
-                className={styles.textInput}
-                placeholder="यहाँ टाइप करें... / Type here..."
-                value={textInputValue}
-                onChange={(e) => setTextInputValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSendText();
-                }}
-                disabled={voiceState === 'connecting'}
-              />
-              <button 
-                className={styles.sendButton} 
-                onClick={handleSendText} 
-                aria-label="Send text"
-                disabled={voiceState === 'connecting' || !textInputValue.trim()}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
-            </div>
-
-            {/* Action Buttons */}
-            <div className={styles.actionRow}>
-              <button
-                className="btn btn-secondary"
-                style={{ borderRadius: 'var(--radius-full)', padding: '12px 32px', color: 'var(--accent-danger)', borderColor: 'var(--border-default)', background: 'var(--bg-glass)' }}
-                onClick={() => { setShowComplete(true); setVoiceState('idle'); cleanup(); }}
-              >
-                ⏹️ इंटरव्यू समाप्त करें
-              </button>
-            </div>
+          <div style={{ gridColumn: 'span 2', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+            {nodeType === 'voice-qa' ? renderVoiceUI() : renderCameraUI()}
           </div>
         )}
       </main>
     </div>
-  );
-}
-
-export default function InterviewPage() {
-  return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'var(--text-secondary)' }}>
-        Loading...
-      </div>
-    }>
-      <InterviewContent />
-    </Suspense>
   );
 }

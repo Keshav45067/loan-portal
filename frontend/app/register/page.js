@@ -88,8 +88,8 @@ export default function RegisterPage() {
   }, [router]);
 
   const steps = [
-    { label: 'स्थान चुनें', icon: '📍' },
-    { label: 'RSETI केंद्र', icon: '🏛️' },
+    { label: 'Location', icon: '📍' },
+    { label: 'RSETI Center', icon: '🏛️' },
   ];
 
   const districts = DISTRICTS[form.state] || [];
@@ -134,13 +134,13 @@ export default function RegisterPage() {
 
         if (data.success) {
           localStorage.setItem('application_id', data.application_id);
-          router.push('/documents');
+          router.push('/interview');
         } else {
-          setError(data.error || 'पंजीकरण सहेजने में विफल। कृपया पुन: प्रयास करें।');
+          setError(data.error || 'Failed to save registration. Please try again.');
         }
       } catch (err) {
         setLoading(false);
-        setError('सर्वर से कनेक्ट करने में विफल।');
+        setError('Failed to connect to the server.');
         console.error(err);
       }
     }
@@ -155,14 +155,14 @@ export default function RegisterPage() {
     <div className={styles.container}>
       {/* Header */}
       <header className={styles.header}>
-        <button className="btn btn-ghost" onClick={handleBack} id="back-btn">
+        <button className="btn btn-ghost" onClick={handleBack} id="back-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
-          वापस
+          Back
         </button>
         <div className={styles.headerCenter}>
-          <span className="badge badge-accent">पंजीकरण</span>
+          <span className="badge badge-accent">Registration</span>
         </div>
         <div style={{ width: 80 }} />
       </header>
@@ -190,24 +190,24 @@ export default function RegisterPage() {
         {step === 0 && (
           <div className={`${styles.stepContent} animate-in`} key="location">
             <div className={styles.stepHeader}>
-              <h2>स्थान चुनें</h2>
-              <p className="text-muted">राज्य → जिला → ब्लॉक → पंचायत</p>
+              <h2>Select Location</h2>
+              <p className="text-muted">State ➔ District ➔ Block ➔ Panchayat</p>
             </div>
             <div className={styles.locationGrid}>
               <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>राज्य</label>
+                <label className={styles.selectLabel}>State</label>
                 <select
                   id="state-select"
                   className={`input ${styles.select}`}
                   value={form.state}
                   onChange={e => setForm({ ...form, state: e.target.value, district: '', block: '', panchayat: '' })}
                 >
-                  <option value="">चुनें...</option>
+                  <option value="">Select...</option>
                   {STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>जिला</label>
+                <label className={styles.selectLabel}>District</label>
                 <select
                   id="district-select"
                   className={`input ${styles.select}`}
@@ -215,12 +215,12 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, district: e.target.value, block: '', panchayat: '' })}
                   disabled={!form.state}
                 >
-                  <option value="">चुनें...</option>
+                  <option value="">Select...</option>
                   {districts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
               <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>ब्लॉक</label>
+                <label className={styles.selectLabel}>Block</label>
                 <select
                   id="block-select"
                   className={`input ${styles.select}`}
@@ -228,12 +228,12 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, block: e.target.value, panchayat: '' })}
                   disabled={!form.district}
                 >
-                  <option value="">चुनें...</option>
+                  <option value="">Select...</option>
                   {blocks.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
               <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>पंचायत</label>
+                <label className={styles.selectLabel}>Panchayat</label>
                 <select
                   id="panchayat-select"
                   className={`input ${styles.select}`}
@@ -241,7 +241,7 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, panchayat: e.target.value })}
                   disabled={!form.block}
                 >
-                  <option value="">चुनें...</option>
+                  <option value="">Select...</option>
                   {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -253,8 +253,8 @@ export default function RegisterPage() {
         {step === 1 && (
           <div className={`${styles.stepContent} animate-in`} key="rseti">
             <div className={styles.stepHeader}>
-              <h2>RSETI चुनें</h2>
-              <p className="text-muted">आपका RSETI केंद्र कौन सा है?</p>
+              <h2>Choose RSETI Center</h2>
+              <p className="text-muted">Select your training/onboarding center</p>
             </div>
             <div className={styles.optionGrid}>
               {RSETIS.map(r => (
@@ -286,14 +286,14 @@ export default function RegisterPage() {
             <span className={styles.spinner} />
           ) : step === 1 ? (
             <>
-              पंजीकरण पूरा करें
+              Complete Registration
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </>
           ) : (
             <>
-              आगे बढ़ें
+              Continue
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
