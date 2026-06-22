@@ -556,6 +556,16 @@ class VoiceSession:
                 self._walker._name = extracted_name
 
         current_node = self._walker.current_node
+        if current_node is None:
+            logger.error("Current node not found in graph, ending session gracefully to avoid crash", session_id=self.session_id)
+            yield pb2.VoiceOutput(
+                error=pb2.ErrorMessage(
+                    code="INTERNAL",
+                    message="Configuration error: current graph node is empty or not found."
+                )
+            )
+            return
+
         current_node_id = self._walker.current_node_id
         targets = self._walker.get_field_targets()
 
