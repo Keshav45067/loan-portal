@@ -19,8 +19,7 @@ class StreamingSTT:
         self._sample_rate = sample_rate
         
         self._audio_queue = asyncio.Queue()
-        self._committed_text = ""
-        self._uncommitted_text = ""
+        self._segments = {}
         
         self._stream_task = asyncio.create_task(self._run_stream())
 
@@ -32,7 +31,7 @@ class StreamingSTT:
         from generated import stt_pb2
         
         # First chunk sends config
-        yield stt_pb2.TranscribeRequest(
+        yield stt_pb2.AudioChunk(
             language=self._language,
             sample_rate=self._sample_rate,
             engine="google"
@@ -41,10 +40,10 @@ class StreamingSTT:
         while True:
             chunk = await self._audio_queue.get()
             if chunk is None:  # EOF
-                yield stt_pb2.TranscribeRequest(is_final=True)
+                yield stt_pb2.AudioChunk(is_final=True)
                 break
             
-            yield stt_pb2.TranscribeRequest(audio_data=chunk)
+            yield stt_pb2.AudioChunk(audio_data=chunk)
 
     async def _run_stream(self):
         try:
@@ -54,18 +53,16 @@ class StreamingSTT:
             )
             
             async for response in stream:
-                if response.is_final:
-                    self._committed_text += " " + response.text
-                    self._uncommitted_text = ""
-                else:
-                    self._uncommitted_text = response.text
+                # Update transcript for this specific segment index
+                self._segments[response.result_index] = response.text
                     
         except Exception as e:
             logger.error(f"Streaming STT stream failed: {e}", req_id=self._req_id, error=traceback.format_exc())
 
     def get_current_text(self) -> str:
         """Get the current transcribed text (committed + uncommitted)."""
-        return (self._committed_text + " " + self._uncommitted_text).strip()
+        parts = [self._segments[k].strip() for k in sorted(self._segments.keys())]
+        return " ".join(p for p in parts if p).strip()
 
     async def finalize(self) -> str:
         """
@@ -87,7 +84,6 @@ class StreamingSTT:
 
     def reset(self):
         """Reset for next turn."""
-        self._committed_text = ""
-        self._uncommitted_text = ""
+        self._segments.clear()
         # The stream task is one-shot per speech segment.
         # To reuse, a new StreamingSTT instance must be created.

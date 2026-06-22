@@ -137,6 +137,7 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
                     is_final=result.get("is_final", False),
                     confidence=result.get("confidence", 0.0),
                     language_detected=result.get("language_detected", ""),
+                    result_index=result.get("result_index", 0),
                 )
 
         except Exception as e:

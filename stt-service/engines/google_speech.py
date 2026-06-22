@@ -135,6 +135,7 @@ class GoogleSpeechEngine(BaseSTTEngine):
         def _worker_thread():
             try:
                 responses = self._client.streaming_recognize(config=streaming_config, requests=_sync_stream())
+                segment_index = 0
                 for response in responses:
                     for result in response.results:
                         if result.alternatives:
@@ -142,10 +143,13 @@ class GoogleSpeechEngine(BaseSTTEngine):
                             data = {
                                 "text": alt.transcript,
                                 "is_final": result.is_final,
+                                "result_index": segment_index,
                                 "confidence": alt.confidence if result.is_final else 0.0,
                                 "language_detected": lang_code,
                             }
                             loop.call_soon_threadsafe(out_queue.put_nowait, data)
+                            if result.is_final:
+                                segment_index += 1
             except gcp_exceptions.OutOfRange:
                 logger.warning("Streaming exceeded time limit", req_id=req_id)
             except Exception as e:

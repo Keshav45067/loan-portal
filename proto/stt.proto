@@ -43,4 +43,5 @@ message TranscriptChunk {
   bool is_final = 2;             // True when this is the final result for this segment
   float confidence = 3;
   string language_detected = 4;
+  int32 result_index = 5;        // Absolute index of this segment in the stream
 }
