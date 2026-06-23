@@ -643,7 +643,9 @@ class VoiceSession:
                             document_id=""
                         )
                     )
-                    full_text = next_node["text"]
+                
+                full_text = next_node.get("text", "")
+                if full_text.strip():
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
 
                     sentences, remainder = split_sentences(full_text)
@@ -667,6 +669,8 @@ class VoiceSession:
                     logger.info(f"⏱ TOTAL TURN (auto-advance): {total_turn_ms:.0f}ms",
                                  session_id=self.session_id)
                     yield pb2.VoiceOutput(audio_end=True)
+                
+                if next_node.get("type") != "capture":
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
             else:
                 self._walker._extracted_data["onboarding_finished"] = True
@@ -863,20 +867,22 @@ class VoiceSession:
                             document_id=""
                         )
                     )
-                    # Build response text (empathetic acknowledgment + next question)
-                    # Try to get response_text from parsed LLM JSON (Task A may have included it)
-                    response_text = ""
-                    try:
-                        full_json = json.loads(parser.buffer)
-                        response_text = full_json.get("response_text", "")
-                    except Exception:
-                        pass
 
-                    full_text = ""
-                    if response_text:
-                        full_text = response_text + " "
-                    full_text += next_node["text"]
+                # Build response text (empathetic acknowledgment + next question)
+                # Try to get response_text from parsed LLM JSON (Task A may have included it)
+                response_text = ""
+                try:
+                    full_json = json.loads(parser.buffer)
+                    response_text = full_json.get("response_text", "")
+                except Exception:
+                    pass
 
+                full_text = ""
+                if response_text:
+                    full_text = response_text + " "
+                full_text += next_node.get("text", "")
+
+                if full_text.strip():
                     # Synthesize and stream the response sentence by sentence
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
 
@@ -906,43 +912,43 @@ class VoiceSession:
                                 )
 
                     yield pb2.VoiceOutput(audio_end=True)
-                    if next_node["node_id"] == "END":
-                        self._status = "completed"
-                        self._walker._extracted_data["onboarding_finished"] = True
-                        self._walker._extracted_data["completion_status"] = "COMPLETED"
-                        if self._orchestrator_stub:
-                            try:
-                                from generated import app_orchestrator_pb2
-                                await self._orchestrator_stub.UpsertExtractedData(
-                                    app_orchestrator_pb2.UpsertDataRequest(
-                                        application_id=self.session_id,
-                                        source="voice-qa-complete",
-                                        json_fields=json.dumps({
-                                            "onboarding_finished": True,
-                                            "completion_status": "COMPLETED"
-                                        }, ensure_ascii=False)
-                                    ),
-                                    metadata=[("x-request-id", self.req_id)]
-                                )
-                                logger.info("Direct complete persist successful from voice-engine", session_id=self.session_id)
-                            except Exception as db_err:
-                                logger.error(f"Failed to direct complete persist from voice-engine: {db_err}", session_id=self.session_id)
-
-                        yield pb2.VoiceOutput(
-                            complete=pb2.SessionComplete(
-                                session_id=self.session_id,
-                                json_extracted_data=json.dumps(self._walker.extracted_data, ensure_ascii=False),
-                                total_turns=self._total_turns,
+                
+                if next_node["node_id"] == "END":
+                    self._status = "completed"
+                    self._walker._extracted_data["onboarding_finished"] = True
+                    self._walker._extracted_data["completion_status"] = "COMPLETED"
+                    if self._orchestrator_stub:
+                        try:
+                            from generated import app_orchestrator_pb2
+                            await self._orchestrator_stub.UpsertExtractedData(
+                                app_orchestrator_pb2.UpsertDataRequest(
+                                    application_id=self.session_id,
+                                    source="voice-qa-complete",
+                                    json_fields=json.dumps({
+                                        "onboarding_finished": True,
+                                        "completion_status": "COMPLETED"
+                                    }, ensure_ascii=False)
+                                ),
+                                metadata=[("x-request-id", self.req_id)]
                             )
+                            logger.info("Direct complete persist successful from voice-engine", session_id=self.session_id)
+                        except Exception as db_err:
+                            logger.error(f"Failed to direct complete persist from voice-engine: {db_err}", session_id=self.session_id)
+
+                    yield pb2.VoiceOutput(
+                        complete=pb2.SessionComplete(
+                            session_id=self.session_id,
+                            json_extracted_data=json.dumps(self._walker.extracted_data, ensure_ascii=False),
+                            total_turns=self._total_turns,
                         )
-                    else:
+                    )
+                else:
+                    if next_node.get("type") != "capture":
                         yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
                 total_turn_ms = (time.perf_counter() - t_turn_start) * 1000
                 logger.info(f"⏱ TOTAL TURN (next-q path): {total_turn_ms:.0f}ms",
                              session_id=self.session_id)
-                if next_node["node_id"] != "END":
-                    yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
             else:
                 # Interview complete

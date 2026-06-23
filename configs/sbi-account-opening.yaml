@@ -18,12 +18,18 @@ graph:
   DOC_AADHAAR_FRONT:
     type: capture
     document_id: aadhaar_front
+    text_template: कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।
+    text_template_en: Please take a photo of the front side of your Aadhaar card.
+    text_template_te: దయచేసి మీ ఆధార్ కార్డ్ ముందు వైపు ఫోటో తీయండి.
     edges:
     - condition: always
       next: DOC_AADHAAR_BACK
   DOC_AADHAAR_BACK:
     type: capture
     document_id: aadhaar_back
+    text_template: कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।
+    text_template_en: Please take a photo of the back side of your Aadhaar card.
+    text_template_te: దయచేసి మీ ఆధార్ కార్డ్ వెనుక వైపు ఫోటో తీయండి.
     edges:
     - condition: always
       next: Q_AADHAAR_CONFIRM
@@ -54,6 +60,9 @@ graph:
   DOC_PAN:
     type: capture
     document_id: pan
+    text_template: कृपया अपने पैन कार्ड की फोटो लें।
+    text_template_en: Please take a photo of your PAN card.
+    text_template_te: దయచేసి మీ పాన్ కార్డ్ ఫోటో తీయండి.
     edges:
     - condition: always
       next: Q_PAN_CONFIRM
@@ -215,6 +224,9 @@ graph:
   DOC_ADDRESS_PROOF_CAPTURE:
     type: capture
     document_id: address_proof
+    text_template: कृपया अपने पते के प्रमाण की फोटो लें।
+    text_template_en: Please take a photo of your address proof document.
+    text_template_te: దయచేసి మీ చిరునామా రుజువు పత్రం ఫోటో తీయండి.
     edges:
     - condition: always
       next: Q_ADDRESS_PROOF_CONFIRM
@@ -297,6 +309,9 @@ graph:
   DOC_CORRESPONDENCE_CAPTURE:
     type: capture
     document_id: correspondence_proof
+    text_template: कृपया पत्राचार के पते के लिए अपने दस्तावेज़ की फोटो लें।
+    text_template_en: Please take a photo of your correspondence address document.
+    text_template_te: పత్రాచార చిరునామా కోసం దయచేసి మీ పత్రం ఫోటో తీయండి.
     edges:
     - condition: always
       next: Q_CORRESPONDENCE_CONFIRM
