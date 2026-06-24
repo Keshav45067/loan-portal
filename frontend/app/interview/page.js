@@ -492,6 +492,12 @@ export default function InterviewPage() {
     setVerifying(true);
     setErrors(prev => ({ ...prev, [documentId]: null }));
 
+    // Stop any in-flight audio prompt and send processing feedback to the voice assistant
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current.stopAudioPlayback();
+      voiceSessionRef.current.sendControlSignal('capture_processing');
+    }
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -513,9 +519,10 @@ export default function InterviewPage() {
 
       setVerified(prev => ({ ...prev, [documentId]: true }));
       
-      // Advance graph node
+      // Notify voice session of success (includes documentId to personalize message)
       if (voiceSessionRef.current) {
-        voiceSessionRef.current.sendControlSignal('capture_complete');
+        voiceSessionRef.current._waitingForCaptureTransition = true;
+        voiceSessionRef.current.sendControlSignal(`capture_success:${documentId}`);
       }
     } catch (err) {
       setErrors(prev => ({ ...prev, [documentId]: err.message }));
@@ -524,6 +531,10 @@ export default function InterviewPage() {
         delete copy[documentId];
         return copy;
       });
+      // Notify voice session of error to play vocal feedback
+      if (voiceSessionRef.current) {
+        voiceSessionRef.current.sendControlSignal(`capture_error:${err.message}`);
+      }
     } finally {
       setVerifying(false);
     }

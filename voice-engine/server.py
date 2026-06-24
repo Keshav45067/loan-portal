@@ -305,6 +305,36 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 first_audio_yielded = True
                             yield output
 
+                    elif signal_type == "capture_processing":
+                        logger.info("Capture processing started, playing audio feedback", session_id=session_id)
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_processing():
+                            yield output
+
+                    elif signal_type.startswith("capture_success"):
+                        parts = signal_type.split(":", 1)
+                        doc_id = parts[1] if len(parts) > 1 else ""
+                        logger.info(f"Capture success for {doc_id}, playing audio feedback", session_id=session_id)
+                        
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_success(doc_id):
+                            yield output
+
+                    elif signal_type.startswith("capture_error"):
+                        parts = signal_type.split(":", 1)
+                        err_msg = parts[1] if len(parts) > 1 else ""
+                        logger.info(f"Capture error: {err_msg}, playing error audio feedback", session_id=session_id)
+                        
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_error(err_msg):
+                            yield output
+
                     elif signal_type == "speech_end":
                         # User stopped speaking — run the streaming 2-call pipeline
                         import time as _time

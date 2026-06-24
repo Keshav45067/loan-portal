@@ -150,8 +150,6 @@ export default function DetailsPage() {
     { label: 'Occupation Type', value: getVal(['occupation', 'occupation_type', 'business_type']) },
     { label: 'Nature of Business', value: getVal(['nature_of_business']) },
     { label: 'Monthly Revenue', value: getVal(['monthly_revenue', 'business_revenue', 'business_details.monthly_revenue', 'annual_income']) },
-    { label: 'Net Profit', value: getVal(['monthly_profit', 'business_details.monthly_profit']) },
-    { label: 'Inventory', value: getVal(['inventory_amount', 'business_details.inventory_amount']) },
   ];
 
   const udyamInfo = [

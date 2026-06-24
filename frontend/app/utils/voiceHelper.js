@@ -179,6 +179,7 @@ export class VoiceSessionManager {
     this._disconnected = false; // Guard against post-disconnect operations
     this._inCaptureMode = false; // True when in document capture mode (suppress VAD)
     this.pendingComplete = null;
+    this._waitingForCaptureTransition = false; // Flag to defer capture node advancement until success audio plays
   }
 
   async connect() {
@@ -339,9 +340,10 @@ export class VoiceSessionManager {
             } else if (data.type === 'node_change') {
               console.log('[voiceHelper] ws received node_change:', data.node_type, data.document_id);
               if (data.node_type === 'capture') {
-                console.log('[voiceHelper] Switching to CAPTURE mode — stopping VAD/audio');
+                console.log('[voiceHelper] Switching to CAPTURE mode — stopping VAD (keeping audio queue)');
                 this._inCaptureMode = true;
-                this.stopAudioPlayback();
+                // do NOT stop audio playback so that success transitions can play to completion
+                // this.stopAudioPlayback();
                 this.isProcessing = false;
                 this.isSpeaking = false;
                 this.isRecording = false;
@@ -510,6 +512,13 @@ export class VoiceSessionManager {
     this.isProcessing = false;
 
     if (this._disconnected) return;
+
+    if (this._waitingForCaptureTransition) {
+      console.log('[VoiceSessionManager] Capture success audio finished playing. Emitting capture_complete to advance graph.');
+      this._waitingForCaptureTransition = false;
+      this.sendControlSignal('capture_complete');
+      return;
+    }
 
     if (this.pendingComplete) {
       console.log('[VoiceSessionManager] Final audio ended. Executing pending complete.');
