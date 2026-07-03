@@ -209,7 +209,7 @@ export default function CaptureFlowPage({ params }) {
                 token,
                 sessionId,
                 language,
-                wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/api/capture/ws/capture-voice`,
+                wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/capture-voice`,
                 onStateChange: (s) => setQaState(s),
                 onTranscript: (t, isFinal) => { if (!isFinal) setTranscript(t); },
                 onError: (err) => setError(err)
