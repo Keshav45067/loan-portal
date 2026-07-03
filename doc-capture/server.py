@@ -167,6 +167,20 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             
         doc_config = session.current_document_config
         
+        # 1.5 Validate file size and format
+        max_size_mb = doc_config.get("max_file_size_mb", 5)
+        if len(request.image_data) > max_size_mb * 1024 * 1024:
+            return pb2.ProcessDocResponse(success=False, error=f"File exceeds maximum allowed size of {max_size_mb}MB")
+            
+        acceptable_formats = doc_config.get("acceptable_formats", [])
+        if acceptable_formats:
+            # Check file extension
+            ext = request.filename.split('.')[-1].lower() if '.' in request.filename else ''
+            # Normalize to match json formats (e.g., 'jpg' or '.jpg')
+            allowed_exts = [f.lower().replace('.', '') for f in acceptable_formats]
+            if ext not in allowed_exts:
+                return pb2.ProcessDocResponse(success=False, error=f"Invalid file format. Allowed formats: {', '.join(acceptable_formats)}")
+        
         # 2. Preprocess
         processed_img = preprocess_image(request.image_data, page.get("preprocessing_flags", []))
         
@@ -181,7 +195,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             if not ocr_res.success:
                 return pb2.ProcessDocResponse(success=False, error=f"OCR failed: {ocr_res.error}")
                 
-            raw_text = ocr_res.raw_text
+            # Reconstruct raw_text with inline confidence scores for the LLM
+            formatted_text_blocks = []
+            for block in ocr_res.blocks:
+                formatted_text_blocks.append(f"[Conf: {block.confidence:.2f}] {block.text}")
+                
+            raw_text = "\n".join(formatted_text_blocks) if formatted_text_blocks else ocr_res.raw_text
             ocr_conf = ocr_res.confidence
         except grpc.RpcError as e:
             logger.error(f"OCR gRPC call failed: {e}")

@@ -279,6 +279,35 @@ export default function CaptureFlowPage({ params }) {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate size
+    const max_size_mb = state.pageInfo?.max_file_size_mb || 5;
+    if (file.size > max_size_mb * 1024 * 1024) {
+        setError(`File exceeds maximum allowed size of ${max_size_mb}MB.`);
+        e.target.value = ''; // Reset
+        return;
+    }
+
+    // Validate format
+    const formats = state.pageInfo?.acceptable_formats || [];
+    if (formats.length > 0) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const allowed_exts = formats.map(f => f.toLowerCase().replace('.', ''));
+        if (!allowed_exts.includes(ext)) {
+            setError(`Invalid file format. Allowed formats: ${formats.join(', ')}`);
+            e.target.value = ''; // Reset
+            return;
+        }
+    }
+
+    setPreviewUrl(URL.createObjectURL(file));
+    await uploadDocument(file);
+    e.target.value = ''; // Reset
+  };
+
   const uploadDocument = async (file) => {
     if (!file) return;
     setProcessingDoc(true);
@@ -394,11 +423,21 @@ export default function CaptureFlowPage({ params }) {
                         {state.pageInfo?.ui_camera_overlay && (
                             <div className={styles.overlay} />
                         )}
-                        <div className={styles.cameraControls}>
+                        <div className={styles.cameraControls} style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                             <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
                             <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
                                 {processingDoc ? 'Processing...' : '📸 Capture'}
                             </button>
+                            <label className={styles.captureButton} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: processingDoc ? 'not-allowed' : 'pointer', background: '#4b5563' }}>
+                                📁 Upload
+                                <input 
+                                    type="file" 
+                                    style={{ display: 'none' }}
+                                    accept={state.pageInfo?.acceptable_formats?.map(f => `.${f.replace('.','')}`).join(',')}
+                                    disabled={processingDoc}
+                                    onChange={handleFileUpload}
+                                />
+                            </label>
                         </div>
                     </>
                 ) : (
