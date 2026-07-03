@@ -233,8 +233,8 @@ async def capture_voice_websocket(websocket: WebSocket):
         grpc_queue = asyncio.Queue()
         
         # Start message
-        start_req = voice_engine_pb2.RawVoiceInput(
-            session_start=voice_engine_pb2.RawSessionStart(
+        start_req = voice_engine_pb2.RawAgentInput(
+            agent_start=voice_engine_pb2.AgentStart(
                 session_id=session_id,
                 language=language,
                 system_prompt=system_prompt,
@@ -263,16 +263,16 @@ async def capture_voice_websocket(websocket: WebSocket):
                         break
                         
                     if "bytes" in message and message["bytes"]:
-                        await grpc_queue.put(voice_engine_pb2.RawVoiceInput(audio_chunk=message["bytes"]))
+                        await grpc_queue.put(voice_engine_pb2.RawAgentInput(audio_chunk=message["bytes"]))
                     elif "text" in message and message["text"]:
                         try:
                             data = json.loads(message["text"])
                             text_input = data.get("text_input", "")
                             signal = data.get("signal", "")
                             if text_input:
-                                await grpc_queue.put(voice_engine_pb2.RawVoiceInput(text_input=text_input))
+                                await grpc_queue.put(voice_engine_pb2.RawAgentInput(text_input=text_input))
                             elif signal:
-                                await grpc_queue.put(voice_engine_pb2.RawVoiceInput(
+                                await grpc_queue.put(voice_engine_pb2.RawAgentInput(
                                     control=voice_engine_pb2.ControlSignal(signal=signal)
                                 ))
                         except Exception:
