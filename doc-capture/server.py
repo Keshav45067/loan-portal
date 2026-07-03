@@ -48,7 +48,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         self.llm_channel = grpc_aio.insecure_channel(LLM_SERVICE_ADDR)
         self.llm_stub = llm_pb2_grpc.LanguageModelStub(self.llm_channel)
         
-        self.ocr_channel = grpc_aio.insecure_channel(OCR_SERVICE_ADDR, options=channel_options)
+        if "443" in OCR_SERVICE_ADDR:
+            credentials = grpc.ssl_channel_credentials()
+            self.ocr_channel = grpc_aio.secure_channel(OCR_SERVICE_ADDR, credentials, options=channel_options)
+        else:
+            self.ocr_channel = grpc_aio.insecure_channel(OCR_SERVICE_ADDR, options=channel_options)
+        
         self.ocr_stub = ocr_pb2_grpc.OCRServiceStub(self.ocr_channel)
         
         self.orch_channel = grpc_aio.insecure_channel(APP_ORCHESTRATOR_ADDR, options=channel_options)

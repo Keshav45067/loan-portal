@@ -204,7 +204,7 @@ export default function CaptureFlowPage({ params }) {
   useEffect(() => {
     if (!loading && !error && !state.allComplete && token && sessionId) {
         const startVoice = async () => {
-            const { CaptureVoiceManager } = await import('./utils/captureVoiceHelper');
+            const { CaptureVoiceManager } = await import('../utils/captureVoiceHelper');
             const manager = new CaptureVoiceManager({
                 token,
                 sessionId,
