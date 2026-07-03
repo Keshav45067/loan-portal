@@ -39,7 +39,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from generated import voice_engine_pb2 as pb2
 from generated import voice_engine_pb2_grpc as pb2_grpc
-from session import VoiceSession
+from session import VoiceSession, RawAgentSession
 from streaming_stt import StreamingSTT
 from config import (
     VOICE_ENGINE_PORT, STT_SERVICE_ADDR, TTS_SERVICE_ADDR,
@@ -466,6 +466,196 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                 session.disconnect()
                 await self._store.remove(session_id)
                 logger.info("Session cleaned up",
+                             req_id=req_id, session_id=session_id)
+
+    async def RawAgentSession(self, request_iterator, context):
+        """
+        Generic raw voice session (bidirectional streaming).
+        Bypasses GraphWalker state machine.
+        """
+        from session import RawAgentSession
+        req_id = extract_req_id(context)
+        set_req_id(req_id)
+
+        logger.info("RawAgentSession started", req_id=req_id)
+
+        session = None
+        session_id = None
+        progressive_stt = None
+        progressive_task = None
+
+        try:
+            async for voice_input in request_iterator:
+                input_type = voice_input.WhichOneof("input")
+                if not input_type:
+                    continue
+
+                # ─── Session Start ───
+                if input_type == "agent_start":
+                    start_data = voice_input.agent_start
+                    session_id = start_data.session_id
+
+                    session = RawAgentSession(
+                        session_id=session_id,
+                        language=start_data.language,
+                        system_prompt=start_data.system_prompt,
+                        context_prompt=start_data.context_prompt,
+                        req_id=req_id,
+                        stt_stub=self._stt_stub,
+                        tts_stub=self._tts_stub,
+                        llm_stub=self._llm_stub,
+                    )
+
+                    await session.init()
+                    await self._store.create(session_id, session)
+
+                    # Send connected status
+                    yield pb2.VoiceOutput(
+                        status=pb2.StatusUpdate(status="connected")
+                    )
+                    # Generic agents default to listening immediately
+                    yield pb2.VoiceOutput(
+                        status=pb2.StatusUpdate(status="listening")
+                    )
+
+                # ─── Audio Chunk ───
+                elif input_type == "audio_chunk":
+                    if not session:
+                        continue
+                    audio_bytes = voice_input.audio_chunk
+                    session.add_audio_chunk(audio_bytes)
+
+                    # Feed audio to progressive STT if active
+                    if progressive_stt is not None:
+                        progressive_stt.add_audio(audio_bytes)
+                        if not USE_STREAMING_STT:
+                            if progressive_task is None or progressive_task.done():
+                                progressive_task = asyncio.create_task(
+                                    progressive_stt.process_progressive()
+                                )
+
+                # ─── Direct Text Input ───
+                elif input_type == "text_input":
+                    if not session:
+                        continue
+
+                    text_val = voice_input.text_input
+                    logger.info(f"Raw Agent direct text input: '{text_val}'", session_id=session_id)
+
+                    yield pb2.VoiceOutput(
+                        status=pb2.StatusUpdate(status="processing")
+                    )
+
+                    async for output in session.process_turn_streaming(text_val):
+                        yield output
+
+                    session.clear_audio_buffer()
+
+                # ─── Control Signal ───
+                elif input_type == "control":
+                    signal_type = voice_input.control.signal
+                    if not session:
+                        continue
+
+                    logger.info(f"Raw Agent control signal: {signal_type}", session_id=session_id)
+
+                    if signal_type == "speech_start":
+                        if USE_STREAMING_STT:
+                            if progressive_stt is not None:
+                                continue
+                            from streaming_stt import StreamingSTT
+                            progressive_stt = StreamingSTT(
+                                stt_stub=self._stt_stub,
+                                language=session.language,
+                                req_id=session.req_id,
+                                sample_rate=16000,
+                            )
+                        else:
+                            from session import ProgressiveSTT
+                            if progressive_stt is not None:
+                                continue
+                            progressive_stt = ProgressiveSTT(
+                                stt_stub=self._stt_stub,
+                                language=session.language,
+                                req_id=session.req_id,
+                                sample_rate=16000,
+                                window_duration=3.0,
+                                step_duration=1.0,
+                            )
+                        progressive_task = None
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="listening")
+                        )
+
+                    elif signal_type == "speech_end":
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="processing")
+                        )
+
+                        t_stt_start = time.perf_counter()
+
+                        if progressive_stt is not None:
+                            if not USE_STREAMING_STT:
+                                if progressive_task is not None and not progressive_task.done():
+                                    try:
+                                        await asyncio.wait_for(progressive_task, timeout=1.0)
+                                    except Exception:
+                                        pass
+                            try:
+                                transcribed = await progressive_stt.finalize()
+                            except Exception as e:
+                                logger.error(f"Raw progressive STT finalize failed: {e}")
+                                transcribed = ""
+                                yield pb2.VoiceOutput(error=pb2.ErrorMessage(code="STT_FAILED", message="Speech-to-Text failed."))
+                            
+                            progressive_stt.reset()
+                            progressive_stt = None
+                            progressive_task = None
+                        else:
+                            audio_data = session.clear_audio_buffer()
+                            if not audio_data:
+                                yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+                                continue
+                            transcribed = await self._transcribe(audio_data, session)
+
+                        session.clear_audio_buffer()
+
+                        if not transcribed:
+                            yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+                            continue
+
+                        # Send transcription to client
+                        yield pb2.VoiceOutput(
+                            transcription=pb2.TranscriptionUpdate(
+                                text=transcribed,
+                                is_final=True
+                            )
+                        )
+
+                        # Process response stream
+                        async for output in session.process_turn_streaming(transcribed):
+                            yield output
+
+        except grpc.aio.AioRpcError as e:
+            logger.warning(f"gRPC error in RawAgentSession: {e.code()}",
+                            req_id=req_id, session_id=session_id)
+        except Exception as e:
+            logger.error(f"RawAgentSession error: {type(e).__name__} - {e}",
+                          req_id=req_id, session_id=session_id,
+                          error=traceback.format_exc())
+            yield pb2.VoiceOutput(
+                error=pb2.ErrorMessage(code="INTERNAL", message=str(e))
+            )
+        finally:
+            if progressive_stt is not None:
+                try:
+                    progressive_stt._audio_queue.put_nowait(None)
+                except Exception:
+                    pass
+            if session:
+                session.disconnect()
+                await self._store.remove(session_id)
+                logger.info("RawAgentSession cleaned up",
                              req_id=req_id, session_id=session_id)
 
     async def GetSessionState(self, request, context):

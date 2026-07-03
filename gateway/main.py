@@ -29,6 +29,7 @@ from routes.voice_routes import router as voice_router
 from routes.application_routes import router as application_router
 from routes.document_routes import router as document_router
 from routes.tts_routes import router as tts_router
+from routes.capture_routes import router as capture_router
 
 logger = get_logger("gateway")
 
@@ -58,6 +59,7 @@ app.include_router(voice_router)
 app.include_router(application_router)
 app.include_router(document_router)
 app.include_router(tts_router)
+app.include_router(capture_router)
 
 
 # ─── Health Check ───
@@ -82,7 +84,8 @@ async def startup():
     from grpc_clients.generated import doc_intelligence_pb2_grpc
     from grpc_clients.generated import voice_engine_pb2_grpc
     from grpc_clients.generated import tts_pb2_grpc
-    from config import APP_ORCHESTRATOR_ADDR, DOC_INTELLIGENCE_ADDR, VOICE_ENGINE_ADDR, TTS_SERVICE_ADDR
+    from grpc_clients.generated import doc_capture_pb2_grpc
+    from config import APP_ORCHESTRATOR_ADDR, DOC_INTELLIGENCE_ADDR, VOICE_ENGINE_ADDR, TTS_SERVICE_ADDR, DOC_CAPTURE_ADDR
 
     # Max message size to 100MB for image data transferring
     channel_options = [
@@ -102,6 +105,9 @@ async def startup():
     app.state.tts_channel = grpc.aio.insecure_channel(TTS_SERVICE_ADDR, options=channel_options)
     app.state.tts_stub = tts_pb2_grpc.TextToSpeechStub(app.state.tts_channel)
 
+    app.state.doc_capture_channel = grpc.aio.insecure_channel(DOC_CAPTURE_ADDR, options=channel_options)
+    app.state.doc_capture_stub = doc_capture_pb2_grpc.DocumentCaptureStub(app.state.doc_capture_channel)
+
     logger.info("Gateway ready ✅")
 
 
@@ -114,6 +120,7 @@ async def shutdown():
     await app.state.doc_intel_channel.close()
     await app.state.voice_engine_channel.close()
     await app.state.tts_channel.close()
+    await app.state.doc_capture_channel.close()
 
     logger.info("Gateway stopped")
 

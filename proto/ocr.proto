@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package chayan.ocr;
+
+option go_package = "github.com/ChayanAI/services/proto/ocr";
+
+// OCR Service — extracts raw text from document images.
+// Contract-only stub — implementation deferred.
+service OCRService {
+  rpc ExtractText (OCRRequest) returns (OCRResponse);
+}
+
+message OCRRequest {
+  bytes image_data = 1;           // Preprocessed image bytes
+  string language = 2;            // "en", "hi", "te", etc.
+  string hint = 3;                // Optional hint (e.g. "aadhaar_front")
+}
+
+message OCRResponse {
+  string raw_text = 1;            // Full OCR text output
+  float confidence = 2;           // Overall OCR confidence (0.0 - 1.0)
+  bool success = 3;
+  string error = 4;
+}

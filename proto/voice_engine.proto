@@ -12,6 +12,9 @@ service VoiceConversation {
   // Gateway bridges: WebSocket ↔ this gRPC stream
   rpc Session (stream VoiceInput) returns (stream VoiceOutput);
 
+  // Generic raw voice session (bidirectional streaming)
+  rpc RawAgentSession (stream RawAgentInput) returns (stream VoiceOutput);
+
   // Get current session state (unary, for debugging/admin)
   rpc GetSessionState (SessionStateRequest) returns (SessionState);
 }
@@ -112,4 +115,22 @@ message SessionState {
   string status = 7;              // "active", "completed", "disconnected"
   string started_at = 8;
   int32 total_turns = 9;
+}
+
+// ─── Raw Agent Input Messages ───
+
+message RawAgentInput {
+  oneof input {
+    AgentStart agent_start = 1;
+    bytes audio_chunk = 2;         // Raw PCM from client mic (16kHz, 16-bit)
+    ControlSignal control = 3;
+    string text_input = 4;
+  }
+}
+
+message AgentStart {
+  string session_id = 1;
+  string language = 2;            // "hi", "en", "te", "ar"
+  string system_prompt = 3;       // LLM system instructions
+  string context_prompt = 4;      // LLM context (FAQs / details)
 }

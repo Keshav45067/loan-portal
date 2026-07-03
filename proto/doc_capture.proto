@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package chayan.doc_capture;
+
+option go_package = "github.com/ChayanAI/services/proto/doc_capture";
+
+// Document Capture Service — config-driven document collection engine.
+// All logic is driven by scheme.json and document.json configs stored in PostgreSQL.
+service DocumentCapture {
+  // ─── Session Lifecycle ───
+  rpc StartSession (StartCaptureRequest) returns (CaptureSessionResponse);
+  rpc GetPageInfo (PageInfoRequest) returns (PageInfoResponse);
+  rpc AdvancePage (AdvancePageRequest) returns (CaptureSessionResponse);
+
+  // ─── Document Processing Pipeline ───
+  rpc ProcessDocument (ProcessDocRequest) returns (ProcessDocResponse);
+
+  // ─── Config Fetching (frontend-safe) ───
+  rpc GetSchemeConfig (SchemeConfigRequest) returns (SchemeConfigResponse);
+  rpc GetDocumentConfig (DocConfigRequest) returns (DocConfigResponse);
+
+  // ─── FAQ Prompt Builder ───
+  rpc GetFAQPrompt (FAQPromptRequest) returns (FAQPromptResponse);
+}
+
+// ─── Session Messages ───
+
+message StartCaptureRequest {
+  string scheme_id = 1;
+  string session_id = 2;
+  string language = 3;            // "en", "hi", "te", etc.
+}
+
+message CaptureSessionResponse {
+  bool success = 1;
+  string error = 2;
+  string session_id = 3;
+
+  // Current position
+  string current_document_id = 4;
+  string current_page_id = 5;
+  int32 current_document_index = 6;
+  int32 total_documents = 7;
+  int32 current_page_index = 8;
+  int32 total_pages = 9;
+
+  // Frontend-safe page info for current page
+  PageInfo current_page_info = 10;
+
+  // Overall progress
+  bool all_complete = 11;
+}
+
+message PageInfoRequest {
+  string session_id = 1;
+}
+
+message PageInfoResponse {
+  bool success = 1;
+  string error = 2;
+  PageInfo page_info = 3;
+  string document_id = 4;
+  string document_name = 5;
+  int32 document_index = 6;
+  int32 total_documents = 7;
+}
+
+message PageInfo {
+  string page_id = 1;
+  string page_name = 2;
+  bool allow_multiple = 3;
+  string ui_camera_overlay = 4;
+  string intro_prompt_json = 5;     // JSON: {"en": "...", "hi": "..."}
+  string success_prompt_json = 6;
+  string error_blur_prompt_json = 7;
+  string error_invalid_doc_prompt_json = 8;
+  repeated string acceptable_formats = 9;
+  int32 max_file_size_mb = 10;
+  int32 uploads_count = 11;         // How many images uploaded for this page so far
+}
+
+message AdvancePageRequest {
+  string session_id = 1;
+}
+
+// ─── Document Processing ───
+
+message ProcessDocRequest {
+  string session_id = 1;
+  string document_id = 2;
+  string page_id = 3;
+  bytes image_data = 4;
+  string content_type = 5;          // "image/jpeg", "image/png", "application/pdf"
+  string filename = 6;
+}
+
+message ProcessDocResponse {
+  bool success = 1;
+  string error = 2;
+
+  // Extraction results (if success)
+  string extracted_fields_json = 3;  // JSON: {field_id: {value, confidence}}
+
+  // Validation error (if failed)
+  string validation_error_key = 4;   // e.g. "error_blur", "error_missing", "error_min_age"
+  string validation_error_text = 5;  // Localized error text in session language
+  string validation_field_id = 6;    // Which field failed (empty if page-level error)
+
+  // Next step hints
+  bool page_complete = 7;
+  bool document_complete = 8;
+  bool all_complete = 9;
+  string next_page_id = 10;
+  string next_document_id = 11;
+}
+
+// ─── Config Fetching ───
+
+message SchemeConfigRequest {
+  string scheme_id = 1;
+}
+
+message SchemeConfigResponse {
+  bool success = 1;
+  string error = 2;
+  string scheme_id = 3;
+  string scheme_name = 4;
+  string description = 5;
+  repeated string required_documents = 6;
+}
+
+message DocConfigRequest {
+  string document_id = 1;
+}
+
+message DocConfigResponse {
+  bool success = 1;
+  string error = 2;
+  string document_id = 3;
+  string document_name = 4;
+  string description = 5;
+  repeated string allowed_languages = 6;
+  repeated string acceptable_formats = 7;
+  int32 max_file_size_mb = 8;
+  repeated PageSummary pages = 9;
+}
+
+message PageSummary {
+  string page_id = 1;
+  string page_name = 2;
+  bool allow_multiple = 3;
+  string ui_camera_overlay = 4;
+  string prompts_json = 5;         // JSON: {intro: {...}, success: {...}, ...}
+}
+
+// ─── FAQ Prompt ───
+
+message FAQPromptRequest {
+  string session_id = 1;
+}
+
+message FAQPromptResponse {
+  bool success = 1;
+  string error = 2;
+  string system_prompt = 3;
+  string context_prompt = 4;
+}

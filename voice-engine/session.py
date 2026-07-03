@@ -1353,3 +1353,122 @@ class VoiceSession:
         logger.info("Session disconnected",
                      session_id=self.session_id,
                      details={"turns": self._total_turns})
+
+
+class RawAgentSession(VoiceSession):
+    """
+    State-free generic voice session. Bypasses GraphWalker.
+    Stitches system and context prompts with incoming user speech / text.
+    """
+
+    def __init__(
+        self,
+        session_id: str,
+        language: str,
+        system_prompt: str,
+        context_prompt: str,
+        req_id: str,
+        stt_stub=None,
+        tts_stub=None,
+        llm_stub=None,
+    ):
+        super().__init__(
+            session_id=session_id,
+            scheme_id="raw_agent",
+            language=language,
+            applicant_name="",
+            application_id="",
+            req_id=req_id,
+            stt_stub=stt_stub,
+            tts_stub=tts_stub,
+            llm_stub=llm_stub,
+            config_stub=None,
+            orchestrator_stub=None,
+        )
+        self.system_prompt = system_prompt
+        self.context_prompt = context_prompt
+        self._status = "active"
+
+    async def init(self):
+        """Override parent init to skip config loading and walker setup."""
+        set_req_id(self.req_id)
+        self._status = "active"
+        logger.info("Raw agent session initialized", session_id=self.session_id)
+
+    async def process_turn_streaming(self, transcribed_text: str):
+        """
+        Stream conversational LLM response for raw agent turn.
+        Directly queries the LLM and streams TTS sentence by sentence.
+        """
+        set_req_id(self.req_id)
+        t_turn_start = time.perf_counter()
+
+        user_prompt = f"Context:\n{self.context_prompt}\n\nUser's message:\n{transcribed_text}"
+
+        try:
+            # Stream from LLM via gRPC GenerateStream with thinking budget disabled
+            stream = self._llm_stub.GenerateStream(
+                llm_pb2.GenerateRequest(
+                    prompt=user_prompt,
+                    model="gemini-2.5-flash",
+                    temperature=0.3,
+                    system_instruction=self.system_prompt,
+                    disable_thinking=True,
+                    thinking_budget=0,
+                ),
+                metadata=[("x-request-id", self.req_id)]
+            )
+
+            current_sentence = ""
+            async for text_chunk_msg in stream:
+                text_chunk = text_chunk_msg.text
+                if not text_chunk:
+                    continue
+                current_sentence += text_chunk
+
+                # Split sentences using voice-engine's helper
+                sentences, remainder = split_sentences(current_sentence)
+                current_sentence = remainder
+
+                for sentence in sentences:
+                    clean = sentence.replace("|", "").strip()
+                    if clean:
+                        # Send transcription to client
+                        yield pb2.VoiceOutput(
+                            transcription=pb2.TranscriptionUpdate(
+                                text=clean, is_final=False
+                            )
+                        )
+                        # Synthesize speech audio chunks
+                        async for audio_chunk in self._synthesize_text(clean):
+                            yield pb2.VoiceOutput(
+                                audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+                            )
+
+            # Process remainder sentence in the text buffer
+            if current_sentence.strip():
+                clean = current_sentence.replace("|", "").strip()
+                if clean:
+                    yield pb2.VoiceOutput(
+                        transcription=pb2.TranscriptionUpdate(
+                            text=clean, is_final=False
+                        )
+                    )
+                    async for audio_chunk in self._synthesize_text(clean):
+                        yield pb2.VoiceOutput(
+                            audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+                        )
+
+            # Signal end of playback
+            yield pb2.VoiceOutput(audio_end=True)
+            yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+
+            total_turn_ms = (time.perf_counter() - t_turn_start) * 1000
+            logger.info(f"⏱ RAW AGENT TURN COMPLETE: {total_turn_ms:.0f}ms", session_id=self.session_id)
+
+        except Exception as e:
+            logger.error(f"RawAgentSession turn generation failed: {e}",
+                         session_id=self.session_id)
+            yield pb2.VoiceOutput(
+                error=pb2.ErrorMessage(code="INTERNAL", message=str(e))
+            )
