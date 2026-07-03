@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from '../capture.module.css';
+import interviewStyles from '../../interview/interview.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
@@ -204,24 +205,26 @@ export default function CaptureFlowPage({ params }) {
   useEffect(() => {
     if (!loading && !error && !state.allComplete && token && sessionId) {
         const startVoice = async () => {
-            const { CaptureVoiceManager } = await import('../utils/captureVoiceHelper');
-            const manager = new CaptureVoiceManager({
+            const { VoiceSessionManager } = await import('../../utils/voiceHelper');
+            const manager = new VoiceSessionManager({
                 token,
                 sessionId,
                 language,
                 wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/capture-voice`,
                 onStateChange: (s) => setQaState(s),
                 onTranscript: (t, isFinal) => { if (!isFinal) setTranscript(t); },
-                onError: (err) => setError(err)
+                onError: (err) => setError(err.message || err)
             });
             voiceSessionRef.current = manager;
             
-            // Hook visualizer
-            manager.onAudioLevel = (l) => {
-                if (visualizerInstanceRef.current) visualizerInstanceRef.current.updateAudioData(l);
-            };
-
             await manager.connect();
+
+            // Hook visualizer after connect so audioProcessor is initialized
+            if (manager.audioProcessor) {
+                manager.audioProcessor.onVolumeLevel = (l) => {
+                    if (visualizerInstanceRef.current) visualizerInstanceRef.current.updateAudioData(l);
+                };
+            }
         };
         startVoice();
     }
@@ -456,39 +459,50 @@ export default function CaptureFlowPage({ params }) {
             <canvas ref={canvasRef} style={{ display: 'none' }} />
         </div>
 
-        {/* Right: Voice Agent Sidebar */}
-        <div className={styles.voiceAgent}>
-            <h3 style={{ margin: 0, color: '#a78bfa' }}>Assistant</h3>
-            
-            <div className={styles.neuralCore}>
-                {qaState === 'listening' && <div className={`${styles.coreSphere} ${styles.sphereListening}`} />}
-                {qaState === 'processing' && <div className={`${styles.coreSphere} ${styles.sphereProcessing}`} />}
-                {qaState === 'speaking' && <div className={`${styles.coreSphere} ${styles.sphereSpeaking}`} />}
-                {qaState === 'idle' && <div className={styles.coreSphere} />}
-                
-                <div style={{ position: 'absolute', top: -50, left: -50 }}>
-                    <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px', pointerEvents: 'none' }} />
-                </div>
+        {/* Right: Voice Agent Sidebar (Unifed with Interview UI) */}
+        <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2rem 1.5rem', background: 'rgba(30, 41, 59, 0.7)' }}>
+          <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
+            <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
+            <span className={interviewStyles.connectionText}>
+              {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
+            </span>
+          </div>
+
+          <div className={interviewStyles.neuralCoreWrapper} style={{ transform: 'scale(0.8)', marginBottom: '1rem' }}>
+            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring1} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring2} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring3} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+
+            <div className={`${interviewStyles.coreSphere} ${qaState === 'listening' ? interviewStyles.sphereListening : qaState === 'processing' ? interviewStyles.sphereProcessing : qaState === 'speaking' ? interviewStyles.sphereSpeaking : ''} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.sphereActive : ''}`}>
+              <div className={interviewStyles.coreGlowInner}></div>
             </div>
 
-            <div className={styles.transcriptBox}>
-                {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : 'Connecting...')}
+            <div className={`${interviewStyles.visualizerWrapper} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.visualizerActive : ''}`}>
+              <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px' }}></canvas>
             </div>
+          </div>
 
-            <div style={{ width: '100%', marginTop: 'auto', display: 'flex', gap: '0.5rem' }}>
-                <input 
-                    type="text" 
-                    className={styles.input} 
-                    placeholder="Type a question..." 
-                    value={textInputValue}
-                    onChange={(e) => setTextInputValue(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                    disabled={qaState === 'connecting'}
-                />
-                <button className={styles.iconButton} onClick={handleSendText} disabled={!textInputValue.trim()}>
-                    ➤
-                </button>
-            </div>
+          <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#e2e8f0', fontSize: '0.95rem', width: '100%' }}>
+            {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
+          </div>
+
+          <div className={interviewStyles.textInputContainer} style={{ marginTop: '0', width: '100%', maxWidth: '100%' }}>
+            <input 
+              type="text" 
+              className={interviewStyles.textInput} 
+              placeholder="Type here..." 
+              value={textInputValue}
+              onChange={(e) => setTextInputValue(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+              disabled={qaState === 'connecting'}
+            />
+            <button className={interviewStyles.sendButton} onClick={handleSendText} disabled={!textInputValue.trim() || qaState === 'connecting'}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
