@@ -18,7 +18,7 @@ from grpc_clients.generated import doc_capture_pb2
 from grpc_clients.generated import voice_engine_pb2
 
 logger = get_logger("gateway")
-router = APIRouter(prefix="/api/capture", tags=["capture"])
+router = APIRouter(tags=["capture"])
 
 # --- REST Models ---
 
@@ -28,7 +28,7 @@ class StartCaptureRequest(BaseModel):
 
 # --- REST Endpoints ---
 
-@router.post("/start")
+@router.post("/api/capture/start")
 async def start_capture_session(body: StartCaptureRequest, request: Request, auth: dict = Depends(require_auth)):
     req_id = request.state.req_id
     session_id = auth.get("session_id")
@@ -80,7 +80,7 @@ async def start_capture_session(body: StartCaptureRequest, request: Request, aut
         logger.error(f"start_capture_session failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
-@router.get("/scheme/{scheme_id}")
+@router.get("/api/capture/scheme/{scheme_id}")
 async def get_scheme_config(scheme_id: str, request: Request):
     req_id = request.state.req_id
     try:
@@ -102,7 +102,7 @@ async def get_scheme_config(scheme_id: str, request: Request):
         logger.error(f"get_scheme_config failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
-@router.get("/document/{document_id}")
+@router.get("/api/capture/document/{document_id}")
 async def get_document_config(document_id: str, request: Request):
     req_id = request.state.req_id
     try:
@@ -138,7 +138,7 @@ async def get_document_config(document_id: str, request: Request):
         logger.error(f"get_document_config failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
-@router.post("/process")
+@router.post("/api/capture/process")
 async def process_document(
     request: Request,
     file: UploadFile = File(...),
