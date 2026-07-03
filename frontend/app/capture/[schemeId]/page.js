@@ -189,6 +189,13 @@ export default function CaptureFlowPage({ params }) {
   }, [schemeId, language, router]);
 
   useEffect(() => {
+    // Preload large WASM/ONNX VAD scripts early
+    import('../../utils/voiceHelper').then(({ loadVADScripts }) => {
+      loadVADScripts().catch(console.error);
+    });
+  }, []);
+
+  useEffect(() => {
     if (visualizerCanvasRef.current && !visualizerInstanceRef.current) {
         visualizerInstanceRef.current = new AudioVisualizer(visualizerCanvasRef.current);
     }
@@ -205,7 +212,15 @@ export default function CaptureFlowPage({ params }) {
   useEffect(() => {
     if (!loading && !error && !state.allComplete && token && sessionId) {
         const startVoice = async () => {
-            const { VoiceSessionManager } = await import('../../utils/voiceHelper');
+            const { VoiceSessionManager, loadVADScripts } = await import('../../utils/voiceHelper');
+            
+            // Ensure VAD is loaded (will return true instantly if already preloaded)
+            const isLoaded = await loadVADScripts();
+            if (!isLoaded) {
+                setError('Failed to load voice components. Please check your connection and reload.');
+                return;
+            }
+
             const manager = new VoiceSessionManager({
                 token,
                 sessionId,
