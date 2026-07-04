@@ -181,8 +181,20 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if acceptable_formats:
             # Check file extension
             ext = request.filename.split('.')[-1].lower() if '.' in request.filename else ''
-            # Normalize to match json formats (e.g., 'jpg' or '.jpg')
-            allowed_exts = [f.lower().replace('.', '') for f in acceptable_formats]
+            
+            allowed_exts = []
+            for f in acceptable_formats:
+                f = f.lower()
+                if '/' in f:
+                    # It's a mime type
+                    subtype = f.split('/')[-1]
+                    if subtype == 'jpeg':
+                        allowed_exts.extend(['jpg', 'jpeg'])
+                    else:
+                        allowed_exts.append(subtype)
+                else:
+                    allowed_exts.append(f.replace('.', ''))
+            
             if ext not in allowed_exts:
                 return pb2.ProcessDocResponse(success=False, error=f"Invalid file format. Allowed formats: {', '.join(acceptable_formats)}")
         

@@ -115,6 +115,8 @@ export default function CaptureFlowPage({ params }) {
     allComplete: false
   });
 
+  const [isStarted, setIsStarted] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
@@ -210,7 +212,7 @@ export default function CaptureFlowPage({ params }) {
 
   // Start Voice Session
   useEffect(() => {
-    if (!loading && !error && !state.allComplete && token && sessionId) {
+    if (!loading && !error && !state.allComplete && token && sessionId && isStarted) {
         const startVoice = async () => {
             const { VoiceSessionManager, loadVADScripts } = await import('../../utils/voiceHelper');
             
@@ -312,9 +314,7 @@ export default function CaptureFlowPage({ params }) {
     // Validate format
     const formats = state.pageInfo?.acceptable_formats || [];
     if (formats.length > 0) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const allowed_exts = formats.map(f => f.toLowerCase().replace('.', ''));
-        if (!allowed_exts.includes(ext)) {
+        if (!formats.includes(file.type)) {
             setError(`Invalid file format. Allowed formats: ${formats.join(', ')}`);
             e.target.value = ''; // Reset
             return;
@@ -423,7 +423,19 @@ export default function CaptureFlowPage({ params }) {
 
       <div className={styles.mainLayout}>
         {/* Left: Camera / File Area */}
-        <div className={styles.card} style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className={styles.card} style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+            {!isStarted ? (
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem' }}>
+                    <h2 style={{ color: '#fff', marginBottom: '1.5rem' }}>Ready to capture your documents?</h2>
+                    <button 
+                        onClick={() => setIsStarted(true)} 
+                        style={{ padding: '1rem 2.5rem', fontSize: '1.2rem', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', border: 'none', borderRadius: '2rem', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)' }}
+                    >
+                        Start Session
+                    </button>
+                </div>
+            ) : null}
+
             <h3 style={{ marginBottom: '0.5rem', fontSize: '1.5rem', color: '#60a5fa' }}>
                 {state.pageInfo?.page_name || 'Document'}
             </h3>
