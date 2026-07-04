@@ -1300,6 +1300,19 @@ class VoiceSession:
         yield pb2.VoiceOutput(audio_end=True)
         yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
+    async def process_capture_speak(self, text: str):
+        """Play arbitrary text as audio message."""
+        yield pb2.VoiceOutput(
+            transcription=pb2.TranscriptionUpdate(text=text, is_final=False)
+        )
+        
+        async for audio_chunk in self._synthesize_text(text):
+            yield pb2.VoiceOutput(
+                audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+            )
+        yield pb2.VoiceOutput(audio_end=True)
+        yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
+
     def _get_localized_error(self, err_msg: str) -> str:
         err_msg_lower = str(err_msg).lower()
         

@@ -160,6 +160,7 @@ export class VoiceSessionManager {
     this.onComplete = options.onComplete || (() => {});
     this.onSystemMessage = options.onSystemMessage || (() => {});
     this.onError = options.onError || (() => {});
+    this.onConnected = options.onConnected || (() => {});
 
     // Audio Refs
     this.ws = null;
@@ -309,6 +310,10 @@ export class VoiceSessionManager {
             }
 
             if (data.type === 'status') {
+              if (data.status === 'connected') {
+                this.onSystemMessage('success', 'वॉइस इंजन कनेक्ट हो गया है।');
+                this.onConnected();
+              }
               if (!this.isPlayingAudio) {
                 if (data.status === 'listening') {
                   this.isProcessing = false;

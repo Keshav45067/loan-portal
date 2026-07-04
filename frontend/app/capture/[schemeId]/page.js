@@ -239,7 +239,11 @@ export default function CaptureFlowPage({ params }) {
                 wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/capture-voice`,
                 onStateChange: (s) => setQaState(s),
                 onTranscript: (t, isFinal) => { if (!isFinal) setTranscript(t); },
-                onError: (err) => setError(err.message || err)
+                onError: (err) => setError(err.message || err),
+                onConnected: () => {
+                    const text = state.pageInfo?.intro_prompt?.[language] || "Please capture your document.";
+                    manager.sendControlSignal(`capture_speak:${text}`);
+                }
             });
             voiceSessionRef.current = manager;
             
@@ -254,7 +258,7 @@ export default function CaptureFlowPage({ params }) {
         };
         startVoice();
     }
-  }, [loading, error, state.allComplete, token, sessionId, language]);
+  }, [loading, error, state.allComplete, token, sessionId, language, isStarted, state.pageInfo]);
 
   // Camera Management
   const stopCamera = useCallback(() => {
@@ -362,10 +366,11 @@ export default function CaptureFlowPage({ params }) {
       
       if (!data.success) {
           // Validation failed
-          if (voiceSessionRef.current && data.validation_error_key) {
-              voiceSessionRef.current.sendControlSignal(`capture_error:${data.validation_error_key}:${data.validation_field_id}`);
+          if (voiceSessionRef.current) {
+              const errKey = data.validation_error_key || data.error || 'unknown_error';
+              voiceSessionRef.current.sendControlSignal(`capture_error:${errKey}`);
           }
-          throw new Error(data.validation_error_text || 'Validation failed. Please try again.');
+          throw new Error(data.validation_error_text || data.error || 'Validation failed. Please try again.');
       }
 
       if (voiceSessionRef.current) {
