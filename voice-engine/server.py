@@ -520,10 +520,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     await session.init()
                     await self._store.create(session_id, session)
 
-                    # Send connected status
-                    yield pb2.VoiceOutput(
-                        status=pb2.StatusUpdate(status="connected")
-                    )
+                    # The API Gateway already sent the 'connected' status, 
+                    # so we don't send it again here to avoid duplicate triggers.
                     # Generic agents default to listening immediately
                     yield pb2.VoiceOutput(
                         status=pb2.StatusUpdate(status="listening")

@@ -1432,6 +1432,8 @@ class RawAgentSession(VoiceSession):
                 metadata=[("x-request-id", self.req_id)]
             )
 
+            yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
+
             current_sentence = ""
             async for text_chunk_msg in stream:
                 text_chunk = text_chunk_msg.text
