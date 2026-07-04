@@ -210,6 +210,15 @@ export default function CaptureFlowPage({ params }) {
     }
   }, [qaState]);
 
+  const startSession = () => {
+    // Initialize and resume AudioContext synchronously in click handler
+    window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+    if (window.globalAudioContext.state === 'suspended') {
+      try { window.globalAudioContext.resume(); } catch (e) { console.error('Failed to resume AudioContext:', e); }
+    }
+    setIsStarted(true);
+  };
+
   // Start Voice Session
   useEffect(() => {
     if (!loading && !error && !state.allComplete && token && sessionId && isStarted) {
@@ -428,7 +437,7 @@ export default function CaptureFlowPage({ params }) {
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem' }}>
                     <h2 style={{ color: '#fff', marginBottom: '1.5rem' }}>Ready to capture your documents?</h2>
                     <button 
-                        onClick={() => setIsStarted(true)} 
+                        onClick={startSession} 
                         style={{ padding: '1rem 2.5rem', fontSize: '1.2rem', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', border: 'none', borderRadius: '2rem', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)' }}
                     >
                         Start Session
