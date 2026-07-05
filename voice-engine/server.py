@@ -607,6 +607,36 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         async for output in session.process_capture_speak(text):
                             yield output
 
+                    elif signal_type == "capture_processing":
+                        logger.info("Raw Agent capture processing started", session_id=session_id)
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_processing():
+                            yield output
+
+                    elif signal_type.startswith("capture_success"):
+                        parts = signal_type.split(":", 1)
+                        doc_id = parts[1] if len(parts) > 1 else ""
+                        logger.info(f"Raw Agent capture success for {doc_id}", session_id=session_id)
+                        
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_success(doc_id):
+                            yield output
+
+                    elif signal_type.startswith("capture_error"):
+                        parts = signal_type.split(":", 1)
+                        err_msg = parts[1] if len(parts) > 1 else ""
+                        logger.info(f"Raw Agent capture error: {err_msg}", session_id=session_id)
+                        
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="speaking")
+                        )
+                        async for output in session.process_capture_error(err_msg):
+                            yield output
+
                     elif signal_type == "speech_end":
                         yield pb2.VoiceOutput(
                             status=pb2.StatusUpdate(status="processing")
