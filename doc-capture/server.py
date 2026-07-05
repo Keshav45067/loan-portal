@@ -231,8 +231,13 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             
         # 5. Signature text check
         sig = page.get("signature_text")
-        if sig and sig.lower() not in raw_text.lower():
-            return pb2.ProcessDocResponse(success=False, validation_error_key="error_invalid_document")
+        if sig:
+            # Check if all significant words (len > 2) from the signature text exist anywhere in the raw OCR text
+            # This handles OCR newlines and misrecognized filler words like "of"
+            sig_words = [w.lower() for w in sig.split() if len(w) > 2]
+            raw_lower = raw_text.lower()
+            if sig_words and not all(w in raw_lower for w in sig_words):
+                return pb2.ProcessDocResponse(success=False, validation_error_key="error_invalid_document")
             
         # 6. Extraction via LLM
         prompt = build_extraction_prompt(page, raw_text)
