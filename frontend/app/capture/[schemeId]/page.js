@@ -287,12 +287,12 @@ export default function CaptureFlowPage({ params }) {
   }, [stopCamera, previewUrl]);
 
   useEffect(() => {
-    if (!loading && !error && !state.allComplete) {
+    if (!loading && !state.allComplete) {
         const facing = state.pageInfo?.ui_camera_overlay === 'selfie' ? 'user' : 'environment';
         startCamera(facing);
     }
     return stopCamera;
-  }, [loading, error, state.allComplete, state.pageInfo, startCamera, stopCamera]);
+  }, [loading, state.allComplete, state.pageInfo, startCamera, stopCamera]);
 
   const handleCapture = () => {
     if (videoRef.current && canvasRef.current) {
@@ -368,6 +368,7 @@ export default function CaptureFlowPage({ params }) {
       if (!data.success) {
           // Validation failed
           if (voiceSessionRef.current) {
+              voiceSessionRef.current.stopAudioPlayback();
               const errKey = data.validation_error_key || data.error || 'unknown_error';
               voiceSessionRef.current.sendControlSignal(`capture_error:${errKey}`);
           }
