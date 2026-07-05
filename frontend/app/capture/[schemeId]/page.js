@@ -221,8 +221,9 @@ export default function CaptureFlowPage({ params }) {
 
   // Start Voice Session
   useEffect(() => {
-    if (!loading && !error && !state.allComplete && token && sessionId && isStarted) {
+    if (!loading && !state.allComplete && token && sessionId && isStarted) {
         const startVoice = async () => {
+            if (voiceSessionRef.current) return;
             const { VoiceSessionManager, loadVADScripts } = await import('../../utils/voiceHelper');
             
             // Ensure VAD is loaded (will return true instantly if already preloaded)
@@ -258,7 +259,7 @@ export default function CaptureFlowPage({ params }) {
         };
         startVoice();
     }
-  }, [loading, error, state.allComplete, token, sessionId, language, isStarted, state.pageInfo]);
+  }, [loading, state.allComplete, token, sessionId, language, isStarted]);
 
   // Camera Management
   const stopCamera = useCallback(() => {
@@ -402,6 +403,16 @@ export default function CaptureFlowPage({ params }) {
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
           }));
+          
+          if (voiceSessionRef.current) {
+              const text = infoData.page_info?.intro_prompt?.[language] || "Please capture the next document.";
+              // Delay slightly so the success message has time to queue first
+              setTimeout(() => {
+                  if (voiceSessionRef.current) {
+                      voiceSessionRef.current.sendControlSignal(`capture_speak:${text}`);
+                  }
+              }, 500);
+          }
       }
 
     } catch (err) {
