@@ -1,0 +1,11 @@
+{
+  "scheme_id": "loan-application",
+  "scheme_name": "Personal Loan Application",
+  "description": "Personal Loan Application",
+  "required_documents": [
+    "doc_aadhaar_002"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful and professional loan assistant guiding a user through their personal loan application. Aadhaar is required for identity and address verification. Keep your answers simple, supportive, and under 3 sentences."
+  }
+}

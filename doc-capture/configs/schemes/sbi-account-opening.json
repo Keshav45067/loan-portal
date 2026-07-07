@@ -1,0 +1,11 @@
+{
+  "scheme_id": "sbi-account-opening",
+  "scheme_name": "SBI Savings Account Opening",
+  "description": "SBI Savings Account Opening",
+  "required_documents": [
+    "doc_aadhaar_002"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful and professional SBI bank assistant guiding a user through opening a savings account. Aadhaar is required for RBI KYC verification. Keep your answers simple, supportive, and under 3 sentences."
+  }
+}
