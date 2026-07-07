@@ -1,0 +1,11 @@
+{
+  "scheme_id": "scheme_micro_business_001",
+  "scheme_name": "Small Business Starter Loan",
+  "description": "A collateral-free micro-credit scheme providing up to ₹50,000 for starting or expanding small businesses.",
+  "required_documents": [
+    "doc_aadhaar_002"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful and professional loan assistant guiding a user through the 'Small Business Starter Loan' application. This scheme provides up to ₹50,000 in collateral-free credit for small business owners. If the user asks why certain documents are needed, explain that Aadhaar is required for mandatory RBI KYC and address verification. Keep your answers supportive, simple, and under 3 sentences."
+  }
+}

@@ -1,4 +1,5 @@
 import copy
+import json
 from typing import Dict, List, Set, Optional, Tuple
 from log_utils.logger import get_logger
 from config_loader import config_loader
@@ -16,18 +17,25 @@ class CaptureSession:
         self.required_documents: List[str] = []
         self.current_document_index: int = 0
         
-        # Document-level state
+        # Document-level state (manifest)
         self.current_document_config: dict = {}
         self.current_page_index: int = 0
-        self.document_extracted_data: Dict[str, Dict[str, Dict[str, dict]]] = {}  # {doc_id: {page_id: {field_id: value_dict}}}
+        
+        # Coverage Map: {document_id: {part_id: quality_result_dict}}
+        self.coverage_map: Dict[str, Dict[str, dict]] = {}
+        
+        # Part OCR Texts: {document_id: {part_id: ocr_text}}
+        self.part_ocr_texts: Dict[str, Dict[str, str]] = {}
+        
+        self.document_extracted_data: Dict[str, dict] = {}  # {doc_id: flat_extracted_fields}
         
         # Per-document FAQ conversation history
         self.faq_history: Dict[str, List[dict]] = {}  # {doc_id: [{"role": "user", "content": "..."}]}
         
         # Completion tracking
         self.completed_documents: Set[str] = set()
-        self.completed_pages: Dict[str, Set[str]] = {}  # {doc_id: {page_id, ...}}
-        self.page_uploads: Dict[str, Dict[str, List[str]]] = {}  # {doc_id: {page_id: [filenames/keys]}}
+        self.completed_pages: Dict[str, Set[str]] = {}  # {doc_id: {part_id, ...}}
+        self.page_uploads: Dict[str, Dict[str, List[str]]] = {}  # {doc_id: {part_id: [filenames/keys]}}
 
     def initialize(self) -> bool:
         """Load scheme and first document config."""
@@ -53,12 +61,12 @@ class CaptureSession:
             return True # All done
             
         doc_id = self.required_documents[self.current_document_index]
-        doc_config = config_loader.get_document(doc_id)
-        if not doc_config:
-            logger.error(f"Document not found: {doc_id}")
+        manifest = config_loader.get_manifest(doc_id)
+        if not manifest:
+            logger.error(f"Manifest not found for document: {doc_id}")
             return False
             
-        self.current_document_config = copy.deepcopy(doc_config)
+        self.current_document_config = copy.deepcopy(manifest)
         self.current_page_index = 0
         
         if doc_id not in self.completed_pages:
@@ -69,6 +77,10 @@ class CaptureSession:
             self.document_extracted_data[doc_id] = {}
         if doc_id not in self.faq_history:
             self.faq_history[doc_id] = []
+        if doc_id not in self.coverage_map:
+            self.coverage_map[doc_id] = {}
+        if doc_id not in self.part_ocr_texts:
+            self.part_ocr_texts[doc_id] = {}
             
         return True
 
@@ -77,58 +89,139 @@ class CaptureSession:
             return self.required_documents[self.current_document_index]
         return ""
 
-    def get_current_page(self) -> Optional[dict]:
+    def get_next_uncovered_part(self) -> Optional[dict]:
+        """Returns the first part in the current manifest that is not covered."""
         if not self.current_document_config:
             return None
-        pages = self.current_document_config.get("pages", [])
-        if self.current_page_index < len(pages):
-            return pages[self.current_page_index]
+        doc_id = self.get_current_document_id()
+        parts = self.current_document_config.get("parts", [])
+        
+        for part in parts:
+            part_id = part.get("id", "")
+            if not self.is_part_covered(part_id):
+                return part
         return None
+
+    def is_part_covered(self, part_id: str) -> bool:
+        doc_id = self.get_current_document_id()
+        if not doc_id:
+            return False
+        return part_id in self.coverage_map.get(doc_id, {})
+
+    def is_coverage_complete(self) -> bool:
+        if not self.current_document_config:
+            return True
+        doc_id = self.get_current_document_id()
+        parts = self.current_document_config.get("parts", [])
+        return all(part.get("id") in self.coverage_map.get(doc_id, {}) for part in parts)
+
+    def get_current_page(self) -> Optional[dict]:
+        """
+        Synthesizes a page-like representation of the current uncovering part
+        for compatibility with the frontend and voice-engine APIs.
+        """
+        if not self.current_document_config:
+            return None
+        manifest = self.current_document_config
+        part = self.get_next_uncovered_part()
+        if not part:
+            return None
+            
+        part_id = part.get("id", "")
+        
+        # Build prompt templates
+        lang_prompts = manifest.get("prompts", {})
+        ask_part_template = lang_prompts.get("ask_part", {})
+        
+        document_title_en = manifest.get("title", {}).get("English", "Document")
+        document_title_hi = manifest.get("title", {}).get("Hindi", document_title_en)
+        
+        part_title_en = "front side" if part_id == "front" else ("back side" if part_id == "back" else part_id)
+        part_title_hi = "सामने का हिस्सा" if part_id == "front" else ("पीछे का हिस्सा" if part_id == "back" else part_id)
+        
+        intro_prompts = {
+            "en": ask_part_template.get("en", "Please capture the {part_id} of your {document_title}.").format(
+                part_id=part_title_en, document_title=document_title_en
+            ),
+            "hi": ask_part_template.get("hi", "कृपया अपने {document_title} का {part_id} कैप्चर करें।").format(
+                part_id=part_title_hi, document_title=document_title_hi
+            )
+        }
+        
+        success_prompts = lang_prompts.get("success", {"en": "Scanned successfully.", "hi": "सफलतापूर्वक स्कैन हो गया।"})
+        blur_prompts = lang_prompts.get("error_blur", {"en": "Image is blurry.", "hi": "छवि धुंधली है।"})
+        wrong_page_prompts = lang_prompts.get("error_wrong_page", {"en": "Wrong page.", "hi": "गलत पृष्ठ।"})
+        
+        # Get source configs
+        sources = manifest.get("sources", [{}])
+        first_source = sources[0] if sources else {}
+        
+        return {
+            "page_id": part_id,
+            "page_name": "Front Side" if part_id == "front" else "Back Side",
+            "allow_multiple": False,
+            "ui_camera_overlay": "landscape_id",
+            "intro_prompt_json": json.dumps(intro_prompts),
+            "success_prompt_json": json.dumps(success_prompts),
+            "error_blur_prompt_json": json.dumps(blur_prompts),
+            "error_invalid_doc_prompt_json": json.dumps(wrong_page_prompts),
+            "acceptable_formats": first_source.get("formats", ["image/jpeg", "image/png"]),
+            "max_file_size_mb": first_source.get("max_mb", 10),
+            "preprocessing_flags": manifest.get("preprocessing", ["auto_deskew", "remove_glare", "enhance_contrast"])
+        }
 
     def is_all_complete(self) -> bool:
         return self.current_document_index >= len(self.required_documents)
         
     def advance_page(self) -> Tuple[bool, bool]:
-        """Advance to next page or document. Returns (page_advanced, document_advanced)."""
+        """Advance to next part or document. Returns (page_advanced, document_advanced)."""
         if not self.current_document_config:
             return False, False
             
-        pages = self.current_document_config.get("pages", [])
-        if self.current_page_index < len(pages) - 1:
-            self.current_page_index += 1
-            return True, False
-        else:
-            # Document complete
-            doc_id = self.get_current_document_id()
+        doc_id = self.get_current_document_id()
+        
+        if self.is_coverage_complete():
             if doc_id:
                 self.completed_documents.add(doc_id)
-            
             self.current_document_index += 1
             self._load_current_document()
             return True, True
+        else:
+            # Not fully complete, so we are staying on current document but requesting next part
+            return True, False
 
-    def record_extraction(self, page_id: str, fields_dict: dict):
-        """Deep merge extracted fields."""
+    def record_part_result(self, part_id: str, quality_res):
+        """Record QualityResult and text for a part."""
         doc_id = self.get_current_document_id()
         if not doc_id:
             return
             
-        if doc_id not in self.document_extracted_data:
-            self.document_extracted_data[doc_id] = {}
+        # Store in coverage map
+        self.coverage_map[doc_id][part_id] = {
+            "part_id": part_id,
+            "ocr_confidence": quality_res.ocr_confidence,
+            "anchor_hits": quality_res.anchor_hits
+        }
+        
+        # Store OCR text
+        self.part_ocr_texts[doc_id][part_id] = quality_res.ocr_text
+        
+        # Track completed pages/parts for backward compatibility
+        self.completed_pages[doc_id].add(part_id)
+
+    def record_extraction(self, page_id: str, fields_dict: dict):
+        """Save flat extracted fields for backward compatibility."""
+        doc_id = self.get_current_document_id()
+        if not doc_id:
+            return
             
-        if page_id not in self.document_extracted_data[doc_id]:
-            self.document_extracted_data[doc_id][page_id] = {}
-            
-        # Merge
+        # Deep merge extracted values into self.document_extracted_data
         for k, v in fields_dict.items():
-            self.document_extracted_data[doc_id][page_id][k] = copy.deepcopy(v)
+            self.document_extracted_data[doc_id][k] = copy.deepcopy(v)
 
     def mark_page_complete(self, page_id: str):
-        doc_id = self.get_current_document_id()
-        if doc_id:
-            if doc_id not in self.completed_pages:
-                self.completed_pages[doc_id] = set()
-            self.completed_pages[doc_id].add(page_id)
+        # Mapped to record_part_result. Kept for gRPC service compatibility
+        pass
 
     def record_upload(self, page_id: str, filename: str):
         doc_id = self.get_current_document_id()
@@ -161,13 +254,12 @@ class CaptureSession:
     def get_all_extracted_data(self) -> dict:
         """Flatten extracted data for saving to DB."""
         flat_data = {}
-        for doc_id, pages in self.document_extracted_data.items():
-            for page_id, fields in pages.items():
-                for field_id, field_data in fields.items():
-                    if isinstance(field_data, dict) and "value" in field_data:
-                        flat_data[field_id] = field_data["value"]
-                    else:
-                        flat_data[field_id] = field_data
+        for doc_id, fields in self.document_extracted_data.items():
+            for field_id, field_data in fields.items():
+                if isinstance(field_data, dict) and "value" in field_data:
+                    flat_data[field_id] = field_data["value"]
+                else:
+                    flat_data[field_id] = field_data
         return flat_data
 
 

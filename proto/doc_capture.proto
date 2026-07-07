@@ -112,6 +112,10 @@ message ProcessDocResponse {
   bool all_complete = 9;
   string next_page_id = 10;
   string next_document_id = 11;
+  
+  repeated string confirm_fields = 12;
+  string part_id = 13;
+  string next_part_id = 14;
 }
 
 // ─── Config Fetching ───
