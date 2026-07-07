@@ -512,10 +512,10 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             
             intro_prompts = {
                 "en": ask_part_template.get("en", "Please capture the {part_id} of your {document_title}.").format(
-                    part_id=part_title_en, document_title=document_title_en
+                    part_id=part_title_en, part_title=part_title_en, document_title=document_title_en
                 ),
                 "hi": ask_part_template.get("hi", "कृपया अपने {document_title} का {part_id} कैप्चर करें।").format(
-                    part_id=part_title_hi, document_title=document_title_hi
+                    part_id=part_title_hi, part_title=part_title_hi, document_title=document_title_hi
                 )
             }
             
