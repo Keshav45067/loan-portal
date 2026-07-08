@@ -61,17 +61,17 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
     pattern = slot_def.get("pattern")
     pii = slot_def.get("pii", "none")
     
-    # PII masked special handling for Aadhaar number
-    # if pii == "masked" and slot_id == "doc_aadhaar_last4":
-    #     # Expecting a 12 digit number initially from LLM
-    #     cleaned = "".join(c for c in str(raw_val) if c.isdigit())
-    #     if verify_aadhaar(cleaned):
-    #         logger.info(f"Aadhaar number {cleaned[:4]}...{cleaned[-4:]} successfully validated via Verhoeff checksum.")
-    #         # Store only last-4 digits
-    #         return cleaned[-4:], raw_conf
-    #     else:
-    #         logger.error(f"Aadhaar number {raw_val} failed Verhoeff checksum validation.")
-    #         return None, 0.0
+    checksum = slot_def.get("checksum")
+    if checksum == "verhoeff":
+        # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
+        cleaned = "".join(c for c in str(raw_val) if c.isdigit())
+        if verify_aadhaar(cleaned):
+            logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
+            # Store only last-4 digits
+            return cleaned[-4:], raw_conf
+        else:
+            logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
+            return None, 0.0
             
     if slot_type == "date" or normalize == "iso_date":
         date_val = normalize_iso_date(raw_val)
@@ -159,6 +159,10 @@ def build_prompt(manifest: dict, all_page_texts: Dict[str, str]) -> str:
             
     slot_menu = "\n".join(menu_lines)
     
+    # 3. Get generic slot and part examples dynamically for prompt structure
+    first_slot = expects[0] if expects else "slot_id"
+    first_part = manifest.get("parts", [{}])[0].get("id", "part_id")
+    
     prompt = f"""IDENTITY: You extract structured data from a document's OCR text. You decide nothing else.
 
 INPUT:
@@ -180,7 +184,7 @@ Example JSON output structure:
 {{
   "document_id": "{manifest.get('document_id')}",
   "filled": [
-    {{ "slot": "doc_aadhaar_name", "value": "JOHN DOE", "confidence": 0.95, "evidence": {{ "page": "front", "span": "JOHN DOE" }} }}
+    {{ "slot": "{first_slot}", "value": "EXTRACTED_VALUE", "confidence": 0.95, "evidence": {{ "page": "{first_part}", "span": "MATCHING_TEXT" }} }}
   ],
   "unmatched": [],
   "notes": ""

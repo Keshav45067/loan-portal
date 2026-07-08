@@ -136,8 +136,8 @@ class CaptureSession:
         document_title_en = manifest.get("title", {}).get("English", "Document")
         document_title_hi = manifest.get("title", {}).get("Hindi", document_title_en)
         
-        part_title_en = "front side" if part_id == "front" else ("back side" if part_id == "back" else part_id)
-        part_title_hi = "सामने का हिस्सा" if part_id == "front" else ("पीछे का हिस्सा" if part_id == "back" else part_id)
+        part_title_en = part.get("title", {}).get("English", part_id)
+        part_title_hi = part.get("title", {}).get("Hindi", part_title_en)
         
         intro_prompts = {
             "en": ask_part_template.get("en", "Please capture the {part_id} of your {document_title}.").format(
@@ -158,7 +158,7 @@ class CaptureSession:
         
         return {
             "page_id": part_id,
-            "page_name": "Front Side" if part_id == "front" else "Back Side",
+            "page_name": part.get("name", {}).get("English", part_id),
             "allow_multiple": False,
             "ui_camera_overlay": "landscape_id",
             "intro_prompt_json": json.dumps(intro_prompts),

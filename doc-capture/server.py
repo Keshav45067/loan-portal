@@ -65,7 +65,7 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
         if next_part:
             doc_title = manifest.get("title", {}).get("English", "Document")
             part_id = next_part.get("id", "Page")
-            part_title = "front side" if part_id == "front" else ("back side" if part_id == "back" else part_id)
+            part_title = next_part.get("title", {}).get("English", part_id)
             page_ctx = (
                 f"The user is currently going to upload/capture the '{part_title}' of their '{doc_title}'. "
                 f"Try to keep the response limited to that part, but if user insists, then explain "
@@ -412,7 +412,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                         if slot_res.slot in part.get("provides", []):
                             evidence_page = part.get("id", "")
                             break
-                failed_part_id = evidence_page if evidence_page else "front"
+                first_part_id = doc_config.get("parts", [{}])[0].get("id", "Page")
+                failed_part_id = evidence_page if evidence_page else first_part_id
                 break
             elif action == "confirm":
                 confirm_fields.append(slot_res.slot)
@@ -503,8 +504,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         pages_summary = []
         for part in doc.get("parts", []):
             part_id = part.get("id", "")
-            part_title_en = "front side" if part_id == "front" else ("back side" if part_id == "back" else part_id)
-            part_title_hi = "सामने का हिस्सा" if part_id == "front" else ("पीछे का हिस्सा" if part_id == "back" else part_id)
+            part_title_en = part.get("title", {}).get("English", part_id)
+            part_title_hi = part.get("title", {}).get("Hindi", part_title_en)
             
             document_title_en = doc.get("title", {}).get("English", "Document")
             document_title_hi = doc.get("title", {}).get("Hindi", document_title_en)
@@ -528,7 +529,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             
             pages_summary.append(pb2.PageSummary(
                 page_id=part_id,
-                page_name="Front Side" if part_id == "front" else "Back Side",
+                page_name=part.get("name", {}).get("English", part_id),
                 allow_multiple=False,
                 ui_camera_overlay="landscape_id",
                 prompts_json=json.dumps(prompts_dict)

@@ -80,6 +80,47 @@ async def start_capture_session(body: StartCaptureRequest, request: Request, aut
         logger.error(f"start_capture_session failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
+@router.get("/api/capture/page-info")
+async def get_page_info(session_id: str, request: Request, auth: dict = Depends(require_auth)):
+    req_id = request.state.req_id
+    try:
+        stub = request.app.state.doc_capture_stub
+        res = await stub.GetPageInfo(
+            doc_capture_pb2.PageInfoRequest(session_id=session_id),
+            metadata=[("x-request-id", req_id)]
+        )
+        if not res.success:
+            return {"success": False, "error": res.error}
+            
+        page_info = None
+        if res.HasField("page_info"):
+            pi = res.page_info
+            page_info = {
+                "page_id": pi.page_id,
+                "page_name": pi.page_name,
+                "allow_multiple": pi.allow_multiple,
+                "ui_camera_overlay": pi.ui_camera_overlay,
+                "intro_prompt": json.loads(pi.intro_prompt_json) if pi.intro_prompt_json else {},
+                "success_prompt": json.loads(pi.success_prompt_json) if pi.success_prompt_json else {},
+                "error_blur_prompt": json.loads(pi.error_blur_prompt_json) if pi.error_blur_prompt_json else {},
+                "error_invalid_doc_prompt": json.loads(pi.error_invalid_doc_prompt_json) if pi.error_invalid_doc_prompt_json else {},
+                "acceptable_formats": list(pi.acceptable_formats),
+                "max_file_size_mb": pi.max_file_size_mb,
+                "uploads_count": pi.uploads_count
+            }
+            
+        return {
+            "success": True,
+            "page_info": page_info,
+            "document_id": res.document_id,
+            "document_name": res.document_name,
+            "document_index": res.document_index,
+            "total_documents": res.total_documents
+        }
+    except Exception as e:
+        logger.error(f"get_page_info failed: {e}", req_id=req_id)
+        return {"success": False, "error": str(e)}
+
 @router.get("/api/capture/scheme/{scheme_id}")
 async def get_scheme_config(scheme_id: str, request: Request):
     req_id = request.state.req_id

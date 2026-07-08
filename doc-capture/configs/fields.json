@@ -3,7 +3,7 @@
   "doc_aadhaar_name":    { "label": {"English":"Full name","Hindi":"पूरा नाम"}, "type":"text", "pii":"sensitive", "criticality":"critical" },
   "doc_aadhaar_dob":     { "label": {"English":"Date of Birth"}, "type":"date", "normalize":"iso_date", "pii":"sensitive", "criticality":"critical" },
   "doc_aadhaar_gender":  { "label": {"English":"Gender"}, "type":"categorical", "values":["MALE","FEMALE","TRANSGENDER"], "criticality":"standard" },
-  "doc_aadhaar_last4":   { "label": {"English":"Aadhaar last 4 digits"}, "type":"text", "pattern":"^[0-9]{4}$", "pii":"masked", "criticality":"critical" },
+  "doc_aadhaar_last4":   { "label": {"English":"Aadhaar last 4 digits"}, "type":"text", "pattern":"^[0-9]{4}$", "pii":"masked", "criticality":"critical", "checksum":"verhoeff" },
   "doc_aadhaar_address": { "label": {"English":"Address"}, "type":"object", "fields":["care_of","street","city_village","district","state","pincode"], "pii":"sensitive", "criticality":"critical" },
   "_defaults": {
     "confidence_bands": {
