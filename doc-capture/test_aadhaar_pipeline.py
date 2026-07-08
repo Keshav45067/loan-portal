@@ -73,10 +73,21 @@ async def main():
             print("Make sure the doc-capture service is running!")
             sys.exit(1)
             
-        # Helper function to read image bytes
+        # Helper function to read image bytes and auto-transpose EXIF rotation
         def get_image_bytes(path):
-            with open(path, "rb") as f:
-                return f.read()
+            from PIL import Image, ImageOps
+            import io
+            try:
+                img = Image.open(path)
+                # Auto-rotate image according to EXIF orientation metadata
+                img = ImageOps.exif_transpose(img)
+                out = io.BytesIO()
+                img.save(out, format="JPEG", quality=95)
+                return out.getvalue()
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to process EXIF transpose for {path}: {e}")
+                with open(path, "rb") as f:
+                    return f.read()
                 
         # 2. Process Part 1 (Front)
         print("➡️  [STEP 2] Processing Part 1 (Front)...")
