@@ -81,7 +81,11 @@ class ConfigLoader:
                     desc += f", Fields: {slot_def.get('fields', [])}"
                 
                 if "pattern" in slot_def:
-                    desc += f", Pattern/Regex: {slot_def.get('pattern')}"
+                    p = slot_def.get("pattern")
+                    if isinstance(p, list):
+                        desc += f", Pattern/Regex (must match at least one): {', '.join(p)}"
+                    else:
+                        desc += f", Pattern/Regex: {p}"
                     
                 menu.append(desc)
         return menu

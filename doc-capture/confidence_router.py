@@ -10,6 +10,8 @@ def route_slot(slot_result: SlotResult, slot_def: dict, bands: dict) -> str:
     and confidence bands threshold.
     """
     if slot_result.value is None or slot_result.confidence <= 0.0:
+        if slot_def.get("optional", False):
+            return "accept"
         return "retake"
         
     criticality = slot_def.get("criticality", "standard")

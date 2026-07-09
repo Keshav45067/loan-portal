@@ -149,8 +149,18 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
     # Pattern regex check
     if pattern:
         try:
-            if not re.match(pattern, str(raw_val).strip()):
-                return None, 0.0
+            val_str = str(raw_val).strip()
+            if isinstance(pattern, list):
+                matched = False
+                for p in pattern:
+                    if re.match(p, val_str):
+                        matched = True
+                        break
+                if not matched:
+                    return None, 0.0
+            else:
+                if not re.match(pattern, val_str):
+                    return None, 0.0
         except Exception as e:
             logger.error(f"Pattern matching failed for {slot_id}: {e}")
             return None, 0.0
@@ -191,7 +201,11 @@ def build_prompt(manifest: dict, all_page_texts: Dict[str, str]) -> str:
                 desc += ". Normalize date to YYYY-MM-DD. If only Year is present, return YYYY-01-01."
                 
             if "pattern" in slot_def:
-                desc += f", Pattern/Regex constraints: {slot_def.get('pattern')}"
+                p = slot_def.get("pattern")
+                if isinstance(p, list):
+                    desc += f", Pattern/Regex constraints (must match at least one): {', '.join(p)}"
+                else:
+                    desc += f", Pattern/Regex constraints: {p}"
                 
             menu_lines.append(desc)
             

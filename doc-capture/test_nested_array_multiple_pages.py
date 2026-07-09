@@ -276,3 +276,41 @@ async def test_table_recognition_hint():
     call_args = ocr_stub.ExtractText.call_args[0][0]
     assert call_args.hint == "Table Recognition:"
     assert res.passed is True
+
+def test_passport_fields_validation():
+    config_loader.load_registry()
+    from extraction import validate_and_coerce
+    from confidence_router import route_slot, SlotResult
+    
+    passport_num_def = config_loader.get_slot_def("doc_passport_number")
+    spouse_name_def = config_loader.get_slot_def("doc_passport_spouse_name")
+    
+    # 1. Test 1-letter passport number
+    val, conf = validate_and_coerce("doc_passport_number", passport_num_def, "A1234567", 0.95)
+    assert val == "A1234567"
+    assert conf == 0.95
+    
+    # 2. Test 2-letter passport number
+    val, conf = validate_and_coerce("doc_passport_number", passport_num_def, "TI7332300", 0.95)
+    assert val == "TI7332300"
+    assert conf == 0.95
+    
+    # 3. Test invalid passport formats
+    val, conf = validate_and_coerce("doc_passport_number", passport_num_def, "12345678", 0.95)
+    assert val is None
+    assert conf == 0.0
+    
+    val, conf = validate_and_coerce("doc_passport_number", passport_num_def, "T123", 0.95)
+    assert val is None
+    assert conf == 0.0
+
+    # 4. Test optional spouse name routing when None/empty
+    dummy_spouse_slot = SlotResult(slot="doc_passport_spouse_name", value=None, confidence=0.0, evidence={})
+    action = route_slot(dummy_spouse_slot, spouse_name_def, config_loader.get_confidence_bands())
+    assert action == "accept"
+    
+    # Test non-optional field routing fails on None/empty
+    dummy_given_name_slot = SlotResult(slot="doc_passport_given_name", value=None, confidence=0.0, evidence={})
+    given_name_def = config_loader.get_slot_def("doc_passport_given_name")
+    action_req = route_slot(dummy_given_name_slot, given_name_def, config_loader.get_confidence_bands())
+    assert action_req == "retake"
