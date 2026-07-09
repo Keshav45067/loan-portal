@@ -375,7 +375,46 @@ export default function CaptureFlowPage({ params }) {
               const errKey = data.validation_error_key || data.error || 'unknown_error';
               voiceSessionRef.current.sendControlSignal(`capture_error:${errKey}`);
           }
-          throw new Error(data.validation_error_text || data.error || 'Validation failed. Please try again.');
+          
+          setError(data.validation_error_text || data.error || 'Validation failed. Please try again.');
+          
+          if (data.next_page_id) {
+              setState(prev => ({
+                  ...prev,
+                  docId: data.next_document_id || prev.docId,
+                  pageId: data.next_page_id,
+              }));
+              setPreviewUrl(null);
+              
+              // Need to re-fetch page info to update prompts and overlay
+              const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+              });
+              const infoData = await infoRes.json();
+              if (infoData.success) {
+                  setState(prev => ({
+                      ...prev,
+                      pageInfo: infoData.page_info,
+                      docIndex: infoData.document_index,
+                      totalDocs: infoData.total_documents
+                  }));
+                  
+                  if (infoData.page_info?.uploads_count !== undefined) {
+                      setLocalUploadsCount(infoData.page_info.uploads_count);
+                  }
+                  
+                  if (voiceSessionRef.current) {
+                      voiceSessionRef.current.sendControlSignal('update_page_context');
+                      const text = infoData.page_info?.intro_prompt?.[language] || "Please capture the document again.";
+                      setTimeout(() => {
+                          if (voiceSessionRef.current) {
+                              voiceSessionRef.current.sendControlSignal(`capture_speak:${text}`);
+                          }
+                      }, 500);
+                  }
+              }
+          }
+          return;
       }
 
       if (voiceSessionRef.current) {
