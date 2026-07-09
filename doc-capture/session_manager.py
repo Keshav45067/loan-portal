@@ -349,7 +349,7 @@ class CaptureSession:
         if doc_id:
             part_id, page_index = parse_page_id(page_id)
             uploads = self.page_uploads.get(doc_id, {}).get(part_id, {})
-            return 1 if page_index in uploads else 0
+            return len(uploads)
         return 0
 
     def add_faq_message(self, role: str, content: str):
