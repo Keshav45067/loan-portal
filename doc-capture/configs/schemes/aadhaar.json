@@ -1,0 +1,11 @@
+{
+  "scheme_id": "aadhaar",
+  "scheme_name": "Aadhaar Card Verification",
+  "description": "Verification of identity and address details using UIDAI Aadhaar Card",
+  "required_documents": [
+    "doc_aadhaar_002"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their Aadhaar Card. Keep answers under 3 sentences."
+  }
+}

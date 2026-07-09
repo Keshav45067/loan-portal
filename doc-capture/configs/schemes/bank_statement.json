@@ -1,0 +1,11 @@
+{
+  "scheme_id": "bank_statement",
+  "scheme_name": "Bank Statement Verification",
+  "description": "Verification of financial records and transaction logs using Bank Statement",
+  "required_documents": [
+    "doc_bank_statement_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their Bank Statement. Keep answers under 3 sentences."
+  }
+}

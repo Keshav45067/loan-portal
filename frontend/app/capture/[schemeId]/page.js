@@ -436,125 +436,159 @@ export default function CaptureFlowPage({ params }) {
   if (state.allComplete) return <div className={styles.container}>All documents captured! Redirecting...</div>;
 
   return (
-    <div className={styles.container} style={{ padding: '1rem', maxWidth: '100vw' }}>
-      {/* Progress Header */}
-      <div style={{ width: '100%', maxWidth: '1200px', marginBottom: '1rem' }}>
-          <div className={styles.headerRow}>
-              <h2 style={{ fontSize: '1.2rem', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
+    <div className={styles.container} style={{ background: 'radial-gradient(circle at 10% 20%, #16192b 0%, #090a0f 90%)', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
+      {/* ─── Top Nav ─── */}
+      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>
+            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
+              <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
+              <defs>
+                <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
+                  <stop stopColor="#4a78ff" /><stop offset="1" stopColor="#06b6d4" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <span>Augmen.io</span>
           </div>
-          <div className={styles.progressBar}>
-              <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%` }}></div>
-          </div>
-      </div>
+        </div>
+        <div>
+          <button
+            onClick={() => {
+              stopCamera();
+              router.push('/dashboard');
+            }}
+            className="btn btn-secondary"
+            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
+            Dashboard
+          </button>
+        </div>
+      </nav>
 
-      <div className={styles.mainLayout}>
-        {/* Left: Camera / File Area */}
-        <div className={styles.card} style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            {!isStarted ? (
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '1rem' }}>
-                    <h2 style={{ color: '#fff', marginBottom: '1.5rem' }}>Ready to capture your documents?</h2>
-                    <button 
-                        onClick={startSession} 
-                        style={{ padding: '1rem 2.5rem', fontSize: '1.2rem', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', border: 'none', borderRadius: '2rem', cursor: 'pointer', fontWeight: 600, boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)' }}
-                    >
-                        Start Session
-                    </button>
-                </div>
-            ) : null}
-
-            <h3 style={{ marginBottom: '0.5rem', fontSize: '1.5rem', color: '#60a5fa' }}>
-                {state.pageInfo?.page_name || 'Document'}
-            </h3>
-            
-            {error && (
-              <div style={{ color: '#ef4444', marginBottom: '1rem', padding: '0.5rem', background: 'rgba(239,68,68,0.1)', borderRadius: '0.5rem' }}>
-                {error}
-              </div>
-            )}
-
-            <div className={styles.videoContainer}>
-                {!previewUrl ? (
-                    <>
-                        <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
-                        {state.pageInfo?.ui_camera_overlay && (
-                            <div className={styles.overlay} />
-                        )}
-                        <div className={styles.cameraControls} style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                            <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
-                            <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
-                                {processingDoc ? 'Processing...' : '📸 Capture'}
-                            </button>
-                            <label className={styles.captureButton} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: processingDoc ? 'not-allowed' : 'pointer', background: '#4b5563' }}>
-                                📁 Upload
-                                <input 
-                                    type="file" 
-                                    style={{ display: 'none' }}
-                                    accept={state.pageInfo?.acceptable_formats?.map(f => `.${f.replace('.','')}`).join(',')}
-                                    disabled={processingDoc}
-                                    onChange={handleFileUpload}
-                                />
-                            </label>
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <img src={previewUrl} alt="Preview" className={styles.videoElement} />
-                        {processingDoc && (
-                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-                                <div className={styles.sphereProcessing} style={{ width: '50px', height: '50px', borderRadius: '50%' }}></div>
-                            </div>
-                        )}
-                    </>
-                )}
+      {/* Main Flow Content Container */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 40px 60px', width: '100%' }}>
+        {/* Progress Header */}
+        <div style={{ width: '100%', maxWidth: '1200px', marginBottom: '24px' }}>
+            <div className={styles.headerRow}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#94a3b8', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
             </div>
-            
-            {/* Hidden canvas for image capture */}
-            <canvas ref={canvasRef} style={{ display: 'none' }} />
+            <div className={styles.progressBar} style={{ height: '8px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '99px', marginTop: '12px', overflow: 'hidden' }}>
+                <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%`, background: 'linear-gradient(90deg, #4a78ff, #7c3aed)' }}></div>
+            </div>
         </div>
 
-        {/* Right: Voice Agent Sidebar (Unifed with Interview UI) */}
-        <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2rem 1.5rem', background: 'rgba(30, 41, 59, 0.7)' }}>
-          <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
-            <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
-            <span className={interviewStyles.connectionText}>
-              {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
-            </span>
+        <div className={styles.mainLayout}>
+          {/* Left: Camera / File Area */}
+          <div className="glass-card" style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', position: 'relative', background: 'rgba(13, 17, 30, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '32px' }}>
+              {!isStarted ? (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(5, 7, 15, 0.9)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
+                      <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.8rem', fontWeight: 700 }}>Ready to capture your documents?</h2>
+                      <button 
+                          onClick={startSession} 
+                          className="btn btn-primary btn-lg"
+                          style={{ background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', boxShadow: '0 4px 20px rgba(74, 120, 255, 0.3)', border: 'none' }}
+                      >
+                          Start Session
+                      </button>
+                  </div>
+              ) : null}
+
+              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700, color: '#60a5fa' }}>
+                  {state.pageInfo?.page_name || 'Document'}
+              </h3>
+              
+              {error && (
+                <div style={{ color: '#ef4444', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '12px' }}>
+                  {error}
+                </div>
+              )}
+
+              <div className={styles.videoContainer} style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  {!previewUrl ? (
+                      <>
+                          <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
+                          {state.pageInfo?.ui_camera_overlay && (
+                              <div className={styles.overlay} />
+                          )}
+                          <div className={styles.cameraControls} style={{ display: 'flex', gap: '10px', justifyContent: 'center', bottom: '20px' }}>
+                              <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera" style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔄</button>
+                              <button className="btn btn-primary" onClick={handleCapture} disabled={processingDoc} style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', border: 'none', fontWeight: 600 }}>
+                                  {processingDoc ? 'Processing...' : '📸 Capture'}
+                              </button>
+                              <label className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: processingDoc ? 'not-allowed' : 'pointer', height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 600 }}>
+                                  📁 Upload
+                                  <input 
+                                      type="file" 
+                                      style={{ display: 'none' }}
+                                      accept={state.pageInfo?.acceptable_formats?.map(f => `.${f.replace('.','')}`).join(',')}
+                                      disabled={processingDoc}
+                                      onChange={handleFileUpload}
+                                  />
+                              </label>
+                          </div>
+                      </>
+                  ) : (
+                      <>
+                          <img src={previewUrl} alt="Preview" className={styles.videoElement} />
+                          {processingDoc && (
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+                                  <div className={styles.sphereProcessing} style={{ width: '50px', height: '50px', borderRadius: '50%' }}></div>
+                              </div>
+                          )}
+                      </>
+                  )}
+              </div>
+              
+              {/* Hidden canvas for image capture */}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
           </div>
 
-          <div className={interviewStyles.neuralCoreWrapper} style={{ transform: 'scale(0.8)', marginBottom: '1rem' }}>
-            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring1} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring2} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-            <div className={`${interviewStyles.coreRing} ${interviewStyles.ring3} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-
-            <div className={`${interviewStyles.coreSphere} ${qaState === 'listening' ? interviewStyles.sphereListening : qaState === 'processing' ? interviewStyles.sphereProcessing : qaState === 'speaking' ? interviewStyles.sphereSpeaking : ''} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.sphereActive : ''}`}>
-              <div className={interviewStyles.coreGlowInner}></div>
+          {/* Right: Voice Agent Sidebar (Unified with Interview UI) */}
+          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2rem 1.5rem', background: 'rgba(10, 14, 25, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '24px', backdropFilter: 'blur(20px)' }}>
+            <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
+              <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
+              <span className={interviewStyles.connectionText}>
+                {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
+              </span>
             </div>
 
-            <div className={`${interviewStyles.visualizerWrapper} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.visualizerActive : ''}`}>
-              <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px' }}></canvas>
+            <div className={interviewStyles.neuralCoreWrapper} style={{ transform: 'scale(0.8)', marginBottom: '1rem' }}>
+              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring1} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring2} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring3} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
+
+              <div className={`${interviewStyles.coreSphere} ${qaState === 'listening' ? interviewStyles.sphereListening : qaState === 'processing' ? interviewStyles.sphereProcessing : qaState === 'speaking' ? interviewStyles.sphereSpeaking : ''} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.sphereActive : ''}`}>
+                <div className={interviewStyles.coreGlowInner}></div>
+              </div>
+
+              <div className={`${interviewStyles.visualizerWrapper} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.visualizerActive : ''}`}>
+                <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px' }}></canvas>
+              </div>
             </div>
-          </div>
 
-          <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#e2e8f0', fontSize: '0.95rem', width: '100%' }}>
-            {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
-          </div>
+            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#e2e8f0', fontSize: '0.95rem', width: '100%' }}>
+              {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
+            </div>
 
-          <div className={interviewStyles.textInputContainer} style={{ marginTop: '0', width: '100%', maxWidth: '100%' }}>
-            <input 
-              type="text" 
-              className={interviewStyles.textInput} 
-              placeholder="Type here..." 
-              value={textInputValue}
-              onChange={(e) => setTextInputValue(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-              disabled={qaState === 'connecting'}
-            />
-            <button className={interviewStyles.sendButton} onClick={handleSendText} disabled={!textInputValue.trim() || qaState === 'connecting'}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
-                <line x1="22" y1="2" x2="11" y2="13"></line>
-                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-              </svg>
-            </button>
+            <div className={interviewStyles.textInputContainer} style={{ marginTop: '0', width: '100%', maxWidth: '100%' }}>
+              <input 
+                type="text" 
+                className={interviewStyles.textInput} 
+                placeholder="Type here..." 
+                value={textInputValue}
+                onChange={(e) => setTextInputValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
+                disabled={qaState === 'connecting'}
+              />
+              <button className={interviewStyles.sendButton} onClick={handleSendText} disabled={!textInputValue.trim() || qaState === 'connecting'}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

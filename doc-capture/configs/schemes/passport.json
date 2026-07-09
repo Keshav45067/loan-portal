@@ -1,0 +1,11 @@
+{
+  "scheme_id": "passport",
+  "scheme_name": "Passport Verification",
+  "description": "Verification of user identity and immigration history using Indian Passport",
+  "required_documents": [
+    "doc_passport_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their Passport. Keep answers under 3 sentences."
+  }
+}

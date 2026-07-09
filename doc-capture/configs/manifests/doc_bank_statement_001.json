@@ -1,0 +1,83 @@
+{
+  "document_id": "doc_bank_statement_001",
+  "title": {
+    "English": "Bank Statement",
+    "Hindi": "बैंक स्टेटमेंट"
+  },
+  "description": "Upload statement account page and cheque pages",
+  "proves": ["financial_standing"],
+  "expects": [
+    "full_name",
+    "cheques"
+  ],
+  "parts": [
+    {
+      "id": "account_details",
+      "name": {
+        "English": "Account Details Page",
+        "Hindi": "खाता विवरण पृष्ठ"
+      },
+      "title": {
+        "English": "first page",
+        "Hindi": "पहला पृष्ठ"
+      },
+      "anchors": [
+        "Statement of Account",
+        "Account Number",
+        "Account Details",
+        "A/C Holder"
+      ],
+      "provides": ["full_name"],
+      "page_count": 1
+    },
+    {
+      "id": "cheques",
+      "name": {
+        "English": "Cheque Pages",
+        "Hindi": "चेक पृष्ठ"
+      },
+      "title": {
+        "English": "cheque pages",
+        "Hindi": "चेक पृष्ठ"
+      },
+      "anchors": [
+        "Cheque",
+        "CHQ",
+        "Inst. No",
+        "Instrument Number",
+        "Clearance"
+      ],
+      "provides": ["cheques"],
+      "page_count": 0
+    }
+  ],
+  "prompts": {
+    "ask_part": {
+      "en": "Please capture the {part_title} of your {document_title}.",
+      "hi": "कृपया अपने {document_title} का {part_title} कैप्चर करें।"
+    },
+    "success": {
+      "en": "Part scanned successfully.",
+      "hi": "भाग सफलतापूर्वक स्कैन हो गया।"
+    },
+    "error_blur": {
+      "en": "The image is too blurry. Please try again with better lighting.",
+      "hi": "छवि बहुत धुंधली है। कृपया बेहतर रोशनी में फिर से प्रयास करें।"
+    },
+    "error_wrong_page": {
+      "en": "This does not seem to be the correct page. Please verify and capture again.",
+      "hi": "यह अपेक्षित पृष्ठ नहीं लगता। कृपया जाँचें और पुनः प्रयास करें।"
+    },
+    "error_low_confidence": {
+      "en": "Some details could not be read clearly. Please re-capture the highlighted page.",
+      "hi": "कुछ विवरण स्पष्ट रूप से पढ़ने योग्य नहीं हैं। कृपया हाइलाइट किए गए पृष्ठ को फिर से कैप्चर करें।"
+    }
+  },
+  "sources": [
+    {
+      "formats": ["image/jpeg", "image/png", "application/pdf"],
+      "max_mb": 15
+    }
+  ],
+  "preprocessing": ["auto_deskew", "remove_glare", "enhance_contrast"]
+}

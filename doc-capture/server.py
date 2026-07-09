@@ -21,6 +21,7 @@ from grpc import aio as grpc_aio
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
 from log_utils.logger import get_logger, extract_req_id
+from session_manager import parse_page_id
 
 from generated import doc_capture_pb2 as pb2
 from generated import doc_capture_pb2_grpc as pb2_grpc
@@ -221,6 +222,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             
         doc_config = session.current_document_config
         doc_id = session.get_current_document_id()
+        expected_part_id, page_index = parse_page_id(request.page_id)
         
         # 2. Validate file size and formats based on source configuration in manifest
         sources = doc_config.get("sources", [{}])
@@ -353,17 +355,49 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     validation_error_text=error_text
                 )
                 
-            # 5. Save quality gate result in coverage map
             part_id = quality_res.part_id
-            session.record_part_result(part_id, quality_res)
-            session.record_upload(part_id, request.filename)
+            # Enforce classified part matches expected part
+            if part_id != expected_part_id:
+                logger.warning(f"ProcessDocument: page classifier returned '{part_id}', but expected '{expected_part_id}'")
+                error_text = get_localized_prompt(doc_config, "error_wrong_page", session.language)
+                return pb2.ProcessDocResponse(
+                    success=False,
+                    validation_error_key="error_wrong_page",
+                    validation_error_text=error_text,
+                    next_page_id=request.page_id,
+                    next_part_id=expected_part_id
+                )
+                
+            # 4. GCS upload via Orchestrator (done in background thread)
+            ext = "jpg"
+            if request.content_type == "application/pdf":
+                ext = "pdf"
+            elif request.content_type == "image/png":
+                ext = "png"
+                
+            filename = f"{session.session_id}_{request.document_id}_{request.page_id}.{ext}"
+            if request.filename:
+                orig_ext = request.filename.split(".")[-1]
+                if orig_ext:
+                    filename = f"{session.session_id}_{request.document_id}_{request.page_id}.{orig_ext}"
+                    
+            session.record_upload(request.page_id, filename)
+            
+            # 5. Save quality gate result in coverage map
+            session.record_part_result(request.page_id, quality_res)
+            
+            # Clear this page from pending retakes if it was a retake
+            if part_id in session.pending_retakes.get(request.document_id, {}):
+                session.pending_retakes[request.document_id][part_id].discard(page_index)
+                if page_index in session.failed_reasons.get(request.document_id, {}).get(part_id, {}):
+                    del session.failed_reasons[request.document_id][part_id][page_index]
             
             # 6. Check if coverage complete
             if not session.is_coverage_complete():
                 # Advance part capture (not fully complete yet)
                 session.advance_page()
-                next_part = session.get_next_uncovered_part()
-                next_part_id = next_part.get("id", "") if next_part else ""
+                next_page = session.get_current_page()
+                next_page_id = next_page.get("page_id") if next_page else ""
                 
                 return pb2.ProcessDocResponse(
                     success=True,
@@ -371,16 +405,29 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     document_complete=False,
                     all_complete=False,
                     part_id=part_id,
-                    next_page_id=next_part_id,
-                    next_part_id=next_part_id,
+                    next_page_id=next_page_id,
+                    next_part_id=next_page_id,
                     next_document_id=request.document_id
                 )
             
         # 7. Coverage complete -> run extraction
         from extraction import run_extraction
         logger.info(f"ProcessDocument: coverage complete. Running extraction...")
+        
+        # Flatten OCR texts dictionary by page indices to pass to LLM
+        flat_page_texts = {}
+        for p in doc_config.get("parts", []):
+            p_id = p.get("id")
+            p_count = p.get("page_count", 1)
+            uploaded = session.part_ocr_texts.get(doc_id, {}).get(p_id, {})
+            if p_count == 1:
+                flat_page_texts[p_id] = uploaded.get(1, "")
+            else:
+                for idx in sorted(list(uploaded.keys())):
+                    flat_page_texts[f"{p_id}_{idx}"] = uploaded[idx]
+                    
         extraction_res = await run_extraction(
-            all_page_texts=session.part_ocr_texts[doc_id],
+            all_page_texts=flat_page_texts,
             manifest=doc_config,
             llm_stub=self.llm_stub
         )
@@ -391,52 +438,120 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         
         flat_extracted_dict = {}
         confirm_fields = []
-        failed_slot_id = None
-        failed_part_id = None
         
+        # Track failed page retakes dynamically: { (part_id, page_index): Set[failed_slots] }
+        failed_pages_to_retake = {}
+        
+        def add_failure(slot_id, evidence_p):
+            # Parse page_id suffix
+            p_id, p_idx = parse_page_id(evidence_p)
+            if not p_id or p_id not in [part.get("id") for part in doc_config.get("parts", [])]:
+                # Fallback to identify part by provides definition
+                p_id = None
+                for part in doc_config.get("parts", []):
+                    if slot_id in part.get("provides", []):
+                        p_id = part.get("id")
+                        break
+                if not p_id:
+                    p_id = doc_config.get("parts", [{}])[0].get("id", "Page")
+                p_idx = 1
+                
+            slot_def = config_loader.get_slot_def(slot_id)
+            label = slot_def.get("label", {}).get("English", slot_id) if slot_def else slot_id
+            
+            if (p_id, p_idx) not in failed_pages_to_retake:
+                failed_pages_to_retake[(p_id, p_idx)] = set()
+            failed_pages_to_retake[(p_id, p_idx)].add(label)
+
         for slot_res in extraction_res.filled:
             slot_def = config_loader.get_slot_def(slot_res.slot)
             if not slot_def:
                 continue
                 
-            action = route_slot(slot_res, slot_def, bands)
+            if slot_def.get("type") == "array":
+                items_list = slot_res.value
+                if isinstance(items_list, list):
+                    items_def = slot_def.get("items", {})
+                    for item in items_list:
+                        if not isinstance(item, dict):
+                            continue
+                        for sub_field in items_def.get("fields", []):
+                            sub_data = item.get(sub_field)
+                            if isinstance(sub_data, dict):
+                                sub_val = sub_data.get("value")
+                                sub_conf = sub_data.get("confidence", slot_res.confidence)
+                                sub_ev = sub_data.get("evidence", slot_res.evidence)
+                            else:
+                                sub_val = sub_data
+                                sub_conf = slot_res.confidence
+                                sub_ev = slot_res.evidence
+                                
+                            sub_def = config_loader.get_slot_def(sub_field)
+                            if sub_def:
+                                # Instantiate dummy SlotResult for sub-field routing
+                                dummy_res = slot_res.__class__(
+                                    slot=sub_field,
+                                    value=sub_val,
+                                    confidence=sub_conf,
+                                    evidence=sub_ev
+                                )
+                                action = route_slot(dummy_res, sub_def, bands)
+                                if action == "retake":
+                                    evidence_page = sub_ev.get("page", "")
+                                    add_failure(sub_field, evidence_page)
+                                elif action == "confirm":
+                                    confirm_fields.append(sub_field)
+            else:
+                action = route_slot(slot_res, slot_def, bands)
+                if action == "retake":
+                    evidence_page = slot_res.evidence.get("page", "")
+                    add_failure(slot_res.slot, evidence_page)
+                elif action == "confirm":
+                    confirm_fields.append(slot_res.slot)
+                    
+            flat_extracted_dict[slot_res.slot] = {"value": slot_res.value, "confidence": slot_res.confidence}
             
-            if action == "retake":
-                logger.warning(f"ProcessDocument: slot '{slot_res.slot}' routed to retake.")
-                failed_slot_id = slot_res.slot
+        if failed_pages_to_retake:
+            logger.warning(f"ProcessDocument: slots failed validation. Queueing retakes for failed pages.")
+            for (p_id, p_idx), slot_labels in failed_pages_to_retake.items():
+                if doc_id not in session.pending_retakes:
+                    session.pending_retakes[doc_id] = {}
+                if p_id not in session.pending_retakes[doc_id]:
+                    session.pending_retakes[doc_id][p_id] = set()
+                session.pending_retakes[doc_id][p_id].add(p_idx)
                 
-                # Identify which part of the document this slot belongs to
-                evidence_page = slot_res.evidence.get("page", "")
-                if not evidence_page:
-                    for part in doc_config.get("parts", []):
-                        if slot_res.slot in part.get("provides", []):
-                            evidence_page = part.get("id", "")
-                            break
-                first_part_id = doc_config.get("parts", [{}])[0].get("id", "Page")
-                failed_part_id = evidence_page if evidence_page else first_part_id
-                break
-            elif action == "confirm":
-                confirm_fields.append(slot_res.slot)
-                flat_extracted_dict[slot_res.slot] = {"value": slot_res.value, "confidence": slot_res.confidence}
-            else:  # accept
-                flat_extracted_dict[slot_res.slot] = {"value": slot_res.value, "confidence": slot_res.confidence}
+                # Store dynamic failure reasons
+                if doc_id not in session.failed_reasons:
+                    session.failed_reasons[doc_id] = {}
+                if p_id not in session.failed_reasons[doc_id]:
+                    session.failed_reasons[doc_id][p_id] = {}
+                session.failed_reasons[doc_id][p_id][p_idx] = list(slot_labels)
                 
-        if failed_slot_id:
-            # A slot needs retake. Remove the failed part from coverage map so it must be captured again
-            logger.warning(f"ProcessDocument: prompting user to retake part '{failed_part_id}' due to failed validation on slot '{failed_slot_id}'")
-            if failed_part_id in session.coverage_map[doc_id]:
-                del session.coverage_map[doc_id][failed_part_id]
-            if failed_part_id in session.part_ocr_texts[doc_id]:
-                del session.part_ocr_texts[doc_id][failed_part_id]
+                # Evict/delete faulty ocr text to force re-capturing
+                if p_id in session.part_ocr_texts.get(doc_id, {}):
+                    if p_idx in session.part_ocr_texts[doc_id][p_id]:
+                        del session.part_ocr_texts[doc_id][p_id][p_idx]
+                        
+            next_page = session.get_current_page()
+            next_page_id = next_page.get("page_id") if next_page else ""
+            
+            # Construct localized list of failures
+            failed_reasons_str = []
+            for (p_id, p_idx), slot_labels in failed_pages_to_retake.items():
+                reasons_joined = ", ".join(list(slot_labels))
+                part_def = next((part for part in doc_config.get("parts", []) if part.get("id") == p_id), None)
+                part_title = part_def.get("title", {}).get("English", p_id) if part_def else p_id
+                failed_reasons_str.append(f"{part_title} page {p_idx} ({reasons_joined})")
                 
-            error_text = get_localized_prompt(doc_config, "error_low_confidence", session.language)
+            error_msg_en = "Some details could not be read clearly: " + "; ".join(failed_reasons_str) + ". Please re-capture."
+            error_text_hi = get_localized_prompt(doc_config, "error_low_confidence", session.language)
+            
             return pb2.ProcessDocResponse(
                 success=False,
                 validation_error_key="error_low_confidence",
-                validation_error_text=error_text,
-                validation_field_id=failed_slot_id,
-                next_page_id=failed_part_id,
-                next_part_id=failed_part_id
+                validation_error_text=error_msg_en if session.language == "en" else error_text_hi,
+                next_page_id=next_page_id,
+                next_part_id=next_page_id
             )
             
         # 9. Success: Save state

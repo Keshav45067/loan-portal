@@ -62,16 +62,16 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
     pii = slot_def.get("pii", "none")
     
     checksum = slot_def.get("checksum")
-    # if checksum == "verhoeff":
-    #     # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
-    #     cleaned = "".join(c for c in str(raw_val) if c.isdigit())
-    #     if verify_aadhaar(cleaned):
-    #         logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
-    #         # Store only last-4 digits
-    #         return cleaned[-4:], raw_conf
-    #     else:
-    #         logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
-    #         return None, 0.0
+    if checksum == "verhoeff":
+        # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
+        cleaned = "".join(c for c in str(raw_val) if c.isdigit())
+        if verify_aadhaar(cleaned):
+            logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
+            # Store only last-4 digits
+            return cleaned[-4:], raw_conf
+        else:
+            logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
+            return None, 0.0
             
     if slot_type == "date" or normalize == "iso_date":
         date_val = normalize_iso_date(raw_val)
@@ -101,6 +101,40 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
         for f in expected_fields:
             coerced_obj[f] = raw_val.get(f, None)
         return coerced_obj, raw_conf
+        
+    elif slot_type == "array":
+        if not isinstance(raw_val, list):
+            return None, 0.0
+        items_def = slot_def.get("items", {})
+        coerced_list = []
+        for item in raw_val:
+            if not isinstance(item, dict):
+                continue
+            coerced_item = {}
+            for sub_field in items_def.get("fields", []):
+                sub_data = item.get(sub_field)
+                if not isinstance(sub_data, dict):
+                    sub_val = sub_data
+                    sub_conf = raw_conf
+                    sub_ev = {}
+                else:
+                    sub_val = sub_data.get("value")
+                    sub_conf = sub_data.get("confidence", raw_conf)
+                    sub_ev = sub_data.get("evidence", {})
+                    
+                sub_def = config_loader.get_slot_def(sub_field)
+                if sub_def:
+                    coerced_sub_val, coerced_sub_conf = validate_and_coerce(sub_field, sub_def, sub_val, sub_conf)
+                else:
+                    coerced_sub_val, coerced_sub_conf = sub_val, sub_conf
+                    
+                coerced_item[sub_field] = {
+                    "value": coerced_sub_val,
+                    "confidence": coerced_sub_conf,
+                    "evidence": sub_ev
+                }
+            coerced_list.append(coerced_item)
+        return coerced_list, raw_conf
         
     elif slot_type == "number":
         try:
@@ -146,6 +180,10 @@ def build_prompt(manifest: dict, all_page_texts: Dict[str, str]) -> str:
                 desc += f", Allowed values: {slot_def.get('values', [])}"
             elif slot_type == "object":
                 desc += f", Fields: {slot_def.get('fields', [])}"
+            elif slot_type == "array":
+                items_def = slot_def.get("items", {})
+                if items_def.get("type") == "object":
+                    desc += f", Array of objects, each containing fields: {items_def.get('fields', [])}. For each item, return a JSON object where each field's value is structured as: {{value: ..., confidence: 0.95, evidence: {{page: ..., span: ...}}}}."
                 
             if pii == "masked" and slot_id == "doc_aadhaar_last4":
                 desc += ". IMPORTANT: Extract the full 12-digit Aadhaar number if found in the text; it will be validated and masked."
