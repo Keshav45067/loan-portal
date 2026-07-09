@@ -225,6 +225,37 @@ async def process_document(
         return {"success": False, "error": str(e)}
 
 
+@router.post("/api/capture/advance")
+async def advance_capture_page(
+    request: Request,
+    auth: dict = Depends(require_auth)
+):
+    req_id = request.state.req_id
+    session_id = auth.get("session_id")
+    
+    try:
+        stub = request.app.state.doc_capture_stub
+        res = await stub.AdvancePage(
+            doc_capture_pb2.AdvancePageRequest(session_id=session_id),
+            metadata=[("x-request-id", req_id)]
+        )
+        return {
+            "success": res.success,
+            "error": res.error,
+            "session_id": res.session_id,
+            "current_document_id": res.current_document_id,
+            "current_page_id": res.current_page_id,
+            "current_document_index": res.current_document_index,
+            "total_documents": res.total_documents,
+            "current_page_index": res.current_page_index,
+            "total_pages": res.total_pages,
+            "all_complete": res.all_complete
+        }
+    except Exception as e:
+        logger.error(f"advance_capture_page failed: {e}", req_id=req_id)
+        return {"success": False, "error": str(e)}
+
+
 # --- WebSocket Endpoint for FAQ ---
 
 @router.websocket("/ws/capture-voice")

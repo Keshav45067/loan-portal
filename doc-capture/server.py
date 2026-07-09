@@ -67,10 +67,20 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
             doc_title = manifest.get("title", {}).get("English", "Document")
             part_id = next_part.get("id", "Page")
             part_title = next_part.get("title", {}).get("English", part_id)
+            
+            # List other parts for negative constraints
+            other_parts_list = []
+            for p in manifest.get("parts", []):
+                p_id = p.get("id", "")
+                if p_id != part_id:
+                    other_parts_list.append(p.get("title", {}).get("English", p_id))
+            other_parts_str = ", ".join(other_parts_list)
+            
             page_ctx = (
-                f"The user is currently going to upload/capture the '{part_title}' of their '{doc_title}'. "
-                f"Try to keep the response limited to that part, but if user insists, then explain "
-                f"the details of other parts also, but only if user insists."
+                f"The user is currently going to upload/capture the '{part_title}' of their '{doc_title}'.\n"
+                f"CRITICAL: The active screen is for '{part_title}' only. Do NOT instruct the user to capture or upload "
+                f"other parts (such as {other_parts_str}) unless they explicitly ask for help with them. "
+                f"Focus your response and instructions entirely on the '{part_title}'."
             )
             context_parts.append(page_ctx)
             
@@ -190,6 +200,18 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not session:
             return pb2.CaptureSessionResponse(success=False, error="Session not found")
             
+        # If the current next uncovered part is a variable page count part (page_count == 0),
+        # mark it completed because the user explicitly requested to advance past it.
+        current_part = session.get_next_uncovered_part()
+        if current_part and current_part.get("page_count", 1) == 0:
+            doc_id = session.get_current_document_id()
+            part_id = current_part.get("id", "")
+            if doc_id and part_id:
+                if doc_id not in session.variable_parts_completed:
+                    session.variable_parts_completed[doc_id] = set()
+                session.variable_parts_completed[doc_id].add(part_id)
+                logger.info(f"AdvancePage: Marking variable part '{part_id}' as completed for doc '{doc_id}'", req_id=req_id)
+                
         session.advance_page()
         
         page = session.get_current_page()

@@ -244,6 +244,7 @@ export default function CaptureFlowPage({ params }) {
                 onConnected: () => {
                     const text = state.pageInfo?.intro_prompt?.[language] || "Please capture your document.";
                     manager.sendControlSignal(`capture_speak:${text}`);
+                    manager.sendControlSignal('update_page_context');
                 }
             });
             voiceSessionRef.current = manager;
@@ -260,13 +261,6 @@ export default function CaptureFlowPage({ params }) {
         startVoice();
     }
   }, [loading, state.allComplete, token, sessionId, language, isStarted]);
-
-  // Update Voice Session current page context when pageInfo changes
-  useEffect(() => {
-    if (voiceSessionRef.current && state.pageInfo?.page_id) {
-        voiceSessionRef.current.sendControlSignal('update_page_context');
-    }
-  }, [state.pageInfo?.page_id]);
 
   // Camera Management
   const stopCamera = useCallback(() => {
@@ -413,6 +407,7 @@ export default function CaptureFlowPage({ params }) {
           }));
           
           if (voiceSessionRef.current) {
+              voiceSessionRef.current.sendControlSignal('update_page_context');
               const text = infoData.page_info?.intro_prompt?.[language] || "Please capture the next document.";
               // Delay slightly so the success message has time to queue first
               setTimeout(() => {
@@ -426,6 +421,64 @@ export default function CaptureFlowPage({ params }) {
     } catch (err) {
       setError(err.message);
       setPreviewUrl(null); // Reset on error
+    } finally {
+      setProcessingDoc(false);
+    }
+  };
+
+  const handleAdvance = async () => {
+    setProcessingDoc(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/capture/advance`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to advance page');
+      if (!data.success) throw new Error(data.error || 'Failed to advance page');
+
+      if (data.all_complete) {
+          router.push('/dashboard/details');
+          return;
+      }
+
+      // Update state for next step
+      setState(prev => ({
+          ...prev,
+          docId: data.current_document_id,
+          pageId: data.current_page_id,
+      }));
+      setPreviewUrl(null);
+      
+      // Need to re-fetch page info to update prompts and overlay
+      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const infoData = await infoRes.json();
+      if (infoData.success) {
+          setState(prev => ({
+              ...prev,
+              pageInfo: infoData.page_info,
+              docIndex: infoData.document_index,
+              totalDocs: infoData.total_documents
+          }));
+          
+          if (voiceSessionRef.current) {
+              voiceSessionRef.current.sendControlSignal('update_page_context');
+              const text = infoData.page_info?.intro_prompt?.[language] || "Please capture the next document.";
+              setTimeout(() => {
+                  if (voiceSessionRef.current) {
+                      voiceSessionRef.current.sendControlSignal(`capture_speak:${text}`);
+                  }
+              }, 500);
+          }
+      }
+    } catch (err) {
+      setError(err.message);
     } finally {
       setProcessingDoc(false);
     }
@@ -534,6 +587,16 @@ export default function CaptureFlowPage({ params }) {
                                       onChange={handleFileUpload}
                                   />
                               </label>
+                              {state.pageInfo?.allow_multiple && (
+                                  <button 
+                                      className="btn" 
+                                      onClick={handleAdvance} 
+                                      disabled={processingDoc || (state.pageInfo?.uploads_count || 0) === 0} 
+                                      style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                  >
+                                      Done / Next Part ➔
+                                  </button>
+                              )}
                           </div>
                       </>
                   ) : (
