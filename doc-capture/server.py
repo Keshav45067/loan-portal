@@ -219,7 +219,23 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             part_id = current_part.get("id", "") if current_part else ""
             
             # This triggers LLM extraction, confidence routing, retake generation, and DB saving
-            await self._execute_extraction_flow(session, doc_config, doc_id, part_id, req_id)
+            pipeline_res = await self._execute_extraction_flow(session, doc_config, doc_id, part_id, req_id)
+            if not pipeline_res["success"]:
+                page = session.get_current_page()
+                page_info = self._build_page_info(page, session) if page else None
+                return pb2.CaptureSessionResponse(
+                    success=False,
+                    error=pipeline_res["validation_error_text"],
+                    session_id=request.session_id,
+                    current_document_id=session.get_current_document_id(),
+                    current_page_id=page.get("page_id") if page else "",
+                    current_document_index=session.current_document_index,
+                    total_documents=len(session.required_documents),
+                    current_page_index=session.current_page_index,
+                    total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
+                    current_page_info=page_info,
+                    all_complete=session.is_all_complete()
+                )
         else:
             session.advance_page()
         

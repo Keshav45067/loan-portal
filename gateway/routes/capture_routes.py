@@ -239,6 +239,23 @@ async def advance_capture_page(
             doc_capture_pb2.AdvancePageRequest(session_id=session_id),
             metadata=[("x-request-id", req_id)]
         )
+        page_info = None
+        if res.HasField("current_page_info"):
+            pi = res.current_page_info
+            page_info = {
+                "page_id": pi.page_id,
+                "page_name": pi.page_name,
+                "allow_multiple": pi.allow_multiple,
+                "ui_camera_overlay": pi.ui_camera_overlay,
+                "intro_prompt": json.loads(pi.intro_prompt_json) if pi.intro_prompt_json else {},
+                "success_prompt": json.loads(pi.success_prompt_json) if pi.success_prompt_json else {},
+                "error_blur_prompt": json.loads(pi.error_blur_prompt_json) if pi.error_blur_prompt_json else {},
+                "error_invalid_doc_prompt": json.loads(pi.error_invalid_doc_prompt_json) if pi.error_invalid_doc_prompt_json else {},
+                "acceptable_formats": list(pi.acceptable_formats),
+                "max_file_size_mb": pi.max_file_size_mb,
+                "uploads_count": pi.uploads_count
+            }
+            
         return {
             "success": res.success,
             "error": res.error,
@@ -249,7 +266,12 @@ async def advance_capture_page(
             "total_documents": res.total_documents,
             "current_page_index": res.current_page_index,
             "total_pages": res.total_pages,
-            "all_complete": res.all_complete
+            "all_complete": res.all_complete,
+            "current_page_info": page_info,
+            "validation_error_key": "error_low_confidence" if not res.success else "",
+            "validation_error_text": res.error if not res.success else "",
+            "next_page_id": res.current_page_id,
+            "next_document_id": res.current_document_id
         }
     except Exception as e:
         logger.error(f"advance_capture_page failed: {e}", req_id=req_id)

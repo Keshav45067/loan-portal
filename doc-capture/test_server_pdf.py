@@ -122,3 +122,47 @@ async def test_process_document_pdf_incomplete_failure():
     assert response.success is False
     assert response.validation_error_key == "error_wrong_page"
     assert "Incomplete PDF pages" in response.validation_error_text
+
+@pytest.mark.asyncio
+async def test_advance_page_validation_failure():
+    # 1. Create a dummy session
+    session_id = "test-session-advance-fail"
+    config_loader.load_registry()
+    
+    session = session_manager.create_session(session_id, "scheme_micro_business_001", "en")
+    assert session is not None
+    
+    # 2. Mock stubs on servicer
+    servicer = DocumentCaptureServicer()
+    servicer.ocr_stub = AsyncMock()
+    servicer.llm_stub = AsyncMock()
+    servicer.orch_stub = AsyncMock()
+    
+    # Mock LLM extraction response returning failure (e.g. missing required slots)
+    class MockLLMResponse:
+        success = True
+        error = ""
+        json_text = json.dumps({
+            "document_id": "doc_aadhaar_002",
+            "filled": [], # No fields filled
+            "unmatched": [],
+            "notes": ""
+        })
+        
+    servicer.llm_stub.Extract.return_value = MockLLMResponse()
+    
+    # Pre-cover both parts so coverage is complete
+    session.variable_parts_completed[session.get_current_document_id()] = {"pdf"}
+    session.part_ocr_texts[session.get_current_document_id()] = {
+        "front": {1: "dummy front text"},
+        "back": {1: "dummy back text"}
+    }
+    assert session.is_coverage_complete() is True
+    
+    # 3. Create request
+    request = pb2.AdvancePageRequest(session_id=session_id)
+    response = await servicer.AdvancePage(request, MockContext())
+    
+    # Response should have success=False and validation error details in error field
+    assert response.success is False
+    assert "Some details could not be read clearly" in response.error
