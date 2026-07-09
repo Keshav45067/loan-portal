@@ -116,6 +116,7 @@ export default function CaptureFlowPage({ params }) {
   });
 
   const [isStarted, setIsStarted] = useState(false);
+  const [localUploadsCount, setLocalUploadsCount] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -171,6 +172,7 @@ export default function CaptureFlowPage({ params }) {
             pageInfo: data.current_page_info,
             allComplete: data.all_complete
         });
+        setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
 
         if (data.all_complete) {
             router.push('/dashboard/details');
@@ -385,13 +387,14 @@ export default function CaptureFlowPage({ params }) {
           return;
       }
 
-      // Update state for next step
+       // Update state for next step
       setState(prev => ({
           ...prev,
           docId: data.next_document_id,
           pageId: data.next_page_id,
       }));
       setPreviewUrl(null);
+      setLocalUploadsCount(prev => prev + 1);
       
       // Need to re-fetch page info to update prompts and overlay
       const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
@@ -405,6 +408,10 @@ export default function CaptureFlowPage({ params }) {
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
           }));
+          
+          if (infoData.page_info?.uploads_count !== undefined) {
+              setLocalUploadsCount(infoData.page_info.uploads_count);
+          }
           
           if (voiceSessionRef.current) {
               voiceSessionRef.current.sendControlSignal('update_page_context');
@@ -466,6 +473,7 @@ export default function CaptureFlowPage({ params }) {
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
           }));
+          setLocalUploadsCount(infoData.page_info?.uploads_count || 0);
           
           if (voiceSessionRef.current) {
               voiceSessionRef.current.sendControlSignal('update_page_context');
@@ -587,16 +595,16 @@ export default function CaptureFlowPage({ params }) {
                                       onChange={handleFileUpload}
                                   />
                               </label>
-                              {state.pageInfo?.allow_multiple && (
-                                  <button 
-                                      className="btn" 
-                                      onClick={handleAdvance} 
-                                      disabled={processingDoc || (state.pageInfo?.uploads_count || 0) === 0} 
-                                      style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                  >
-                                      Done / Next Part ➔
-                                  </button>
-                              )}
+                               {state.pageInfo?.allow_multiple && (
+                                   <button 
+                                       className="btn" 
+                                       onClick={handleAdvance} 
+                                       disabled={processingDoc || ((state.pageInfo?.uploads_count || 0) === 0 && localUploadsCount === 0)} 
+                                       style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                                   >
+                                       Done / Next Part ➔
+                                   </button>
+                               )}
                           </div>
                       </>
                   ) : (
