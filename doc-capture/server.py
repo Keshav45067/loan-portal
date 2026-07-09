@@ -256,10 +256,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             from generated import ocr_pb2
             try:
                 logger.info(f"ProcessDocument: PDF detected. Calling OCR service directly...")
+                is_table = any(part.get("table") is True for part in doc_config.get("parts", []))
+                ocr_hint = "Table Recognition:" if is_table else request.document_id
                 ocr_res = await self.ocr_stub.ExtractText(ocr_pb2.OCRRequest(
                     image_data=request.image_data,
                     language=session.language,
-                    hint=request.document_id
+                    hint=ocr_hint
                 ), timeout=30.0)
                 
                 if not ocr_res.success:
@@ -342,7 +344,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 manifest=doc_config,
                 ocr_stub=self.ocr_stub,
                 language=session.language,
-                document_id=request.document_id
+                document_id=request.document_id,
+                part_id=expected_part_id
             )
             
             if not quality_res.passed:

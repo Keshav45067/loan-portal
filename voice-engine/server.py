@@ -506,19 +506,25 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     start_data = voice_input.agent_start
                     session_id = start_data.session_id
 
-                    session = RawAgentSession(
-                        session_id=session_id,
-                        language=start_data.language,
-                        system_prompt=start_data.system_prompt,
-                        context_prompt=start_data.context_prompt,
-                        req_id=req_id,
-                        stt_stub=self._stt_stub,
-                        tts_stub=self._tts_stub,
-                        llm_stub=self._llm_stub,
-                    )
-
-                    await session.init()
-                    await self._store.create(session_id, session)
+                    existing_session = await self._store.get(session_id)
+                    if existing_session and isinstance(existing_session, RawAgentSession):
+                        existing_session.system_prompt = start_data.system_prompt
+                        existing_session.context_prompt = start_data.context_prompt
+                        session = existing_session
+                        logger.info(f"Updated existing RawAgentSession prompts dynamically: {session_id}", req_id=req_id)
+                    else:
+                        session = RawAgentSession(
+                            session_id=session_id,
+                            language=start_data.language,
+                            system_prompt=start_data.system_prompt,
+                            context_prompt=start_data.context_prompt,
+                            req_id=req_id,
+                            stt_stub=self._stt_stub,
+                            tts_stub=self._tts_stub,
+                            llm_stub=self._llm_stub,
+                        )
+                        await session.init()
+                        await self._store.create(session_id, session)
 
                     # The API Gateway already sent the 'connected' status, 
                     # so we don't send it again here to avoid duplicate triggers.

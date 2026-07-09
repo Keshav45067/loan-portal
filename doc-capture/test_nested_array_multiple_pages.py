@@ -226,3 +226,53 @@ def test_passport_manifest_loading():
     assert "doc_passport_visas" in manifest["expects"]
     assert len(manifest["parts"]) == 3
     assert manifest["parts"][2]["page_count"] == 0
+
+@pytest.mark.asyncio
+async def test_table_recognition_hint():
+    from quality_gate import run_quality_gate
+    
+    # Create a mock manifest with a part having table=True
+    mock_manifest = {
+        "document_id": "doc_test_table",
+        "quality": {
+            "blur_var_min": 10,
+            "min_anchor_hits": 1
+        },
+        "parts": [
+            {
+                "id": "table_part",
+                "table": True,
+                "anchors": ["Table"]
+            }
+        ]
+    }
+    
+    # Mock OCR stub to verify the hint parameter passed
+    ocr_stub = AsyncMock()
+    mock_ocr = MagicMock()
+    mock_ocr.success = True
+    mock_ocr.raw_text = "Table Row 1 Cell 2"
+    mock_ocr.confidence = 0.99
+    mock_ocr.blocks = []
+    ocr_stub.ExtractText.return_value = mock_ocr
+    
+    from PIL import Image
+    import io
+    img = Image.new('RGB', (100, 100), color='red')
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='JPEG')
+    dummy_jpeg = img_bytes.getvalue()
+    
+    res = await run_quality_gate(
+        image_bytes=dummy_jpeg,
+        manifest=mock_manifest,
+        ocr_stub=ocr_stub,
+        language="en",
+        document_id="doc_test_table",
+        part_id="table_part"
+    )
+    
+    # Assert that ExtractText was called with hint="Table Recognition:"!
+    call_args = ocr_stub.ExtractText.call_args[0][0]
+    assert call_args.hint == "Table Recognition:"
+    assert res.passed is True

@@ -261,6 +261,13 @@ export default function CaptureFlowPage({ params }) {
     }
   }, [loading, state.allComplete, token, sessionId, language, isStarted]);
 
+  // Update Voice Session current page context when pageInfo changes
+  useEffect(() => {
+    if (voiceSessionRef.current && state.pageInfo?.page_id) {
+        voiceSessionRef.current.sendControlSignal('update_page_context');
+    }
+  }, [state.pageInfo?.page_id]);
+
   // Camera Management
   const stopCamera = useCallback(() => {
     if (streamRef.current) {

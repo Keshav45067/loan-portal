@@ -62,6 +62,9 @@ def get_db_cursor(db_pool):
                 conn = None
                 continue
             
+            # Set autocommit to True before pinging to prevent implicit transaction start
+            conn.autocommit = True
+
             # Ping the connection
             with conn.cursor() as ping_cur:
                 ping_cur.execute("SELECT 1")

@@ -37,7 +37,8 @@ async def run_quality_gate(
     manifest: dict,
     ocr_stub,
     language: str,
-    document_id: str
+    document_id: str,
+    part_id: str = ""
 ) -> QualityResult:
     """
     Performs image QC, calls OCR service, identifies the page part via anchors,
@@ -64,10 +65,21 @@ async def run_quality_gate(
     # 2. OCR via OCR Service
     from generated import ocr_pb2
     try:
+        # Check if the expected part specifies table recognition format
+        is_table = False
+        if part_id:
+            for part in manifest.get("parts", []):
+                if part.get("id") == part_id:
+                    if part.get("table") is True:
+                        is_table = True
+                    break
+
+        ocr_hint = "Table Recognition:" if is_table else document_id
+
         ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
             image_data=image_bytes,
             language=language,
-            hint=document_id
+            hint=ocr_hint
         ), timeout=30.0)
         
         if not ocr_res.success:

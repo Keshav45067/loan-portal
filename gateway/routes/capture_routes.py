@@ -313,9 +313,28 @@ async def capture_voice_websocket(websocket: WebSocket):
                             if text_input:
                                 await grpc_queue.put(voice_engine_pb2.RawAgentInput(text_input=text_input))
                             elif signal:
-                                await grpc_queue.put(voice_engine_pb2.RawAgentInput(
-                                    control=voice_engine_pb2.ControlSignal(signal=signal)
-                                ))
+                                if signal == "update_page_context":
+                                    try:
+                                        faq_res = await doc_capture_stub.GetFAQPrompt(
+                                            doc_capture_pb2.FAQPromptRequest(session_id=session_id),
+                                            metadata=[("x-request-id", req_id)]
+                                        )
+                                        if faq_res.success:
+                                            await grpc_queue.put(voice_engine_pb2.RawAgentInput(
+                                                agent_start=voice_engine_pb2.AgentStart(
+                                                    session_id=session_id,
+                                                    language=language,
+                                                    system_prompt=faq_res.system_prompt,
+                                                    context_prompt=faq_res.context_prompt
+                                                )
+                                            ))
+                                            logger.info(f"Dynamically updated voice context prompts on page change.", req_id=req_id)
+                                    except Exception as context_err:
+                                        logger.error(f"Failed to fetch updated FAQ prompts on signal: {context_err}", req_id=req_id)
+                                else:
+                                    await grpc_queue.put(voice_engine_pb2.RawAgentInput(
+                                        control=voice_engine_pb2.ControlSignal(signal=signal)
+                                    ))
                         except Exception:
                             pass
             finally:
