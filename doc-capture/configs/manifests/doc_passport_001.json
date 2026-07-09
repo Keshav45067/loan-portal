@@ -1,7 +1,14 @@
 {
   "document_id": "doc_passport_001",
-  "title": { "English": "Passport", "Hindi": "पासपोर्ट" },
-  "proves": ["identity", "address", "visa_status"],
+  "title": {
+    "English": "Passport",
+    "Hindi": "पासपोर्ट"
+  },
+  "proves": [
+    "identity",
+    "address",
+    "visa_status"
+  ],
   "required_when": "always",
   "expects": [
     "doc_passport_number",
@@ -22,9 +29,21 @@
   "parts": [
     {
       "id": "passport_front",
-      "name": { "English": "Passport Front Page", "Hindi": "पासपोर्ट का मुख्य पृष्ठ" },
-      "title": { "English": "front page of passport", "Hindi": "पासपोर्ट का मुख्य पृष्ठ" },
-      "anchors": ["PASSPORT", "REPUBLIC", "INDIA", "GIVEN NAME", "SURNAME"],
+      "name": {
+        "English": "Passport Front Page",
+        "Hindi": "पासपोर्ट का मुख्य पृष्ठ"
+      },
+      "title": {
+        "English": "front page of passport",
+        "Hindi": "पासपोर्ट का मुख्य पृष्ठ"
+      },
+      "anchors": [
+        "PASSPORT",
+        "REPUBLIC",
+        "INDIA",
+        "GIVEN NAME",
+        "SURNAME"
+      ],
       "provides": [
         "doc_passport_number",
         "doc_passport_given_name",
@@ -38,9 +57,20 @@
     },
     {
       "id": "passport_back",
-      "name": { "English": "Passport Last Page", "Hindi": "पासपोर्ट का अंतिम पृष्ठ" },
-      "title": { "English": "last page of passport", "Hindi": "पासपोर्ट का अंतिम पृष्ठ" },
-      "anchors": ["FATHER", "MOTHER", "ADDRESS", "FILE"],
+      "name": {
+        "English": "Passport Last Page",
+        "Hindi": "पासपोर्ट का अंतिम पृष्ठ"
+      },
+      "title": {
+        "English": "last page of passport",
+        "Hindi": "पासपोर्ट का अंतिम पृष्ठ"
+      },
+      "anchors": [
+        "FATHER",
+        "MOTHER",
+        "ADDRESS",
+        "FILE"
+      ],
       "provides": [
         "doc_passport_father_name",
         "doc_passport_mother_name",
@@ -51,24 +81,60 @@
     },
     {
       "id": "passport_visas",
-      "name": { "English": "Visa Stamps Pages", "Hindi": "वीज़ा स्टाम्प पृष्ठ" },
-      "title": { "English": "visa page", "Hindi": "वीज़ा पृष्ठ" },
+      "name": {
+        "English": "Visa Stamps Pages",
+        "Hindi": "वीज़ा स्टाम्प पृष्ठ"
+      },
+      "title": {
+        "English": "visa page",
+        "Hindi": "वीज़ा पृष्ठ"
+      },
       "page_count": 0,
-      "anchors": ["VISA", "ENTRY", "EXIT", "STAMP", "IMMIGRATION"],
-      "provides": ["doc_passport_visas"]
+      "anchors": [
+        "VISA",
+        "ENTRY",
+        "EXIT",
+        "STAMP",
+        "IMMIGRATION",
+        "ENTRIES",
+        "ISSUED AT"
+      ],
+      "provides": [
+        "doc_passport_visas"
+      ]
     }
   ],
   "sources": [
-    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 10 },
-    { "type": "camera" }
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
   ],
-  "ocr": { "lang": ["en", "hi"], "table_mode": false },
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
     "blur_var_min": 100
   },
-  "preprocessing": ["auto_deskew", "remove_glare", "enhance_contrast"],
+  "preprocessing": [
+    "auto_deskew",
+    "remove_glare",
+    "enhance_contrast"
+  ],
   "prompts": {
     "ask_part": {
       "en": "Please capture the {part_title} of your {document_title}.",
