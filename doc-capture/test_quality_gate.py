@@ -89,3 +89,17 @@ async def test_run_quality_gate_blur_failure():
     res = await run_quality_gate(img_data, manifest, stub, "en", "doc_aadhaar_002")
     assert res.passed is False
     assert res.failure_reason == "blur"
+
+def test_calculate_blur_variance_float_range():
+    from PIL import Image, ImageDraw
+    import io
+    img = Image.new('L', (100, 100), color=0)
+    draw = ImageDraw.Draw(img)
+    for x in range(0, 100, 10):
+        draw.rectangle([x, 0, x+5, 100], fill=255)
+    img_bytes = io.BytesIO()
+    img.save(img_bytes, format='PNG')
+    data = img_bytes.getvalue()
+    
+    var = calculate_blur_variance(data)
+    assert var > 300

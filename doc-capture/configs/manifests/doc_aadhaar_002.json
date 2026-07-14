@@ -10,14 +10,16 @@
       "name": { "English": "Front Side", "Hindi": "सामने का हिस्सा" },
       "title": { "English": "front side", "Hindi": "सामने का हिस्सा" },
       "anchors": ["Government of India", "DOB", "Year of Birth"],
-      "provides": ["doc_aadhaar_name", "doc_aadhaar_dob", "doc_aadhaar_gender", "doc_aadhaar_last4"]
+      "provides": ["doc_aadhaar_name", "doc_aadhaar_dob", "doc_aadhaar_gender", "doc_aadhaar_last4"],
+      "orientation": "landscape"
     },
     {
       "id": "back",
       "name": { "English": "Back Side", "Hindi": "पीछे का हिस्सा" },
       "title": { "English": "back side", "Hindi": "पीछे का हिस्सा" },
       "anchors": ["Address", "S/O", "D/O", "W/O", "C/O", "PIN"],
-      "provides": ["doc_aadhaar_address", "doc_aadhaar_last4"]
+      "provides": ["doc_aadhaar_address", "doc_aadhaar_last4"],
+      "orientation": "landscape"
     }
   ],
   "sources": [
@@ -28,9 +30,18 @@
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
-    "blur_var_min": 100
+    "blur_var_min": 200,
+    "blur_unrecoverable_floor": 30.0
   },
-  "preprocessing": ["auto_deskew", "remove_glare", "enhance_contrast"],
+  "quality_policy": {
+    "allow_deskew": true,
+    "allow_glare_removal": true,
+    "allow_contrast_enhancement": true,
+    "allow_denoise": false,
+    "allow_gamma": true,
+    "allow_white_balance": false,
+    "allow_sharpen": true
+  },
   "prompts": {
     "ask_part": {
       "en": "Please capture the {part_title} of your {document_title}.",
@@ -41,16 +52,16 @@
       "hi": "सफलतापूर्वक स्कैन हो गया।"
     },
     "error_blur": {
-      "en": "The image is blurry. Please hold the camera steady and try again.",
-      "hi": "छवि धुंधली है। कृपया कैमरे को स्थिर रखें और पुनः प्रयास करें।"
+      "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+      "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।"
     },
     "error_wrong_page": {
-      "en": "This doesn't look like the expected page. Please check and try again.",
-      "hi": "यह अपेक्षित पृष्ठ नहीं लगता। कृपया जाँचें और पुनः प्रयास करें।"
+      "en": "Wrong document page detected. Please flip the card and capture the correct side.",
+      "hi": "गलत दस्तावेज़ पृष्ठ पाया गया। कृपया कार्ड को पलटें और सही साइड कैप्चर करें।"
     },
     "error_low_confidence": {
-      "en": "Some details are not clearly readable. Please retake the photo with better lighting.",
-      "hi": "कुछ विवरण स्पष्ट रूप से पढ़ने योग्य नहीं हैं। कृपया बेहतर रोशनी में फिर से फोटो लें।"
+      "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+      "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।"
     }
   },
   "llm_faq_context": {

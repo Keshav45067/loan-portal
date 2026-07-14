@@ -261,19 +261,22 @@ class CaptureSession:
                 page_name = f"{base_name_en} - Page {page_index}"
         else:
             page_name = base_name_en
-            
+        # Get orientation from part, default to landscape
+        orientation = part.get("orientation", "landscape")
+        ui_camera_overlay = part.get("ui_camera_overlay", manifest.get("ui_camera_overlay", "landscape_id"))
+
         return {
             "page_id": page_id,
             "page_name": page_name,
             "allow_multiple": (page_count == 0),
-            "ui_camera_overlay": "landscape_id",
+            "ui_camera_overlay": ui_camera_overlay,
             "intro_prompt_json": json.dumps(intro_prompts),
             "success_prompt_json": json.dumps(success_prompts),
             "error_blur_prompt_json": json.dumps(blur_prompts),
             "error_invalid_doc_prompt_json": json.dumps(wrong_page_prompts),
             "acceptable_formats": first_source.get("formats", ["image/jpeg", "image/png"]),
             "max_file_size_mb": first_source.get("max_mb", 10),
-            "preprocessing_flags": manifest.get("preprocessing", ["auto_deskew", "remove_glare", "enhance_contrast"])
+            "orientation": orientation
         }
 
     def is_all_complete(self) -> bool:

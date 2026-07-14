@@ -28,7 +28,8 @@
         "A/C Holder"
       ],
       "provides": ["full_name"],
-      "page_count": 1
+      "page_count": 1,
+      "orientation": "portrait"
     },
     {
       "id": "cheques",
@@ -48,9 +49,25 @@
         "Clearance"
       ],
       "provides": ["cheques"],
-      "page_count": 0
+      "page_count": 0,
+      "orientation": "landscape"
     }
   ],
+  "quality": {
+    "min_box_confidence": 0.50,
+    "min_anchor_hits": 2,
+    "blur_var_min": 200,
+    "blur_unrecoverable_floor": 30.0
+  },
+  "quality_policy": {
+    "allow_deskew": true,
+    "allow_glare_removal": true,
+    "allow_contrast_enhancement": true,
+    "allow_denoise": false,
+    "allow_gamma": true,
+    "allow_white_balance": false,
+    "allow_sharpen": true
+  },
   "prompts": {
     "ask_part": {
       "en": "Please capture the {part_title} of your {document_title}.",
@@ -61,16 +78,16 @@
       "hi": "भाग सफलतापूर्वक स्कैन हो गया।"
     },
     "error_blur": {
-      "en": "The image is too blurry. Please try again with better lighting.",
-      "hi": "छवि बहुत धुंधली है। कृपया बेहतर रोशनी में फिर से प्रयास करें।"
+      "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+      "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।"
     },
     "error_wrong_page": {
       "en": "This does not seem to be the correct page. Please verify and capture again.",
-      "hi": "यह अपेक्षित पृष्ठ नहीं लगता। कृपया जाँचें और पुनः प्रयास करें।"
+      "hi": "यह अपेक्षित पृष्ठ नहीं लगता। कृपया जाँचें और पुनः स्कैन करें।"
     },
     "error_low_confidence": {
-      "en": "Some details could not be read clearly. Please re-capture the highlighted page.",
-      "hi": "कुछ विवरण स्पष्ट रूप से पढ़ने योग्य नहीं हैं। कृपया हाइलाइट किए गए पृष्ठ को फिर से कैप्चर करें।"
+      "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+      "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।"
     }
   },
   "sources": [
@@ -78,6 +95,5 @@
       "formats": ["image/jpeg", "image/png", "application/pdf"],
       "max_mb": 15
     }
-  ],
-  "preprocessing": ["auto_deskew", "remove_glare", "enhance_contrast"]
+  ]
 }

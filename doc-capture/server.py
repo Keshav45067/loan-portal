@@ -32,7 +32,9 @@ from generated import app_orchestrator_pb2, app_orchestrator_pb2_grpc
 from config import DOC_CAPTURE_PORT, LLM_SERVICE_ADDR, OCR_SERVICE_ADDR, APP_ORCHESTRATOR_ADDR
 from config_loader import config_loader
 from session_manager import session_manager, CaptureSession
-from preprocessing import preprocess_image
+from recovery_actions import preprocess_image
+from quality_metrics import build_quality_report
+from recovery_engine import decide_recovery, apply_recovery
 
 logger = get_logger("doc-capture")
 
@@ -138,7 +140,14 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         pi.acceptable_formats.extend(page_config.get("acceptable_formats", []))
         pi.max_file_size_mb = page_config.get("max_file_size_mb", 10)
         
-        pi.intro_prompt_json = page_config.get("intro_prompt_json", "{}")
+        import json
+        try:
+            intro_data = json.loads(page_config.get("intro_prompt_json", "{}"))
+        except Exception:
+            intro_data = {}
+        intro_data["orientation"] = page_config.get("orientation", "landscape")
+        pi.intro_prompt_json = json.dumps(intro_data)
+        
         pi.success_prompt_json = page_config.get("success_prompt_json", "{}")
         pi.error_blur_prompt_json = page_config.get("error_blur_prompt_json", "{}")
         pi.error_invalid_doc_prompt_json = page_config.get("error_invalid_doc_prompt_json", "{}")
@@ -382,11 +391,53 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             part_id = "pdf"
         
         else:
-            # ─── Standard Image Flow: Preprocess and check Quality Gate ───
-            # 3. Preprocess image
-            preprocessing_flags = doc_config.get("preprocessing", [])
-            processed_img = preprocess_image(request.image_data, preprocessing_flags)
+            # ─── Standard Image Flow: Measure, Recover, and run Quality Gate ───
+            quality_policy = doc_config.get("quality_policy", {
+                "allow_deskew": True,
+                "allow_glare_removal": True,
+                "allow_contrast_enhancement": True,
+                "allow_denoise": False,
+                "allow_gamma": False,
+                "allow_white_balance": False,
+                "allow_sharpen": False
+            })
+            if "quality_policy" not in doc_config and "preprocessing" in doc_config:
+                pre_flags = doc_config["preprocessing"]
+                quality_policy = {
+                    "allow_deskew": "auto_deskew" in pre_flags,
+                    "allow_glare_removal": "remove_glare" in pre_flags,
+                    "allow_contrast_enhancement": "enhance_contrast" in pre_flags,
+                    "allow_denoise": "denoise" in pre_flags,
+                    "allow_gamma": "gamma" in pre_flags,
+                    "allow_white_balance": "white_balance" in pre_flags,
+                    "allow_sharpen": "sharpen" in pre_flags
+                }
+
+            quality_config = doc_config.get("quality", {})
+            report = build_quality_report(request.image_data)
             
+            # Check if blur is below unrecoverable floor immediately
+            blur_floor = quality_config.get("blur_unrecoverable_floor", 30.0)
+            if report.blur < blur_floor:
+                logger.warning(f"ProcessDocument: quality check failed: blur {report.blur:.2f} is below floor {blur_floor}")
+                val_error_key = "error_blur"
+                error_text = get_localized_prompt(doc_config, val_error_key, session.language)
+                return pb2.ProcessDocResponse(
+                    success=False,
+                    validation_error_key=val_error_key,
+                    validation_error_text=error_text,
+                    next_page_id=request.page_id,
+                    next_document_id=request.document_id
+                )
+
+            # Decide and apply recovery actions
+            decisions = decide_recovery(report, quality_policy, quality_config)
+            if decisions:
+                logger.info(f"ProcessDocument: recovery decisions to apply: {[d.action for d in decisions]}")
+                processed_img = apply_recovery(request.image_data, decisions)
+            else:
+                processed_img = request.image_data
+
             # 4. Quality Gate
             from quality_gate import run_quality_gate
             quality_res = await run_quality_gate(

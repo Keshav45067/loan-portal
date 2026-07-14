@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import styles from '../capture.module.css';
 import interviewStyles from '../../interview/interview.module.css';
+import useCaptureGuard from '../useCaptureGuard';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
@@ -128,6 +129,7 @@ export default function CaptureFlowPage({ params }) {
   const [activeFacingMode, setActiveFacingMode] = useState('environment');
   const [previewUrl, setPreviewUrl] = useState(null);
   const [processingDoc, setProcessingDoc] = useState(false);
+  const autoCaptureTriggeredRef = useRef(false);
 
   // Voice Agent State
   const [qaState, setQaState] = useState('idle');
@@ -137,6 +139,40 @@ export default function CaptureFlowPage({ params }) {
   
   const visualizerCanvasRef = useRef(null);
   const visualizerInstanceRef = useRef(null);
+
+  // Live guard hook for real time guidance and document edge detection
+  const {
+    cvLoaded,
+    cvLoadingError,
+    brightness,
+    blur,
+    coverage,
+    isStable,
+    documentQuad,
+    overallReady,
+    statusText,
+    statusColor
+  } = useCaptureGuard(
+    videoRef,
+    isStarted && !previewUrl && !processingDoc && !state.allComplete,
+    state.pageInfo?.orientation || 'landscape'
+  );
+
+  // Auto-capture when document is stable and all metrics pass
+  useEffect(() => {
+    if (overallReady && !processingDoc && !previewUrl && isStarted && !autoCaptureTriggeredRef.current) {
+      autoCaptureTriggeredRef.current = true;
+      console.log('OpenCV.js live guard: conditions satisfied, starting auto-capture!');
+      handleCapture();
+    }
+  }, [overallReady, processingDoc, previewUrl, isStarted]);
+
+  // Reset auto-capture flag on new pages or when clearing preview
+  useEffect(() => {
+    if (!previewUrl && !processingDoc) {
+      autoCaptureTriggeredRef.current = false;
+    }
+  }, [previewUrl, processingDoc, state.pageId]);
 
   useEffect(() => {
     const init = async () => {
@@ -455,7 +491,6 @@ export default function CaptureFlowPage({ params }) {
           if (voiceSessionRef.current) {
               voiceSessionRef.current.sendControlSignal('update_page_context');
               const text = infoData.page_info?.intro_prompt?.[language] || "Please capture the next document.";
-              // Delay slightly so the success message has time to queue first
               setTimeout(() => {
                   if (voiceSessionRef.current) {
                       voiceSessionRef.current.sendControlSignal(`capture_speak:${text}`);
@@ -587,13 +622,13 @@ export default function CaptureFlowPage({ params }) {
     }
   };
 
-  if (loading) return <div className={styles.container}>Loading capture engine...</div>;
-  if (state.allComplete) return <div className={styles.container}>All documents captured! Redirecting...</div>;
+  if (loading) return <div className={styles.container} style={{ justifyContent: 'center', height: '100vh' }}>Loading capture engine...</div>;
+  if (state.allComplete) return <div className={styles.container} style={{ justifyContent: 'center', height: '100vh' }}>All documents captured! Redirecting...</div>;
 
   return (
-    <div className={styles.container} style={{ background: 'radial-gradient(circle at 10% 20%, #16192b 0%, #090a0f 90%)', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
+    <div className={styles.container}>
       {/* ─── Top Nav ─── */}
-      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)', width: '100%' }}>
+      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>
             <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
@@ -623,57 +658,93 @@ export default function CaptureFlowPage({ params }) {
       </nav>
 
       {/* Main Flow Content Container */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 40px 60px', width: '100%' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0 60px', width: '100%' }}>
         {/* Progress Header */}
-        <div style={{ width: '100%', maxWidth: '1200px', marginBottom: '24px' }}>
+        <div style={{ width: '100%', maxWidth: '1280px', padding: '0 2rem', boxSizing: 'border-box', marginBottom: '24px' }}>
             <div className={styles.headerRow}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#94a3b8', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
+                <span style={{ fontSize: '0.9rem', color: '#60a5fa', fontWeight: 600 }}>{state.pageInfo?.page_name}</span>
             </div>
-            <div className={styles.progressBar} style={{ height: '8px', background: 'rgba(255, 255, 255, 0.05)', borderRadius: '99px', marginTop: '12px', overflow: 'hidden' }}>
-                <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%`, background: 'linear-gradient(90deg, #4a78ff, #7c3aed)' }}></div>
+            <div className={styles.progressBar}>
+                <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%` }}></div>
             </div>
         </div>
 
         <div className={styles.mainLayout}>
           {/* Left: Camera / File Area */}
-          <div className="glass-card" style={{ maxWidth: '100%', display: 'flex', flexDirection: 'column', position: 'relative', background: 'rgba(13, 17, 30, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', backdropFilter: 'blur(20px)', borderRadius: '24px', padding: '32px' }}>
+          <div className={styles.glassCard} style={{ display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '520px', justifyContent: 'center' }}>
               {!isStarted ? (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(5, 7, 15, 0.9)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
-                      <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.8rem', fontWeight: 700 }}>Ready to capture your documents?</h2>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(5, 7, 15, 0.95)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
+                      <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.8rem', fontWeight: 700 }}>Ready to scan your document?</h2>
+                      <p style={{ color: '#94a3b8', marginBottom: '2.5rem', maxWidth: '360px', textAlign: 'center', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                          We will guide you to capture it with optimal brightness, stability, and alignment automatically.
+                      </p>
                       <button 
                           onClick={startSession} 
                           className="btn btn-primary btn-lg"
-                          style={{ background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', boxShadow: '0 4px 20px rgba(74, 120, 255, 0.3)', border: 'none' }}
+                          style={{ background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', boxShadow: '0 8px 30px rgba(74, 120, 255, 0.4)', border: 'none', borderRadius: '12px', padding: '14px 28px', fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer' }}
                       >
-                          Start Session
+                          Start Scanning
                       </button>
                   </div>
               ) : null}
 
-              <h3 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 700, color: '#60a5fa' }}>
-                  {state.pageInfo?.page_name || 'Document'}
-              </h3>
-              
+              {/* Show loader while OpenCV.js is initializing */}
+              {isStarted && !cvLoaded && !cvLoadingError && !previewUrl && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(5, 7, 15, 0.85)', backdropFilter: 'blur(15px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
+                      <div className={styles.sphereProcessing} style={{ width: '48px', height: '48px', marginBottom: '1.5rem' }}></div>
+                      <span style={{ color: '#94a3b8', fontSize: '0.95rem' }}>Loading AI visual scanner...</span>
+                  </div>
+              )}
+
+              {/* Actionable errors list */}
               {error && (
-                <div style={{ color: '#ef4444', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '12px' }}>
-                  {error}
+                <div className={styles.errorCard}>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px', color: '#ef4444', fontSize: '1rem', fontWeight: 600 }}>Action Required</h4>
+                      <p style={{ margin: 0, color: '#fca5a5', fontSize: '0.9rem', lineHeight: '1.4' }}>{error}</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              <div className={styles.videoContainer} style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className={styles.videoContainer}>
                   {!previewUrl ? (
                       <>
                           <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
-                          {state.pageInfo?.ui_camera_overlay && (
-                              <div className={styles.overlay} />
+                          
+                          {/* Live Guidance overlays */}
+                          {cvLoaded && (
+                            <>
+                              {/* Dimmable surrounding overlay with orientation guide hole */}
+                              <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
+
+                              {/* Real-time status recommendation badge */}
+                              <div className={styles.statusBadge} style={{ backgroundColor: statusColor, color: '#07080d' }}>
+                                {statusText}
+                              </div>
+
+                              {/* Dynamic contour detection overlay */}
+                              {documentQuad && (
+                                <svg className={styles.overlaySvg} viewBox="0 0 1 1">
+                                  <polygon
+                                    points={documentQuad.map(p => `${p.x},${p.y}`).join(' ')}
+                                    className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
+                                  />
+                                </svg>
+                              )}
+                            </>
                           )}
-                          <div className={styles.cameraControls} style={{ display: 'flex', gap: '10px', justifyContent: 'center', bottom: '20px' }}>
-                              <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera" style={{ background: 'rgba(15, 23, 42, 0.8)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🔄</button>
-                              <button className="btn btn-primary" onClick={handleCapture} disabled={processingDoc} style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', border: 'none', fontWeight: 600 }}>
-                                  {processingDoc ? 'Processing...' : '📸 Capture'}
+                          
+                          <div className={styles.cameraControls}>
+                              <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
+                              <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
+                                  {processingDoc ? 'Processing...' : '📸 Manual Capture'}
                               </button>
-                              <label className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: processingDoc ? 'not-allowed' : 'pointer', height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 600 }}>
-                                  📁 Upload
+                              <label className={styles.iconButton} style={{ cursor: processingDoc ? 'not-allowed' : 'pointer' }} title="Upload File">
+                                  📁
                                   <input 
                                       type="file" 
                                       style={{ display: 'none' }}
@@ -689,7 +760,7 @@ export default function CaptureFlowPage({ params }) {
                                        disabled={processingDoc || ((state.pageInfo?.uploads_count || 0) === 0 && localUploadsCount === 0)} 
                                        style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                                    >
-                                       Done / Next Part ➔
+                                       Next Part ➔
                                    </button>
                                )}
                           </div>
@@ -698,8 +769,9 @@ export default function CaptureFlowPage({ params }) {
                       <>
                           <img src={previewUrl} alt="Preview" className={styles.videoElement} />
                           {processingDoc && (
-                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-                                  <div className={styles.sphereProcessing} style={{ width: '50px', height: '50px', borderRadius: '50%' }}></div>
+                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+                                  <div className={styles.sphereProcessing} style={{ width: '56px', height: '56px', marginBottom: '1.25rem' }}></div>
+                                  <span style={{ color: '#cbd5e1', fontSize: '0.95rem' }}>Processing details with AI...</span>
                               </div>
                           )}
                       </>
@@ -711,7 +783,7 @@ export default function CaptureFlowPage({ params }) {
           </div>
 
           {/* Right: Voice Agent Sidebar (Unified with Interview UI) */}
-          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2rem 1.5rem', background: 'rgba(10, 14, 25, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '24px', backdropFilter: 'blur(20px)' }}>
+          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2.25rem 1.75rem', background: 'rgba(10, 14, 25, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '24px', backdropFilter: 'blur(20px)' }}>
             <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
               <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
               <span className={interviewStyles.connectionText}>
@@ -733,7 +805,7 @@ export default function CaptureFlowPage({ params }) {
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#e2e8f0', fontSize: '0.95rem', width: '100%' }}>
+            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#cbd5e1', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5' }}>
               {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
             </div>
 
