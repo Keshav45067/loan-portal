@@ -315,7 +315,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     logger.error(f"ProcessDocument: PDF OCR failed: {ocr_res.error}")
                     return pb2.ProcessDocResponse(success=False, error=f"OCR failed: {ocr_res.error}")
                 
-                raw_text = ocr_res.raw_text
+                xml_layout = getattr(ocr_res, "xml_layout", "")
+                raw_text = xml_layout if xml_layout else ocr_res.raw_text
                 ocr_confidence = ocr_res.confidence
             except grpc.RpcError as e:
                 logger.error(f"ProcessDocument: PDF OCR gRPC call failed: {e}")

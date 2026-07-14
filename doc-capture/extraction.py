@@ -62,17 +62,16 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
     pii = slot_def.get("pii", "none")
     
     checksum = slot_def.get("checksum")
-    # Disabling verhoeff check for now, because we cannot send the full aadhaar number to LLM yet
-    # if checksum == "verhoeff":
-    #     # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
-    #     cleaned = "".join(c for c in str(raw_val) if c.isdigit())
-    #     if verify_aadhaar(cleaned):
-    #         logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
-    #         # Store only last-4 digits
-    #         return cleaned[-4:], raw_conf
-    #     else:
-    #         logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
-    #         return None, 0.0
+    if checksum == "verhoeff":
+        # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
+        cleaned = "".join(c for c in str(raw_val) if c.isdigit())
+        if verify_aadhaar(cleaned):
+            logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
+            # Store only last-4 digits
+            return cleaned[-4:], raw_conf
+        else:
+            logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
+            return None, 0.0
             
     if slot_type == "date" or normalize == "iso_date":
         date_val = normalize_iso_date(raw_val)

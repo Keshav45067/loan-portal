@@ -19,8 +19,13 @@ class QualityResult:
 def calculate_blur_variance(image_bytes: bytes) -> float:
     try:
         img = Image.open(io.BytesIO(image_bytes)).convert('L')
-        # Apply Laplacian filter (built-in 3x3 Laplacian in Pillow)
-        laplacian_img = img.filter(ImageFilter.LAPLACIAN)
+        # Apply 3x3 Laplacian kernel filter
+        laplacian_kernel = ImageFilter.Kernel((3, 3), [0, 1, 0, 1, -4, 1, 0, 1, 0], scale=1)
+        laplacian_img = img.filter(laplacian_kernel)
+        # Crop 1-pixel border to eliminate border artifacts from filter
+        w, h = laplacian_img.size
+        if w > 2 and h > 2:
+            laplacian_img = laplacian_img.crop((1, 1, w - 1, h - 1))
         pixels = list(laplacian_img.getdata())
         n = len(pixels)
         if n <= 1:
@@ -93,12 +98,15 @@ async def run_quality_gate(
                 anchor_hits=0
             )
             
-        # Reconstruct raw_text with inline confidence scores for the LLM
-        formatted_text_blocks = []
-        for block in ocr_res.blocks:
-            formatted_text_blocks.append(f"[Conf: {block.confidence:.2f}] {block.text}")
-            
-        raw_text = "\n".join(formatted_text_blocks) if formatted_text_blocks else ocr_res.raw_text
+        # Reconstruct raw_text with inline confidence scores or XML layout for the LLM
+        xml_layout = getattr(ocr_res, "xml_layout", "")
+        if xml_layout and isinstance(xml_layout, str):
+            raw_text = xml_layout
+        else:
+            formatted_text_blocks = []
+            for block in ocr_res.blocks:
+                formatted_text_blocks.append(f"[Conf: {block.confidence:.2f}] {block.text}")
+            raw_text = "\n".join(formatted_text_blocks) if formatted_text_blocks else ocr_res.raw_text
         ocr_confidence = ocr_res.confidence
     except grpc.RpcError as e:
         logger.error(f"QualityGate: OCR gRPC call failed: {e}")

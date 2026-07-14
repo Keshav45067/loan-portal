@@ -27,4 +27,5 @@ message OCRResponse {
   bool success = 3;
   string error = 4;
   repeated TextBlock blocks = 5;  // Detailed per-box text and confidence
+  string xml_layout = 6;          // Layout reconstructed into XML tags
 }

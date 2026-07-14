@@ -235,7 +235,7 @@ async def test_table_recognition_hint():
     mock_manifest = {
         "document_id": "doc_test_table",
         "quality": {
-            "blur_var_min": 10,
+            "blur_var_min": 0,
             "min_anchor_hits": 1
         },
         "parts": [
