@@ -23,7 +23,8 @@ export default function SandboxPage() {
   const [isStarted, setIsStarted] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
 
-  const { cvLoaded, guardState } = useCaptureGuard(videoRef, isStarted, 'portrait', config);
+  const captureState = useCaptureGuard(videoRef, isStarted, 'portrait', config);
+  const cvLoaded = captureState.cvLoaded;
 
   const startCamera = async () => {
     try {
@@ -78,18 +79,18 @@ export default function SandboxPage() {
         
         <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} style={{ display: isStarted ? 'block' : 'none' }} />
         
-        {isStarted && guardState.documentQuad && (
+        {isStarted && captureState.documentQuad && (
           <svg className={styles.overlaySvg} viewBox="0 0 1000 1000" preserveAspectRatio="none">
             <polygon
-              points={guardState.documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
-              className={`${styles.detectedPoly} ${guardState.overallReady ? styles.detectedPolyReady : ''}`}
+              points={captureState.documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
+              className={`${styles.detectedPoly} ${captureState.overallReady ? styles.detectedPolyReady : ''}`}
             />
           </svg>
         )}
 
         {isStarted && (
-          <div className={styles.statusBadge} style={{ color: guardState.statusColor !== '#94a3b8' ? guardState.statusColor : '#000' }}>
-            {guardState.statusText}
+          <div className={styles.statusBadge} style={{ color: captureState.statusColor !== '#94a3b8' ? captureState.statusColor : '#000' }}>
+            {captureState.statusText}
           </div>
         )}
       </div>
@@ -144,11 +145,11 @@ export default function SandboxPage() {
         <div className={styles.controlGroup}>
           <div className={styles.groupTitle}>Lighting</div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Dark Enter (Mean < X)</span> <span className={styles.sliderValue}>{config.darkEnter}</span></div>
+            <div className={styles.sliderLabel}><span>Dark Enter (Mean &lt; X)</span> <span className={styles.sliderValue}>{config.darkEnter}</span></div>
             <input type="range" min="0.05" max="0.5" step="0.01" className={styles.slider} value={config.darkEnter} onChange={e => handleChange('darkEnter', e.target.value)} />
           </div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Bright Enter (Mean > X)</span> <span className={styles.sliderValue}>{config.brightEnter}</span></div>
+            <div className={styles.sliderLabel}><span>Bright Enter (Mean &gt; X)</span> <span className={styles.sliderValue}>{config.brightEnter}</span></div>
             <input type="range" min="0.5" max="0.95" step="0.01" className={styles.slider} value={config.brightEnter} onChange={e => handleChange('brightEnter', e.target.value)} />
           </div>
         </div>
@@ -157,9 +158,9 @@ export default function SandboxPage() {
           <div className={styles.groupTitle}>Live Engine Metrics</div>
           <div className={styles.statsBox}>
             <div className={styles.statsRow}><span>OpenCV Loaded:</span> <span style={{ color: cvLoaded ? '#10b981' : '#ef4444' }}>{cvLoaded ? 'YES' : 'NO'}</span></div>
-            <div className={styles.statsRow}><span>Current Mean:</span> <span style={{ color: '#f8fafc' }}>{guardState.brightness.toFixed(3)}</span></div>
-            <div className={styles.statsRow}><span>Blur Var:</span> <span style={{ color: '#f8fafc' }}>{guardState.blur.toFixed(1)}</span></div>
-            <div className={styles.statsRow}><span>Coverage:</span> <span style={{ color: '#f8fafc' }}>{(guardState.coverage * 100).toFixed(1)}%</span></div>
+            <div className={styles.statsRow}><span>Current Mean:</span> <span style={{ color: '#f8fafc' }}>{captureState.brightness?.toFixed(3)}</span></div>
+            <div className={styles.statsRow}><span>Blur Var:</span> <span style={{ color: '#f8fafc' }}>{captureState.blur?.toFixed(1)}</span></div>
+            <div className={styles.statsRow}><span>Coverage:</span> <span style={{ color: '#f8fafc' }}>{((captureState.coverage || 0) * 100).toFixed(1)}%</span></div>
           </div>
         </div>
 
