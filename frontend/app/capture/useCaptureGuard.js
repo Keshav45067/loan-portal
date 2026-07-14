@@ -269,13 +269,13 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           // B. Coverage (Move Closer) Hysteresis
           if (sm.isDetected) {
             if (sm.isInFarState) {
-              if (coverage >= 0.35) sm.farHits += 1;
+              if (coverage >= 0.16) sm.farHits += 1;
               else sm.farHits = 0;
-              if (sm.farHits >= 3) sm.isInFarState = false;
+              if (sm.farHits >= 2) sm.isInFarState = false;
             } else {
-              if (coverage < 0.25) sm.farMisses += 1;
+              if (coverage < 0.10) sm.farMisses += 1;
               else sm.farMisses = 0;
-              if (sm.farMisses >= 4) sm.isInFarState = true;
+              if (sm.farMisses >= 3) sm.isInFarState = true;
             }
           }
 
@@ -394,9 +394,9 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             statusColor = '#10b981'; // emerald
           }
 
-          // Enforce Minimum Dwell Time of 400ms per state change
+          // Enforce Minimum Dwell Time of 400ms per state change (except when transitioning out of ST_SEARCHING)
           if (nextState !== sm.currentState) {
-            if (now - sm.lastStateChangeTime >= 400) {
+            if (sm.currentState === ST_SEARCHING || now - sm.lastStateChangeTime >= 400) {
               sm.currentState = nextState;
               sm.lastStateChangeTime = now;
             } else {

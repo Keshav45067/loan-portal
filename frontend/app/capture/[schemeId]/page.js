@@ -762,9 +762,9 @@ export default function CaptureFlowPage({ params }) {
 
                           {/* Dynamic contour detection overlay (OpenCV only) */}
                           {cvLoaded && documentQuad && (
-                            <svg className={styles.overlaySvg} viewBox="0 0 1 1">
+                            <svg className={styles.overlaySvg} viewBox="0 0 1000 1000" preserveAspectRatio="none">
                               <polygon
-                                points={documentQuad.map(p => `${p.x},${p.y}`).join(' ')}
+                                points={documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
                                 className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
                               />
                             </svg>

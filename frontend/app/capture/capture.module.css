@@ -26,7 +26,36 @@
   .mainLayout {
     grid-template-columns: 1fr;
     gap: 1.5rem;
-    padding: 0 1rem;
+    padding: 0 0.75rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .mainLayout {
+    padding: 0 0.5rem;
+    gap: 1rem;
+  }
+  .glassCard {
+    padding: 0.75rem !important; /* Maximizes camera screen size */
+    border-radius: 16px !important;
+    min-height: auto !important; /* Overrides inline style min-height */
+  }
+  .videoContainer {
+    border-radius: 12px;
+    aspect-ratio: 4/3 !important; /* Taller on mobile for better visibility */
+  }
+  .statusBadge {
+    font-size: 0.75rem !important;
+    padding: 0.4rem 0.8rem !important;
+  }
+  .cameraControls {
+    bottom: 0.75rem !important;
+    padding: 0.5rem 1rem !important;
+    gap: 0.75rem !important;
+  }
+  .captureButton {
+    padding: 0 1.25rem !important;
+    font-size: 0.8rem !important;
   }
 }
 
