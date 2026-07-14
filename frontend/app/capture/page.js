@@ -56,11 +56,11 @@ export default function CaptureLandingPage() {
   };
 
   return (
-    <div className={styles.container} style={{ background: 'radial-gradient(circle at 10% 20%, #16192b 0%, #090a0f 90%)', color: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div className={styles.container} style={{ background: '#f8fafc', color: '#0f172a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* ─── Top Nav ─── */}
-      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)' }}>
+      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(20px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
             <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
               <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
               <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
@@ -77,7 +77,7 @@ export default function CaptureLandingPage() {
           <button
             onClick={() => router.push('/dashboard')}
             className="btn btn-secondary"
-            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1' }}
           >
             Dashboard
           </button>
@@ -86,24 +86,24 @@ export default function CaptureLandingPage() {
 
       {/* ─── Main Content ─── */}
       <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-        <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '24px', padding: '50px 40px', maxWidth: '500px', width: '100%', backdropFilter: 'blur(40px)', boxShadow: '0 20px 50px rgba(0, 0, 0, 0.3)' }}>
+        <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '24px', padding: '50px 40px', maxWidth: '500px', width: '100%', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)' }}>
           
-          <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '12px', background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '12px', color: '#0f172a', textAlign: 'center' }}>
             Smart Document Capture
           </h1>
 
-          <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', marginBottom: '32px', textAlign: 'center' }}>
+          <p style={{ color: '#475569', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '32px', textAlign: 'center' }}>
             An AI-guided document collection experience. Please select the document type and preferred language to begin.
           </p>
 
           <div className={styles.formGroup} style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>Select Document Type</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Document Type</label>
             <select 
               className={styles.select}
               value={selectedScheme}
               onChange={(e) => setSelectedScheme(e.target.value)}
               disabled={loading}
-              style={{ width: '100%', padding: '14px 18px', background: '#070911', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', color: '#fff', fontSize: '1rem', outline: 'none' }}
+              style={{ width: '100%', padding: '14px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#0f172a', fontSize: '1rem', outline: 'none' }}
             >
               <option value="aadhaar">Aadhaar Card (Identity & Address)</option>
               <option value="passport">Passport (Identity, Address & Visas)</option>
@@ -112,13 +112,13 @@ export default function CaptureLandingPage() {
           </div>
 
           <div className={styles.formGroup} style={{ marginBottom: '32px' }}>
-            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#cbd5e1', marginBottom: '8px' }}>Select Preferred Language</label>
+            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Preferred Language</label>
             <select 
               className={styles.select}
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
               disabled={loading}
-              style={{ width: '100%', padding: '14px 18px', background: '#070911', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', color: '#fff', fontSize: '1rem', outline: 'none' }}
+              style={{ width: '100%', padding: '14px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#0f172a', fontSize: '1rem', outline: 'none' }}
             >
               <option value="en">English</option>
               <option value="hi">Hindi (हिंदी)</option>
@@ -126,7 +126,7 @@ export default function CaptureLandingPage() {
           </div>
 
           {error && (
-            <div style={{ color: '#ef4444', marginBottom: '20px', fontSize: '0.9rem', padding: '12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: '12px', textAlign: 'center' }}>
+            <div style={{ color: '#ef4444', marginBottom: '20px', fontSize: '0.9rem', padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', textAlign: 'center' }}>
               {error}
             </div>
           )}
@@ -135,7 +135,7 @@ export default function CaptureLandingPage() {
             className="btn btn-primary"
             onClick={handleStart}
             disabled={loading || !token}
-            style={{ width: '100%', padding: '16px', fontSize: '1.05rem', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #4a78ff 0%, #7c3aed 100%)', color: '#fff', border: 'none', transition: 'all 0.2s', boxShadow: '0 4px 20px rgba(74, 120, 255, 0.3)' }}
+            style={{ width: '100%', padding: '16px', fontSize: '1.05rem', fontWeight: 600, borderRadius: '12px', cursor: 'pointer', background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: '#fff', border: 'none', transition: 'all 0.2s', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.15)' }}
           >
             {loading ? 'Starting...' : 'Start Document Capture'}
           </button>

@@ -1,10 +1,10 @@
-/* Modern, Premium Smart Document Capture Styling */
+/* Minimalist Light Theme Smart Document Capture Styling */
 
 .container {
   min-height: 100vh;
-  background: radial-gradient(circle at 10% 20%, #111422 0%, #07080d 90%);
-  color: #f8fafc;
-  font-family: 'Inter', -apple-system, sans-serif;
+  background: #f8fafc; /* Crisp off-white */
+  color: #0f172a; /* Deep slate */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -14,36 +14,35 @@
 .mainLayout {
   display: grid;
   grid-template-columns: 1fr 380px;
-  gap: 2.5rem;
+  gap: 2rem;
   width: 100%;
-  max-width: 1280px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 1.5rem;
   box-sizing: border-box;
 }
 
 @media (max-width: 1024px) {
   .mainLayout {
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
     padding: 0 1rem;
   }
 }
 
-/* Glassmorphism Card base */
+/* Minimalist Clean Card */
 .glassCard {
-  background: rgba(13, 17, 30, 0.45);
-  backdrop-filter: blur(24px) saturate(120%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 2.5rem;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 2.25rem;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glassCard:hover {
-  border-color: rgba(96, 165, 250, 0.2);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(59, 130, 246, 0.05);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.02);
+  border-color: #cbd5e1;
 }
 
 /* Video & Guides Layout */
@@ -51,11 +50,11 @@
   position: relative;
   width: 100%;
   aspect-ratio: 16/9;
-  background: #040508;
-  border-radius: 20px;
+  background: #f1f5f9;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,15 +64,14 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(1); /* No mirroring to keep document text upright */
 }
 
 /* Active Guide Overlay box */
 .guideBox {
   position: absolute;
-  border: 2px solid rgba(96, 165, 250, 0.3);
+  border: 2px solid #3b82f6; /* Modern Blue */
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(5, 7, 15, 0.65); /* Dim surrounding area */
+  box-shadow: 0 0 0 9999px rgba(248, 250, 252, 0.75); /* Dims surrounding area in light mode */
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   z-index: 10;
@@ -89,19 +87,20 @@
   height: 80%;
 }
 
-/* Glowing status badge */
+/* Status Badge - Sleek white pill */
 .statusBadge {
   position: absolute;
-  top: 1.5rem;
+  top: 1.25rem;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0.6rem 1.2rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 999px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
   z-index: 15;
   transition: all 0.3s ease;
   white-space: nowrap;
@@ -120,35 +119,35 @@
 }
 
 .detectedPoly {
-  fill: rgba(59, 130, 246, 0.15);
-  stroke: #60a5fa;
+  fill: rgba(59, 130, 246, 0.08);
+  stroke: #3b82f6;
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  animation: dash 1.5s infinite linear;
 }
 
 .detectedPolyReady {
-  fill: rgba(16, 185, 129, 0.2);
+  fill: rgba(16, 185, 129, 0.1);
   stroke: #10b981;
   stroke-width: 3.0;
-  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.6));
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.3));
 }
 
-/* Unified Controls bar */
+/* Unified Controls bar - Sleek light pill */
 .cameraControls {
   position: absolute;
-  bottom: 1.5rem;
+  bottom: 1.25rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  background: rgba(13, 17, 30, 0.7);
-  backdrop-filter: blur(16px);
-  padding: 0.75rem 1.5rem;
+  gap: 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 0.6rem 1.25rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
   z-index: 20;
 }
 
@@ -156,7 +155,7 @@
 .progressBar {
   width: 100%;
   height: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #f1f5f9;
   border-radius: 999px;
   overflow: hidden;
   margin-top: 8px;
@@ -164,7 +163,7 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, #4a78ff, #a78bfa);
+  background: linear-gradient(90deg, #3b82f6, #6366f1);
   border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -175,27 +174,68 @@
   align-items: center;
 }
 
+/* Capture Buttons */
+.iconButton {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1rem;
+}
+
+.iconButton:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: scale(1.03);
+}
+
+.captureButton {
+  background: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 0 1.75rem;
+  height: 2.75rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  transition: all 0.2s;
+}
+
+.captureButton:hover {
+  background: #1d4ed8;
+  transform: scale(1.03);
+}
+
 /* Spinner for scanner processing */
 .sphereProcessing {
-  border: 3px solid rgba(139, 92, 246, 0.2);
-  border-top-color: #a78bfa;
+  border: 3px solid rgba(99, 102, 241, 0.1);
+  border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
-/* Actionable full screen alert cards */
+/* Actionable error cards */
 .errorCard {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 16px;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
   animation: shake 0.5s ease-in-out;
 }
 
 /* Animations */
 @keyframes slideDown {
-  from { transform: translate(-50%, -20px); opacity: 0; }
+  from { transform: translate(-50%, -15px); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }
 }
 
@@ -205,6 +245,6 @@
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-6px); }
-  75% { transform: translateX(6px); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
 }

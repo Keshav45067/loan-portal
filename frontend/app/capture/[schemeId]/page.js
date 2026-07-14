@@ -628,9 +628,9 @@ export default function CaptureFlowPage({ params }) {
   return (
     <div className={styles.container}>
       {/* ─── Top Nav ─── */}
-      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', background: 'rgba(9, 10, 15, 0.7)', backdropFilter: 'blur(20px)', width: '100%', boxSizing: 'border-box' }}>
+      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(20px)', width: '100%', boxSizing: 'border-box' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
             <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
               <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
               <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
@@ -650,7 +650,7 @@ export default function CaptureFlowPage({ params }) {
               router.push('/dashboard');
             }}
             className="btn btn-secondary"
-            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px solid rgba(255,255,255,0.1)' }}
+            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1' }}
           >
             Dashboard
           </button>
@@ -674,15 +674,15 @@ export default function CaptureFlowPage({ params }) {
           {/* Left: Camera / File Area */}
           <div className={styles.glassCard} style={{ display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '520px', justifyContent: 'center' }}>
               {!isStarted ? (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(5, 7, 15, 0.95)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
-                      <h2 style={{ color: '#fff', marginBottom: '1.5rem', fontSize: '1.8rem', fontWeight: 700 }}>Ready to scan your document?</h2>
-                      <p style={{ color: '#94a3b8', marginBottom: '2.5rem', maxWidth: '360px', textAlign: 'center', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
+                      <h2 style={{ color: '#0f172a', marginBottom: '1.25rem', fontSize: '1.6rem', fontWeight: 700 }}>Ready to scan your document?</h2>
+                      <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '340px', textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.5' }}>
                           We will guide you to capture it with optimal brightness, stability, and alignment automatically.
                       </p>
                       <button 
                           onClick={startSession} 
                           className="btn btn-primary btn-lg"
-                          style={{ background: 'linear-gradient(135deg, #4a78ff, #7c3aed)', boxShadow: '0 8px 30px rgba(74, 120, 255, 0.4)', border: 'none', borderRadius: '12px', padding: '14px 28px', fontSize: '1.1rem', fontWeight: 600, cursor: 'pointer' }}
+                          style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.2)', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', color: '#fff' }}
                       >
                           Start Scanning
                       </button>
@@ -691,9 +691,9 @@ export default function CaptureFlowPage({ params }) {
 
               {/* Show loader while OpenCV.js is initializing */}
               {isStarted && !cvLoaded && !cvLoadingError && !previewUrl && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(5, 7, 15, 0.85)', backdropFilter: 'blur(15px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
-                      <div className={styles.sphereProcessing} style={{ width: '48px', height: '48px', marginBottom: '1.5rem' }}></div>
-                      <span style={{ color: '#94a3b8', fontSize: '0.95rem' }}>Loading AI visual scanner...</span>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
+                      <div className={styles.sphereProcessing} style={{ width: '48px', height: '48px', marginBottom: '1.25rem' }}></div>
+                      <span style={{ color: '#475569', fontSize: '0.9rem', fontWeight: 500 }}>Loading AI visual scanner...</span>
                   </div>
               )}
 
@@ -715,27 +715,21 @@ export default function CaptureFlowPage({ params }) {
                       <>
                           <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
                           
-                          {/* Live Guidance overlays */}
-                          {cvLoaded && (
-                            <>
-                              {/* Dimmable surrounding overlay with orientation guide hole */}
-                              <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
+                          {/* Live Guidance overlays (always visible) */}
+                          <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
 
-                              {/* Real-time status recommendation badge */}
-                              <div className={styles.statusBadge} style={{ backgroundColor: statusColor, color: '#07080d' }}>
-                                {statusText}
-                              </div>
+                          <div className={styles.statusBadge} style={{ backgroundColor: statusColor, color: '#07080d' }}>
+                            {statusText}
+                          </div>
 
-                              {/* Dynamic contour detection overlay */}
-                              {documentQuad && (
-                                <svg className={styles.overlaySvg} viewBox="0 0 1 1">
-                                  <polygon
-                                    points={documentQuad.map(p => `${p.x},${p.y}`).join(' ')}
-                                    className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
-                                  />
-                                </svg>
-                              )}
-                            </>
+                          {/* Dynamic contour detection overlay (OpenCV only) */}
+                          {cvLoaded && documentQuad && (
+                            <svg className={styles.overlaySvg} viewBox="0 0 1 1">
+                              <polygon
+                                points={documentQuad.map(p => `${p.x},${p.y}`).join(' ')}
+                                className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
+                              />
+                            </svg>
                           )}
                           
                           <div className={styles.cameraControls}>
@@ -783,10 +777,10 @@ export default function CaptureFlowPage({ params }) {
           </div>
 
           {/* Right: Voice Agent Sidebar (Unified with Interview UI) */}
-          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2.25rem 1.75rem', background: 'rgba(10, 14, 25, 0.45)', border: '1px solid rgba(255, 255, 255, 0.07)', borderRadius: '24px', backdropFilter: 'blur(20px)' }}>
+          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2.25rem 1.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '24px', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)' }}>
             <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
               <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
-              <span className={interviewStyles.connectionText}>
+              <span className={interviewStyles.connectionText} style={{ color: '#475569' }}>
                 {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
               </span>
             </div>
@@ -805,7 +799,7 @@ export default function CaptureFlowPage({ params }) {
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#cbd5e1', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5' }}>
+            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#334155', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5', fontWeight: 500 }}>
               {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
             </div>
 
