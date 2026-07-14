@@ -311,17 +311,55 @@ export default function CaptureFlowPage({ params }) {
   const startCamera = useCallback(async (facingMode) => {
     stopCamera();
     if (previewUrl) return; // Don't start if previewing
+    
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError('Camera API is not supported in this browser. Please use manual upload.');
+      return;
+    }
+
+    const constraints = {
+      video: {
+        facingMode: { ideal: facingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    };
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } }
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play().catch(e => console.error(e));
+        videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
       }
     } catch (err) {
-      console.error('Camera access error:', err);
+      console.warn("Primary camera constraints failed, attempting fallback:", err);
+      try {
+        const fallbackStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        streamRef.current = fallbackStream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = fallbackStream;
+          videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
+        }
+      } catch (fallbackErr) {
+        console.error("All camera constraints failed:", fallbackErr);
+        
+        let friendlyMessage = 'Failed to access camera.';
+        if (fallbackErr.name === 'NotAllowedError' || fallbackErr.name === 'PermissionDeniedError') {
+          friendlyMessage = 'Camera access denied. Please enable camera permissions in your browser settings and refresh.';
+        } else if (fallbackErr.name === 'NotFoundError' || fallbackErr.name === 'DevicesNotFoundError') {
+          friendlyMessage = 'No camera found on this device. Please connect a camera or use manual file upload.';
+        } else if (fallbackErr.name === 'NotReadableError' || fallbackErr.name === 'TrackStartError') {
+          friendlyMessage = 'Camera is currently in use by another application. Please close other camera apps and retry.';
+        } else if (fallbackErr.name === 'OverconstrainedError') {
+          friendlyMessage = 'Camera constraints could not be satisfied on this device.';
+        } else {
+          friendlyMessage = `Camera error: ${fallbackErr.message || fallbackErr.name || 'Unknown'}`;
+        }
+        setError(friendlyMessage);
+      }
     }
   }, [stopCamera, previewUrl]);
 
