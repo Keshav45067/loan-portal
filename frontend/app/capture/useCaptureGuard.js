@@ -223,14 +223,16 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           let coverage = 0;
 
           for (const item of contourList) {
-            const contour = item.contour;
-            const peri = cv.arcLength(contour, true);
+            const hull = new cv.Mat();
+            cv.convexHull(item.contour, hull, false, true); // true = return points, not indices
+            
+            const peri = cv.arcLength(hull, true);
             const approx = new cv.Mat();
             
             let foundQuad = false;
-            // Scan epsilons to find clean 4 corners
+            // Scan epsilons to find clean 4 corners on the convex hull
             for (let eps = 0.02; eps <= 0.08; eps += 0.01) {
-              cv.approxPolyDP(contour, approx, eps * peri, true);
+              cv.approxPolyDP(hull, approx, eps * peri, true);
               if (approx.rows === 4) {
                 if (cv.isContourConvex(approx)) {
                   // Angle check
@@ -261,8 +263,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                     maxCos = Math.max(maxCos, Math.abs(cos));
                   }
                   
-                  // If max cosine is small enough, it's a good quad (~ > 70 deg)
-                  if (maxCos < 0.35) {
+                  // Relaxed perspective check: ~56 degrees to 124 degrees max variance
+                  if (maxCos < 0.55) {
                     foundQuad = true;
                     break;
                   }
@@ -285,25 +287,25 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               const bottom = points.slice(2, 4).sort((a, b) => b.x - a.x);
               documentQuad = [top[0], top[1], bottom[0], bottom[1]];
               approx.delete();
+              hull.delete();
               break; // Found our document
             }
             approx.delete();
+            hull.delete();
           }
 
           // --- Finite State Machine & Hysteresis Logic ---
           const sm = stateMachineRef.current;
 
-          // A. Document Detection Hysteresis
+          // A. Document Detection Hysteresis (Continuous Accumulator)
           if (documentQuad) {
-            sm.detectionHits += 1;
-            sm.detectionMisses = 0;
+            sm.detectionHits = Math.min(5, sm.detectionHits + 1);
             if (sm.detectionHits >= 3) {
               sm.isDetected = true;
             }
           } else {
-            sm.detectionMisses += 1;
-            sm.detectionHits = 0;
-            if (sm.detectionMisses >= 8) { // demote slowly
+            sm.detectionHits = Math.max(0, sm.detectionHits - 1);
+            if (sm.detectionHits <= 0) {
               sm.isDetected = false;
               sm.smoothedQuad = null;
             }
@@ -322,42 +324,38 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             }
           }
 
-          // C. Brightness Hysteresis (Too Dark / Too Bright)
-          if (sm.isDetected) {
-            // Dark State
-            if (sm.isInDarkState) {
-              if (mean >= 0.28) sm.darkHits += 1;
-              else sm.darkHits = 0;
-              if (sm.darkHits >= 3) sm.isInDarkState = false;
-            } else {
-              if (mean < 0.22) sm.darkMisses += 1;
-              else sm.darkMisses = 0;
-              if (sm.darkMisses >= 3) sm.isInDarkState = true;
-            }
-
-            // Bright State
-            if (sm.isInBrightState) {
-              if (mean <= 0.77) sm.brightHits += 1;
-              else sm.brightHits = 0;
-              if (sm.brightHits >= 3) sm.isInBrightState = false;
-            } else {
-              if (mean > 0.82) sm.brightMisses += 1;
-              else sm.brightMisses = 0;
-              if (sm.brightMisses >= 3) sm.isInBrightState = true;
-            }
+          // C. Brightness Hysteresis (ALWAYS CHECKED)
+          // Dark State
+          if (sm.isInDarkState) {
+            if (mean >= 0.35) sm.darkHits += 1;
+            else sm.darkHits = 0;
+            if (sm.darkHits >= 3) sm.isInDarkState = false;
+          } else {
+            if (mean < 0.30) sm.darkMisses += 1;
+            else sm.darkMisses = 0;
+            if (sm.darkMisses >= 3) sm.isInDarkState = true;
           }
 
-          // D. Blur Hysteresis
-          if (sm.isDetected) {
-            if (sm.isInBlurryState) {
-              if (blurScore >= 130.0) sm.blurryHits += 1;
-              else sm.blurryHits = 0;
-              if (sm.blurryHits >= 3) sm.isInBlurryState = false;
-            } else {
-              if (blurScore < 100.0) sm.blurryMisses += 1;
-              else sm.blurryMisses = 0;
-              if (sm.blurryMisses >= 3) sm.isInBlurryState = true;
-            }
+          // Bright State
+          if (sm.isInBrightState) {
+            if (mean <= 0.70) sm.brightHits += 1;
+            else sm.brightHits = 0;
+            if (sm.brightHits >= 3) sm.isInBrightState = false;
+          } else {
+            if (mean > 0.75) sm.brightMisses += 1;
+            else sm.brightMisses = 0;
+            if (sm.brightMisses >= 3) sm.isInBrightState = true;
+          }
+
+          // D. Blur Hysteresis (ALWAYS CHECKED, properly scaled for 320px)
+          if (sm.isInBlurryState) {
+            if (blurScore >= 35.0) sm.blurryHits += 1;
+            else sm.blurryHits = 0;
+            if (sm.blurryHits >= 3) sm.isInBlurryState = false;
+          } else {
+            if (blurScore < 20.0) sm.blurryMisses += 1;
+            else sm.blurryMisses = 0;
+            if (sm.blurryMisses >= 3) sm.isInBlurryState = true;
           }
 
           // E. Stability Hysteresis
@@ -407,15 +405,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           let statusText = 'Searching for document...';
           let statusColor = '#94a3b8'; // slate
 
-          if (!sm.isDetected) {
-            nextState = ST_SEARCHING;
-            statusText = 'Searching for document...';
-            statusColor = '#94a3b8';
-          } else if (sm.isInFarState) {
-            nextState = ST_DETECTED_FAR;
-            statusText = '📐 Move closer to fill the guide';
-            statusColor = '#3b82f6'; // blue
-          } else if (sm.isInDarkState) {
+          // 1. Lighting is critical; supersedes everything
+          if (sm.isInDarkState) {
             nextState = ST_TOO_DARK;
             statusText = '🔆 Too dark — move to a well-lit area';
             statusColor = '#f59e0b'; // amber
@@ -423,15 +414,33 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             nextState = ST_TOO_BRIGHT;
             statusText = '🔆 Too bright — avoid direct glare';
             statusColor = '#f59e0b'; // amber
-          } else if (sm.isInBlurryState) {
+          } 
+          // 2. We need a document
+          else if (!sm.isDetected) {
+            nextState = ST_SEARCHING;
+            statusText = 'Searching for document...';
+            statusColor = '#94a3b8';
+          } 
+          // 3. Document found, but too far
+          else if (sm.isInFarState) {
+            nextState = ST_DETECTED_FAR;
+            statusText = '📐 Move closer to fill the guide';
+            statusColor = '#3b82f6'; // blue
+          } 
+          // 4. Document found & close, but blurry
+          else if (sm.isInBlurryState) {
             nextState = ST_BLURRY;
             statusText = '📷 Blurry — hold camera steady';
             statusColor = '#ef4444'; // red
-          } else if (!sm.isInStableState) {
+          } 
+          // 5. Check stability
+          else if (!sm.isInStableState) {
             nextState = ST_ALIGNING;
             statusText = '⏳ Hold steady...';
             statusColor = '#f59e0b'; // amber
-          } else {
+          } 
+          // 6. Perfect!
+          else {
             nextState = ST_STABLE;
             statusText = '⚡ Ready! Capture starting...';
             statusColor = '#10b981'; // emerald
