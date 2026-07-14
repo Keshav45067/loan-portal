@@ -151,11 +151,19 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
         if (bestContourIdx !== -1) {
           const bestContour = contours.get(bestContourIdx);
           const peri = cv.arcLength(bestContour, true);
-          const approx = new cv.Mat();
-          cv.approxPolyDP(bestContour, approx, 0.02 * peri, true);
+          let approx = new cv.Mat();
+          
+          let foundQuad = false;
+          // Dynamically try standard and aggressive epsilons to find exactly 4 sides
+          for (let eps = 0.015; eps <= 0.05; eps += 0.005) {
+            cv.approxPolyDP(bestContour, approx, eps * peri, true);
+            if (approx.rows === 4) {
+              foundQuad = true;
+              break;
+            }
+          }
 
-          if (approx.rows === 4) {
-            // Found a quadrilateral!
+          if (foundQuad) {
             coverage = maxArea / totalArea;
             const points = [];
             for (let i = 0; i < 4; i++) {
@@ -164,7 +172,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                 y: approx.data32S[i * 2 + 1] / height
               });
             }
-            // Sort points clockwise starting from top-left
+            // Sort points clockwise: top-left, top-right, bottom-right, bottom-left
             points.sort((a, b) => a.y - b.y);
             const top = points.slice(0, 2).sort((a, b) => a.x - b.x);
             const bottom = points.slice(2, 4).sort((a, b) => b.x - a.x);

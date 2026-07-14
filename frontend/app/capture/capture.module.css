@@ -66,9 +66,11 @@
   object-fit: cover;
 }
 
-/* Active Guide Overlay box */
 .guideBox {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   border: 2px solid #3b82f6; /* Modern Blue */
   border-radius: 12px;
   box-shadow: 0 0 0 9999px rgba(248, 250, 252, 0.75); /* Dims surrounding area in light mode */
