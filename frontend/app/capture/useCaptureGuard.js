@@ -244,16 +244,14 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           let coverage = 0;
 
           for (const item of contourList) {
-            const hull = new cv.Mat();
-            cv.convexHull(item.contour, hull, false, true); // true = return points, not indices
-            
-            const peri = cv.arcLength(hull, true);
+            const contour = item.contour;
+            const peri = cv.arcLength(contour, true);
             const approx = new cv.Mat();
             
             let foundQuad = false;
-            // Scan epsilons to find clean 4 corners on the convex hull
+            // Scan epsilons to find clean 4 corners on the contour
             for (let eps = 0.02; eps <= 0.08; eps += 0.01) {
-              cv.approxPolyDP(hull, approx, eps * peri, true);
+              cv.approxPolyDP(contour, approx, eps * peri, true);
               if (approx.rows === 4) {
                 if (cv.isContourConvex(approx)) {
                   // Angle check
@@ -308,11 +306,9 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               const bottom = points.slice(2, 4).sort((a, b) => b.x - a.x);
               documentQuad = [top[0], top[1], bottom[0], bottom[1]];
               approx.delete();
-              hull.delete();
               break; // Found our document
             }
             approx.delete();
-            hull.delete();
           }
 
           // --- Finite State Machine & Hysteresis Logic ---
