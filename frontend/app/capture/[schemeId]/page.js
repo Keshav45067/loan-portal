@@ -147,11 +147,14 @@ export default function CaptureFlowPage({ params }) {
     brightness,
     blur,
     coverage,
+    confidence,
     isStable,
     documentQuad,
     overallReady,
     statusText,
-    statusColor
+    statusDetail,
+    statusColor,
+    readinessScore
   } = useCaptureGuard(
     videoRef,
     isStarted && !previewUrl && !processingDoc && !state.allComplete,
@@ -672,7 +675,11 @@ export default function CaptureFlowPage({ params }) {
             <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
             <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
             <div className={styles.statusBadge} style={{ color: statusColor !== '#94a3b8' ? statusColor : '#000' }}>
-              {statusText}
+              <span>{statusText}</span>
+              {statusDetail && <span className={styles.statusDetail}>{statusDetail}</span>}
+            </div>
+            <div className={styles.readinessBar}>
+              <div className={styles.readinessFill} style={{ width: `${(readinessScore || 0) * 100}%` }} />
             </div>
             {cvLoaded && documentQuad && (
               <svg className={styles.overlaySvg} viewBox="0 0 1000 1000" preserveAspectRatio="none">
@@ -680,6 +687,22 @@ export default function CaptureFlowPage({ params }) {
                   points={documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
                   className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
                 />
+                {documentQuad.map((p, i) => (
+                  <g key={i}>
+                    <circle
+                      cx={Math.round(p.x * 1000)}
+                      cy={Math.round(p.y * 1000)}
+                      r="14"
+                      className={overallReady ? styles.cornerDotPulseReady : styles.cornerDotPulse}
+                    />
+                    <circle
+                      cx={Math.round(p.x * 1000)}
+                      cy={Math.round(p.y * 1000)}
+                      r="8"
+                      className={`${styles.cornerDot} ${overallReady ? styles.cornerDotReady : ''}`}
+                    />
+                  </g>
+                ))}
               </svg>
             )}
           </>

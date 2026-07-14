@@ -142,25 +142,8 @@
   max-height: 800px;
 }
 
-/* Status Badge - Sleek pill floating near top of camera */
-.statusBadge {
-  position: absolute;
-  top: 25%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 0.6rem 1.5rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  z-index: 15;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  color: #000;
-}
+
+
 
 /* Document Detection Polygon SVG */
 .overlaySvg {
@@ -174,19 +157,99 @@
 }
 
 .detectedPoly {
-  fill: rgba(255, 255, 255, 0.1);
-  stroke: rgba(255, 255, 255, 0.9);
-  stroke-width: 3;
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke 0.2s, fill 0.2s;
+  transition: stroke 0.3s ease, fill 0.3s ease, stroke-width 0.3s ease;
 }
 
 .detectedPolyReady {
-  fill: rgba(16, 185, 129, 0.2);
+  fill: rgba(16, 185, 129, 0.15);
   stroke: #10b981;
-  stroke-width: 4;
-  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.5));
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.6));
+}
+
+/* Corner Dots — animated circles at each detected quad corner */
+.cornerDot {
+  fill: rgba(255, 255, 255, 0.95);
+  stroke: none;
+  transition: fill 0.3s ease, r 0.2s ease;
+}
+
+.cornerDotReady {
+  fill: #10b981;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.8));
+}
+
+.cornerDotPulse {
+  fill: rgba(255, 255, 255, 0.3);
+  animation: cornerPulse 1.5s ease-in-out infinite;
+}
+
+.cornerDotPulseReady {
+  fill: rgba(16, 185, 129, 0.2);
+  animation: cornerPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes cornerPulse {
+  0%, 100% { opacity: 0.3; r: 14; }
+  50% { opacity: 0.7; r: 20; }
+}
+
+/* Status Badge with subtitle support */
+.statusBadge {
+  position: absolute;
+  top: 25%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.7rem 1.6rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  z-index: 15;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.statusDetail {
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: #64748b;
+  letter-spacing: 0.01em;
+}
+
+/* Readiness Progress Bar */
+.readinessBar {
+  position: absolute;
+  top: 32%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  overflow: hidden;
+  z-index: 15;
+  backdrop-filter: blur(4px);
+}
+
+.readinessFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1), background 0.3s ease;
+  background: linear-gradient(90deg, #3b82f6, #10b981);
 }
 
 /* Unified Controls bar */

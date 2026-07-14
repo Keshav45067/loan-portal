@@ -7,6 +7,8 @@ import styles from './sandbox.module.css';
 const DEFAULT_CONFIG = {
   cannyThresh1: 40,
   cannyThresh2: 120,
+  useAdaptiveCanny: true,
+  cannySigma: 0.33,
   minAreaPct: 0.10,
   maxAreaPct: 0.95,
   maxCos: 0.55,
@@ -16,6 +18,8 @@ const DEFAULT_CONFIG = {
   brightExit: 0.70,
   blurEnter: 20.0,
   blurExit: 35.0,
+  minConfidence: 0.30,
+  iouPreferenceWeight: 0.6,
 };
 
 export default function SandboxPage() {
@@ -60,6 +64,10 @@ export default function SandboxPage() {
     setConfig(prev => ({ ...prev, [key]: parseFloat(value) }));
   };
 
+  const handleToggle = (key) => {
+    setConfig(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const exportConfig = () => {
     console.log(JSON.stringify(config, null, 2));
     alert("Configuration copied to console!\n\n" + JSON.stringify(config, null, 2));
@@ -85,12 +93,22 @@ export default function SandboxPage() {
               points={captureState.documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
               className={`${styles.detectedPoly} ${captureState.overallReady ? styles.detectedPolyReady : ''}`}
             />
+            {captureState.documentQuad.map((p, i) => (
+              <circle
+                key={i}
+                cx={Math.round(p.x * 1000)}
+                cy={Math.round(p.y * 1000)}
+                r="8"
+                fill={captureState.overallReady ? '#10b981' : 'rgba(255,255,255,0.9)'}
+              />
+            ))}
           </svg>
         )}
 
         {isStarted && (
           <div className={styles.statusBadge} style={{ color: captureState.statusColor !== '#94a3b8' ? captureState.statusColor : '#000' }}>
-            {captureState.statusText}
+            <span>{captureState.statusText}</span>
+            {captureState.statusDetail && <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 400 }}>{captureState.statusDetail}</span>}
           </div>
         )}
       </div>
@@ -105,13 +123,31 @@ export default function SandboxPage() {
         <div className={styles.controlGroup}>
           <div className={styles.groupTitle}>Edge Detection (Canny)</div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Threshold 1 (Min)</span> <span className={styles.sliderValue}>{config.cannyThresh1}</span></div>
-            <input type="range" min="0" max="255" step="1" className={styles.slider} value={config.cannyThresh1} onChange={e => handleChange('cannyThresh1', e.target.value)} />
+            <div className={styles.sliderLabel}>
+              <span>Adaptive Canny (Otsu)</span>
+              <button onClick={() => handleToggle('useAdaptiveCanny')} style={{ background: config.useAdaptiveCanny ? '#10b981' : '#475569', color: '#fff', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>
+                {config.useAdaptiveCanny ? 'ON' : 'OFF'}
+              </button>
+            </div>
           </div>
-          <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Threshold 2 (Max)</span> <span className={styles.sliderValue}>{config.cannyThresh2}</span></div>
-            <input type="range" min="0" max="255" step="1" className={styles.slider} value={config.cannyThresh2} onChange={e => handleChange('cannyThresh2', e.target.value)} />
-          </div>
+          {!config.useAdaptiveCanny && (
+            <>
+              <div className={styles.sliderRow}>
+                <div className={styles.sliderLabel}><span>Threshold 1 (Min)</span> <span className={styles.sliderValue}>{config.cannyThresh1}</span></div>
+                <input type="range" min="0" max="255" step="1" className={styles.slider} value={config.cannyThresh1} onChange={e => handleChange('cannyThresh1', e.target.value)} />
+              </div>
+              <div className={styles.sliderRow}>
+                <div className={styles.sliderLabel}><span>Threshold 2 (Max)</span> <span className={styles.sliderValue}>{config.cannyThresh2}</span></div>
+                <input type="range" min="0" max="255" step="1" className={styles.slider} value={config.cannyThresh2} onChange={e => handleChange('cannyThresh2', e.target.value)} />
+              </div>
+            </>
+          )}
+          {config.useAdaptiveCanny && (
+            <div className={styles.sliderRow}>
+              <div className={styles.sliderLabel}><span>Canny Sigma</span> <span className={styles.sliderValue}>{config.cannySigma}</span></div>
+              <input type="range" min="0.1" max="0.8" step="0.01" className={styles.slider} value={config.cannySigma} onChange={e => handleChange('cannySigma', e.target.value)} />
+            </div>
+          )}
         </div>
 
         <div className={styles.controlGroup}>
@@ -131,9 +167,21 @@ export default function SandboxPage() {
         </div>
 
         <div className={styles.controlGroup}>
+          <div className={styles.groupTitle}>Confidence &amp; Tracking</div>
+          <div className={styles.sliderRow}>
+            <div className={styles.sliderLabel}><span>Min Confidence</span> <span className={styles.sliderValue}>{config.minConfidence}</span></div>
+            <input type="range" min="0.05" max="0.8" step="0.05" className={styles.slider} value={config.minConfidence} onChange={e => handleChange('minConfidence', e.target.value)} />
+          </div>
+          <div className={styles.sliderRow}>
+            <div className={styles.sliderLabel}><span>IoU Preference Weight</span> <span className={styles.sliderValue}>{config.iouPreferenceWeight}</span></div>
+            <input type="range" min="0" max="1.0" step="0.05" className={styles.slider} value={config.iouPreferenceWeight} onChange={e => handleChange('iouPreferenceWeight', e.target.value)} />
+          </div>
+        </div>
+
+        <div className={styles.controlGroup}>
           <div className={styles.groupTitle}>Blur Detection</div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Enter Blur (Lower is sharper)</span> <span className={styles.sliderValue}>{config.blurEnter}</span></div>
+            <div className={styles.sliderLabel}><span>Enter Blur (Lower = sharper)</span> <span className={styles.sliderValue}>{config.blurEnter}</span></div>
             <input type="range" min="5" max="150" step="1" className={styles.slider} value={config.blurEnter} onChange={e => handleChange('blurEnter', e.target.value)} />
           </div>
           <div className={styles.sliderRow}>
@@ -145,11 +193,11 @@ export default function SandboxPage() {
         <div className={styles.controlGroup}>
           <div className={styles.groupTitle}>Lighting</div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Dark Enter (Mean &lt; X)</span> <span className={styles.sliderValue}>{config.darkEnter}</span></div>
+            <div className={styles.sliderLabel}><span>Dark Enter</span> <span className={styles.sliderValue}>{config.darkEnter}</span></div>
             <input type="range" min="0.05" max="0.5" step="0.01" className={styles.slider} value={config.darkEnter} onChange={e => handleChange('darkEnter', e.target.value)} />
           </div>
           <div className={styles.sliderRow}>
-            <div className={styles.sliderLabel}><span>Bright Enter (Mean &gt; X)</span> <span className={styles.sliderValue}>{config.brightEnter}</span></div>
+            <div className={styles.sliderLabel}><span>Bright Enter</span> <span className={styles.sliderValue}>{config.brightEnter}</span></div>
             <input type="range" min="0.5" max="0.95" step="0.01" className={styles.slider} value={config.brightEnter} onChange={e => handleChange('brightEnter', e.target.value)} />
           </div>
         </div>
@@ -158,9 +206,11 @@ export default function SandboxPage() {
           <div className={styles.groupTitle}>Live Engine Metrics</div>
           <div className={styles.statsBox}>
             <div className={styles.statsRow}><span>OpenCV Loaded:</span> <span style={{ color: cvLoaded ? '#10b981' : '#ef4444' }}>{cvLoaded ? 'YES' : 'NO'}</span></div>
-            <div className={styles.statsRow}><span>Current Mean:</span> <span style={{ color: '#f8fafc' }}>{captureState.brightness?.toFixed(3)}</span></div>
-            <div className={styles.statsRow}><span>Blur Var:</span> <span style={{ color: '#f8fafc' }}>{captureState.blur?.toFixed(1)}</span></div>
+            <div className={styles.statsRow}><span>Brightness (mean):</span> <span style={{ color: '#f8fafc' }}>{captureState.brightness?.toFixed(3)}</span></div>
+            <div className={styles.statsRow}><span>Blur Variance:</span> <span style={{ color: '#f8fafc' }}>{captureState.blur?.toFixed(1)}</span></div>
             <div className={styles.statsRow}><span>Coverage:</span> <span style={{ color: '#f8fafc' }}>{((captureState.coverage || 0) * 100).toFixed(1)}%</span></div>
+            <div className={styles.statsRow}><span>Confidence:</span> <span style={{ color: captureState.confidence > 0.5 ? '#10b981' : '#f59e0b' }}>{((captureState.confidence || 0) * 100).toFixed(0)}%</span></div>
+            <div className={styles.statsRow}><span>Readiness:</span> <span style={{ color: '#f8fafc' }}>{((captureState.readinessScore || 0) * 100).toFixed(0)}%</span></div>
           </div>
         </div>
 
