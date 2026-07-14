@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
   cannyThresh2: 120,
   useAdaptiveCanny: true,
   cannySigma: 0.33,
-  minAreaPct: 0.10,
+  minAreaPct: 0.03,
   maxAreaPct: 0.95,
   maxCos: 0.55,
   darkEnter: 0.30,

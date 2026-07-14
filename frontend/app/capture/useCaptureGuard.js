@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = {
   cannySigma: 0.33,
 
   // Geometry
-  minAreaPct: 0.10,
+  minAreaPct: 0.03,
   maxAreaPct: 0.95,
   maxCos: 0.55,
 
@@ -305,7 +305,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           // ── 5. Contour extraction — EXTERNAL ONLY ────────────────────
           const contours = mat(new cv.MatVector());
           const hierarchy = mat(new cv.Mat());
-          cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+          cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
           const totalArea = width * height;
           const minArea = totalArea * cfg.minAreaPct;
@@ -459,11 +459,11 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           // B. Coverage (Move Closer) Hysteresis
           if (sm.isDetected) {
             if (sm.isInFarState) {
-              if (coverage >= 0.16) sm.farHits += 1;
+              if (coverage >= 0.08) sm.farHits += 1;
               else sm.farHits = 0;
               if (sm.farHits >= 2) sm.isInFarState = false;
             } else {
-              if (coverage < 0.10) sm.farMisses += 1;
+              if (coverage < 0.05) sm.farMisses += 1;
               else sm.farMisses = 0;
               if (sm.farMisses >= 3) sm.isInFarState = true;
             }
