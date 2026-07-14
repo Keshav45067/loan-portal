@@ -243,14 +243,17 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                     });
                   }
                   for (let j = 0; j < 4; j++) {
-                    const pt0 = pts[j];
-                    const pt1 = pts[(j + 1) % 4];
-                    const pt2 = pts[(j + 2) % 4];
+                    const pt1 = pts[j];           // current vertex
+                    const pt0 = pts[(j + 3) % 4]; // previous vertex
+                    const pt2 = pts[(j + 1) % 4]; // next vertex
                     
-                    const dx1 = pt1.x - pt0.x;
-                    const dy1 = pt1.y - pt0.y;
-                    const dx2 = pt2.x - pt0.x;
-                    const dy2 = pt2.y - pt0.y;
+                    // Vector from current vertex to previous vertex
+                    const dx1 = pt0.x - pt1.x;
+                    const dy1 = pt0.y - pt1.y;
+                    
+                    // Vector from current vertex to next vertex
+                    const dx2 = pt2.x - pt1.x;
+                    const dy2 = pt2.y - pt1.y;
                     
                     const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
                     const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
