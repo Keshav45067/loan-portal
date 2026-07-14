@@ -192,45 +192,83 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
           
           const edges = new cv.Mat();
-          cv.Canny(blurred, edges, 50, 150, 3); // More robust thresholds
+          cv.Canny(blurred, edges, 40, 120, 3); // Wider thresholds to pick up more faint edges
+
+          // Add morphological operations to connect broken lines
+          const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+          cv.dilate(edges, edges, kernel, new cv.Point(-1, -1), 1);
+          cv.erode(edges, edges, kernel, new cv.Point(-1, -1), 1);
+          kernel.delete();
 
           const contours = new cv.MatVector();
           const hierarchy = new cv.Mat();
           cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-          let maxArea = 0;
-          let bestContourIdx = -1;
           const totalArea = width * height;
+          const minArea = totalArea * 0.10; // Must be at least 10% of screen to be a document
+          const maxArea = totalArea * 0.95; // Reject if it spans the whole screen border
 
+          const contourList = [];
           for (let i = 0; i < contours.size(); ++i) {
             const contour = contours.get(i);
             const area = cv.contourArea(contour);
-            if (area > maxArea && area > totalArea * 0.1) {
-              maxArea = area;
-              bestContourIdx = i;
+            if (area >= minArea && area <= maxArea) {
+              contourList.push({ contour, area, index: i });
             }
           }
+          // Sort by largest area first
+          contourList.sort((a, b) => b.area - a.area);
 
           let documentQuad = null;
           let coverage = 0;
 
-          if (bestContourIdx !== -1) {
-            const bestContour = contours.get(bestContourIdx);
-            const peri = cv.arcLength(bestContour, true);
-            let approx = new cv.Mat();
+          for (const item of contourList) {
+            const contour = item.contour;
+            const peri = cv.arcLength(contour, true);
+            const approx = new cv.Mat();
             
             let foundQuad = false;
             // Scan epsilons to find clean 4 corners
-            for (let eps = 0.015; eps <= 0.05; eps += 0.005) {
-              cv.approxPolyDP(bestContour, approx, eps * peri, true);
+            for (let eps = 0.02; eps <= 0.08; eps += 0.01) {
+              cv.approxPolyDP(contour, approx, eps * peri, true);
               if (approx.rows === 4) {
-                foundQuad = true;
-                break;
+                if (cv.isContourConvex(approx)) {
+                  // Angle check
+                  let maxCos = 0;
+                  const pts = [];
+                  for (let j = 0; j < 4; j++) {
+                    pts.push({
+                      x: approx.data32S[j * 2],
+                      y: approx.data32S[j * 2 + 1]
+                    });
+                  }
+                  for (let j = 0; j < 4; j++) {
+                    const pt0 = pts[j];
+                    const pt1 = pts[(j + 1) % 4];
+                    const pt2 = pts[(j + 2) % 4];
+                    
+                    const dx1 = pt1.x - pt0.x;
+                    const dy1 = pt1.y - pt0.y;
+                    const dx2 = pt2.x - pt0.x;
+                    const dy2 = pt2.y - pt0.y;
+                    
+                    const len1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+                    const len2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+                    const cos = (dx1 * dx2 + dy1 * dy2) / (len1 * len2 + 1e-10);
+                    maxCos = Math.max(maxCos, Math.abs(cos));
+                  }
+                  
+                  // If max cosine is small enough, it's a good quad (~ > 70 deg)
+                  if (maxCos < 0.35) {
+                    foundQuad = true;
+                    break;
+                  }
+                }
               }
             }
 
             if (foundQuad) {
-              coverage = maxArea / totalArea;
+              coverage = item.area / totalArea;
               const points = [];
               for (let i = 0; i < 4; i++) {
                 points.push({
@@ -238,11 +276,13 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                   y: approx.data32S[i * 2 + 1] / height
                 });
               }
-              // Sort points clockwise
+              // Sort points clockwise (top left, top right, bottom right, bottom left)
               points.sort((a, b) => a.y - b.y);
               const top = points.slice(0, 2).sort((a, b) => a.x - b.x);
               const bottom = points.slice(2, 4).sort((a, b) => b.x - a.x);
               documentQuad = [top[0], top[1], bottom[0], bottom[1]];
+              approx.delete();
+              break; // Found our document
             }
             approx.delete();
           }

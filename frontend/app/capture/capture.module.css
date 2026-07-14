@@ -1,89 +1,23 @@
 /* Minimalist Light Theme Smart Document Capture Styling */
 
 .container {
-  min-height: 100vh;
-  background: #f8fafc; /* Crisp off-white */
-  color: #0f172a; /* Deep slate */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  overflow-x: hidden;
-}
-
-.mainLayout {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 2rem;
-  width: 100%;
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  box-sizing: border-box;
-}
-
-@media (max-width: 1024px) {
-  .mainLayout {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    padding: 0 0.75rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .mainLayout {
-    padding: 0 0.5rem;
-    gap: 1rem;
-  }
-  .glassCard {
-    padding: 0.75rem !important; /* Maximizes camera screen size */
-    border-radius: 16px !important;
-    min-height: auto !important; /* Overrides inline style min-height */
-  }
-  .videoContainer {
-    border-radius: 12px;
-    aspect-ratio: 4/3 !important; /* Taller on mobile for better visibility */
-  }
-  .statusBadge {
-    font-size: 0.75rem !important;
-    padding: 0.4rem 0.8rem !important;
-  }
-  .cameraControls {
-    bottom: 0.75rem !important;
-    padding: 0.5rem 1rem !important;
-    gap: 0.75rem !important;
-  }
-  .captureButton {
-    padding: 0 1.25rem !important;
-    font-size: 0.8rem !important;
-  }
-}
-
-/* Minimalist Clean Card */
-.glassCard {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  padding: 2.25rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.02);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.glassCard:hover {
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.02);
-  border-color: #cbd5e1;
-}
-
-/* Video & Guides Layout */
-.videoContainer {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16/9;
-  background: #f1f5f9;
-  border-radius: 16px;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh; /* For mobile browsers */
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.03);
+  background: #000; /* Dark background behind camera */
+  color: #ffffff; 
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.fullScreenCamera {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -95,47 +29,137 @@
   object-fit: cover;
 }
 
+/* UI Overlay Layer */
+.uiOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none; /* Let clicks pass to underlying layers if needed */
+}
+
+/* Make sure buttons/panels capture clicks */
+.interactive {
+  pointer-events: auto;
+}
+
+.topNav {
+  padding: 1.5rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
+}
+
+.mainLayout {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 2rem 2.5rem 2rem;
+  pointer-events: none;
+  gap: 2rem;
+}
+
+.leftControls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.voiceAgentSidebar {
+  width: 360px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255,255,255,0.2) inset;
+  pointer-events: auto;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 1024px) {
+  .mainLayout {
+    padding: 0 1.5rem 2rem 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .topNav {
+    padding: 1rem 1rem;
+  }
+  .mainLayout {
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 1rem 1.5rem 1rem;
+    gap: 1.25rem;
+  }
+  .leftControls {
+    flex: none;
+    width: 100%;
+  }
+  .voiceAgentSidebar {
+    width: 100%;
+    padding: 1.25rem;
+    border-radius: 20px;
+    max-height: 40vh; /* Don't cover entire camera */
+    overflow-y: auto;
+  }
+}
+
+/* Video & Guides Layout */
 .guideBox {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  border: 2px solid #3b82f6; /* Modern Blue */
-  border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(248, 250, 252, 0.75); /* Dims surrounding area in light mode */
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); /* Dims surrounding area for focus */
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   z-index: 10;
 }
 
 .guideLandscape {
-  width: 76%;
-  height: 64%;
+  width: 80%;
+  height: 60%;
+  max-width: 800px;
 }
 
 .guidePortrait {
-  width: 48%;
+  width: 60%;
   height: 80%;
+  max-height: 800px;
 }
 
-/* Status Badge - Sleek white pill */
+/* Status Badge - Sleek pill floating near top of camera */
 .statusBadge {
   position: absolute;
-  top: 1.25rem;
+  top: 25%;
   left: 50%;
-  transform: translateX(-50%);
-  padding: 0.5rem 1.25rem;
+  transform: translate(-50%, -50%);
+  padding: 0.6rem 1.5rem;
   border-radius: 999px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(8px);
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   z-index: 15;
   transition: all 0.3s ease;
   white-space: nowrap;
   animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  color: #000;
 }
 
 /* Document Detection Polygon SVG */
@@ -150,46 +174,44 @@
 }
 
 .detectedPoly {
-  fill: rgba(59, 130, 246, 0.08);
-  stroke: #3b82f6;
-  stroke-width: 2.5;
+  fill: rgba(255, 255, 255, 0.1);
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
+  transition: stroke 0.2s, fill 0.2s;
 }
 
 .detectedPolyReady {
-  fill: rgba(16, 185, 129, 0.1);
+  fill: rgba(16, 185, 129, 0.2);
   stroke: #10b981;
-  stroke-width: 3.0;
-  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.3));
+  stroke-width: 4;
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.5));
 }
 
-/* Unified Controls bar - Sleek light pill */
+/* Unified Controls bar */
 .cameraControls {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  padding: 0.6rem 1.25rem;
+  gap: 1.25rem;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(20px);
+  padding: 0.75rem 1.5rem;
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   z-index: 20;
+  pointer-events: auto;
 }
 
 /* Progress indicator */
 .progressBar {
   width: 100%;
-  height: 6px;
-  background: #f1f5f9;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 999px;
   overflow: hidden;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .progressFill {
@@ -203,71 +225,76 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
 }
 
 /* Capture Buttons */
 .iconButton {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  color: #0f172a;
-  width: 2.75rem;
-  height: 2.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  width: 3rem;
+  height: 3rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
-  font-size: 1rem;
+  font-size: 1.25rem;
 }
 
 .iconButton:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: scale(1.03);
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
 }
 
 .captureButton {
-  background: #2563eb;
-  color: white;
+  background: #fff;
+  color: #000;
   border: none;
   border-radius: 999px;
-  padding: 0 1.75rem;
-  height: 2.75rem;
-  font-weight: 600;
-  font-size: 0.9rem;
+  padding: 0 2rem;
+  height: 3rem;
+  font-weight: 700;
+  font-size: 0.95rem;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2);
   transition: all 0.2s;
 }
 
 .captureButton:hover {
-  background: #1d4ed8;
-  transform: scale(1.03);
+  background: #f8fafc;
+  transform: scale(1.05);
+  box-shadow: 0 6px 24px rgba(255, 255, 255, 0.3);
 }
 
 /* Spinner for scanner processing */
 .sphereProcessing {
-  border: 3px solid rgba(99, 102, 241, 0.1);
-  border-top-color: #6366f1;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 /* Actionable error cards */
 .errorCard {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 12px;
-  padding: 1.25rem;
-  margin-bottom: 1.25rem;
+  background: rgba(239, 68, 68, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid #f87171;
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  color: #fff;
   animation: shake 0.5s ease-in-out;
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4);
 }
 
 /* Animations */
 @keyframes slideDown {
-  from { transform: translate(-50%, -15px); opacity: 0; }
-  to { transform: translate(-50%, 0); opacity: 1; }
+  from { transform: translate(-50%, -20px); opacity: 0; }
+  to { transform: translate(-50%, -50%); opacity: 1; }
 }
 
 @keyframes spin {

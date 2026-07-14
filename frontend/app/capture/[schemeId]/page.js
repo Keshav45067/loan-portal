@@ -665,160 +665,155 @@ export default function CaptureFlowPage({ params }) {
 
   return (
     <div className={styles.container}>
-      {/* ─── Top Nav ─── */}
-      <nav style={{ padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(20px)', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
-            <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
-              <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
-              <defs>
-                <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
-                  <stop stopColor="#4a78ff" /><stop offset="1" stopColor="#06b6d4" />
-                </linearGradient>
-              </defs>
-            </svg>
-            <span>Augmen.io</span>
+      {/* ─── Background Camera Layer ─── */}
+      <div className={styles.fullScreenCamera}>
+        {!previewUrl ? (
+          <>
+            <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
+            <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
+            <div className={styles.statusBadge} style={{ color: statusColor !== '#94a3b8' ? statusColor : '#000' }}>
+              {statusText}
+            </div>
+            {cvLoaded && documentQuad && (
+              <svg className={styles.overlaySvg} viewBox="0 0 1000 1000" preserveAspectRatio="none">
+                <polygon
+                  points={documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
+                  className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
+                />
+              </svg>
+            )}
+          </>
+        ) : (
+          <>
+            <img src={previewUrl} alt="Preview" className={styles.videoElement} />
+            {processingDoc && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+                <div className={styles.sphereProcessing} style={{ width: '56px', height: '56px', marginBottom: '1.25rem' }}></div>
+                <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 500 }}>Processing details with AI...</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ─── Foreground UI Layer ─── */}
+      <div className={styles.uiOverlay}>
+        {/* Top Nav */}
+        <nav className={styles.topNav}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.25rem', fontWeight: 700 }} className={styles.topNavText}>
+              <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+                <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
+                <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="1" />
+                <defs>
+                  <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
+                    <stop stopColor="#4a78ff" /><stop offset="1" stopColor="#06b6d4" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span>Augmen.io</span>
+            </div>
           </div>
-        </div>
-        <div>
           <button
             onClick={() => {
               stopCamera();
               router.push('/dashboard');
             }}
-            className="btn btn-secondary"
-            style={{ fontSize: '0.875rem', fontWeight: 500, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: '#ffffff', color: '#475569', border: '1px solid #cbd5e1' }}
+            className={`${styles.interactive}`}
+            style={{ fontSize: '0.875rem', fontWeight: 600, padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', background: 'rgba(255,255,255,0.2)', color: '#fff', border: '1px solid rgba(255,255,255,0.4)', backdropFilter: 'blur(10px)' }}
           >
             Dashboard
           </button>
-        </div>
-      </nav>
+        </nav>
 
-      {/* Main Flow Content Container */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0 60px', width: '100%' }}>
-        {/* Progress Header */}
-        <div style={{ width: '100%', maxWidth: '1280px', padding: '0 2rem', boxSizing: 'border-box', marginBottom: '24px' }}>
-            <div className={styles.headerRow}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#94a3b8', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
-                <span style={{ fontSize: '0.9rem', color: '#60a5fa', fontWeight: 600 }}>{state.pageInfo?.page_name}</span>
+        {/* Start Overlay */}
+        {!isStarted && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }} className={styles.interactive}>
+                <h2 style={{ color: '#fff', marginBottom: '1.25rem', fontSize: '2.2rem', fontWeight: 700 }}>Ready to scan?</h2>
+                <p style={{ color: '#cbd5e1', marginBottom: '2.5rem', maxWidth: '400px', textAlign: 'center', fontSize: '1.05rem', lineHeight: '1.6' }}>
+                    We will guide you to capture your document with optimal brightness, stability, and alignment automatically.
+                </p>
+                <button 
+                    onClick={startSession} 
+                    style={{ background: '#fff', color: '#000', border: 'none', borderRadius: '999px', padding: '16px 40px', fontSize: '1.1rem', fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 32px rgba(255, 255, 255, 0.3)', transition: 'transform 0.2s' }}
+                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                    Start Scanning
+                </button>
             </div>
-            <div className={styles.progressBar}>
-                <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%` }}></div>
-            </div>
-        </div>
+        )}
 
+        {/* Loading OpenCV state */}
+        {isStarted && !cvLoaded && !cvLoadingError && !previewUrl && (
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <div className={styles.sphereProcessing} style={{ width: '56px', height: '56px', marginBottom: '1.5rem' }}></div>
+                <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 500 }}>Initializing AI scanner...</span>
+            </div>
+        )}
+
+        {/* Main Content Layout */}
         <div className={styles.mainLayout}>
-          {/* Left: Camera / File Area */}
-          <div className={styles.glassCard} style={{ display: 'flex', flexDirection: 'column', position: 'relative', minHeight: '520px', justifyContent: 'center' }}>
-              {!isStarted ? (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: '#ffffff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
-                      <h2 style={{ color: '#0f172a', marginBottom: '1.25rem', fontSize: '1.6rem', fontWeight: 700 }}>Ready to scan your document?</h2>
-                      <p style={{ color: '#475569', marginBottom: '2rem', maxWidth: '340px', textAlign: 'center', fontSize: '0.9rem', lineHeight: '1.5' }}>
-                          We will guide you to capture it with optimal brightness, stability, and alignment automatically.
-                      </p>
-                      <button 
-                          onClick={startSession} 
-                          className="btn btn-primary btn-lg"
-                          style={{ background: 'linear-gradient(135deg, #2563eb, #4f46e5)', boxShadow: '0 4px 15px rgba(37, 99, 235, 0.2)', border: 'none', borderRadius: '12px', padding: '12px 24px', fontSize: '1rem', fontWeight: 600, cursor: 'pointer', color: '#fff' }}
-                      >
-                          Start Scanning
-                      </button>
-                  </div>
-              ) : null}
+          
+          <div className={styles.leftControls}>
+            {/* Header / Progress over camera */}
+            <div style={{ width: '100%', maxWidth: '600px', marginBottom: '24px' }}>
+                <div className={styles.headerRow}>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
+                    <span style={{ fontSize: '0.95rem', color: '#93c5fd', fontWeight: 700 }}>{state.pageInfo?.page_name}</span>
+                </div>
+                <div className={styles.progressBar}>
+                    <div className={styles.progressFill} style={{ width: `${(state.docIndex / state.totalDocs) * 100}%` }}></div>
+                </div>
+            </div>
 
-              {/* Show loader while OpenCV.js is initializing */}
-              {isStarted && !cvLoaded && !cvLoadingError && !previewUrl && (
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40, background: 'rgba(255, 255, 255, 0.9)', backdropFilter: 'blur(10px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '24px' }}>
-                      <div className={styles.sphereProcessing} style={{ width: '48px', height: '48px', marginBottom: '1.25rem' }}></div>
-                      <span style={{ color: '#475569', fontSize: '0.9rem', fontWeight: 500 }}>Loading AI visual scanner...</span>
-                  </div>
-              )}
-
-              {/* Actionable errors list */}
-              {error && (
-                <div className={styles.errorCard}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '1.5rem' }}>⚠️</span>
-                    <div>
-                      <h4 style={{ margin: '0 0 4px', color: '#ef4444', fontSize: '1rem', fontWeight: 600 }}>Action Required</h4>
-                      <p style={{ margin: 0, color: '#fca5a5', fontSize: '0.9rem', lineHeight: '1.4' }}>{error}</p>
-                    </div>
+            {error && (
+              <div className={`${styles.errorCard} ${styles.interactive}`}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 4px', fontSize: '1.05rem', fontWeight: 700 }}>Action Required</h4>
+                    <p style={{ margin: 0, fontSize: '0.95rem', lineHeight: '1.4' }}>{error}</p>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
-              <div className={styles.videoContainer}>
-                  {!previewUrl ? (
-                      <>
-                          <video ref={videoRef} autoPlay playsInline muted className={styles.videoElement} />
-                          
-                          {/* Live Guidance overlays (always visible) */}
-                          <div className={`${styles.guideBox} ${state.pageInfo?.orientation === 'portrait' ? styles.guidePortrait : styles.guideLandscape}`} />
-
-                          <div className={styles.statusBadge} style={{ backgroundColor: statusColor, color: '#07080d' }}>
-                            {statusText}
-                          </div>
-
-                          {/* Dynamic contour detection overlay (OpenCV only) */}
-                          {cvLoaded && documentQuad && (
-                            <svg className={styles.overlaySvg} viewBox="0 0 1000 1000" preserveAspectRatio="none">
-                              <polygon
-                                points={documentQuad.map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).join(' ')}
-                                className={`${styles.detectedPoly} ${overallReady ? styles.detectedPolyReady : ''}`}
-                              />
-                            </svg>
-                          )}
-                          
-                          <div className={styles.cameraControls}>
-                              <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
-                              <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
-                                  {processingDoc ? 'Processing...' : '📸 Manual Capture'}
-                              </button>
-                              <label className={styles.iconButton} style={{ cursor: processingDoc ? 'not-allowed' : 'pointer' }} title="Upload File">
-                                  📁
-                                  <input 
-                                      type="file" 
-                                      style={{ display: 'none' }}
-                                      accept={state.pageInfo?.acceptable_formats?.map(f => `.${f.replace('.','')}`).join(',')}
-                                      disabled={processingDoc}
-                                      onChange={handleFileUpload}
-                                  />
-                              </label>
-                               {state.pageInfo?.allow_multiple && (
-                                   <button 
-                                       className="btn" 
-                                       onClick={handleAdvance} 
-                                       disabled={processingDoc || ((state.pageInfo?.uploads_count || 0) === 0 && localUploadsCount === 0)} 
-                                       style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34d399', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                                   >
-                                       Next Part ➔
-                                   </button>
-                               )}
-                          </div>
-                      </>
-                  ) : (
-                      <>
-                          <img src={previewUrl} alt="Preview" className={styles.videoElement} />
-                          {processingDoc && (
-                              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-                                  <div className={styles.sphereProcessing} style={{ width: '56px', height: '56px', marginBottom: '1.25rem' }}></div>
-                                  <span style={{ color: '#cbd5e1', fontSize: '0.95rem' }}>Processing details with AI...</span>
-                              </div>
-                          )}
-                      </>
+            {!previewUrl && (
+              <div className={styles.cameraControls}>
+                  <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
+                  <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
+                      {processingDoc ? 'Processing...' : '📸 Capture'}
+                  </button>
+                  <label className={styles.iconButton} style={{ cursor: processingDoc ? 'not-allowed' : 'pointer' }} title="Upload File">
+                      📁
+                      <input 
+                          type="file" 
+                          style={{ display: 'none' }}
+                          accept={state.pageInfo?.acceptable_formats?.map(f => `.${f.replace('.','')}`).join(',')}
+                          disabled={processingDoc}
+                          onChange={handleFileUpload}
+                      />
+                  </label>
+                  {state.pageInfo?.allow_multiple && (
+                      <button 
+                          onClick={handleAdvance} 
+                          className={styles.interactive}
+                          disabled={processingDoc || ((state.pageInfo?.uploads_count || 0) === 0 && localUploadsCount === 0)} 
+                          style={{ height: '3rem', padding: '0 24px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.25)', border: '1px solid rgba(16, 185, 129, 0.5)', color: '#fff', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                          Next ➔
+                      </button>
                   )}
               </div>
-              
-              {/* Hidden canvas for image capture */}
-              <canvas ref={canvasRef} style={{ display: 'none' }} />
+            )}
           </div>
 
-          {/* Right: Voice Agent Sidebar (Unified with Interview UI) */}
-          <div className={interviewStyles.neuralCoreContainer} style={{ height: '100%', padding: '2.25rem 1.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '24px', boxShadow: '0 10px 30px rgba(15, 23, 42, 0.04)' }}>
+          {/* Right: Voice Agent Sidebar */}
+          <div className={`${styles.voiceAgentSidebar}`}>
             <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
               <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
-              <span className={interviewStyles.connectionText} style={{ color: '#475569' }}>
+              <span className={interviewStyles.connectionText} style={{ color: '#475569', fontWeight: 600 }}>
                 {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
               </span>
             </div>
@@ -837,7 +832,7 @@ export default function CaptureFlowPage({ params }) {
               </div>
             </div>
 
-            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#334155', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5', fontWeight: 500 }}>
+            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#0f172a', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5', fontWeight: 600 }}>
               {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
             </div>
 
@@ -859,8 +854,12 @@ export default function CaptureFlowPage({ params }) {
               </button>
             </div>
           </div>
+
         </div>
       </div>
+      
+      {/* Hidden canvas for image capture */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>
   );
 }
