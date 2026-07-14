@@ -9,9 +9,28 @@ const ST_TOO_BRIGHT = 'TOO_BRIGHT';
 const ST_BLURRY = 'BLURRY';
 const ST_STABLE = 'STABLE';
 
-export default function useCaptureGuard(videoRef, active, orientation = 'landscape') {
+const DEFAULT_CONFIG = {
+  cannyThresh1: 40,
+  cannyThresh2: 120,
+  minAreaPct: 0.10,
+  maxAreaPct: 0.95,
+  maxCos: 0.55,
+  darkEnter: 0.30,
+  darkExit: 0.35,
+  brightEnter: 0.75,
+  brightExit: 0.70,
+  blurEnter: 20.0,
+  blurExit: 35.0,
+};
+
+export default function useCaptureGuard(videoRef, active, orientation = 'landscape', configOverrides = {}) {
   const [cvLoaded, setCvLoaded] = useState(false);
   const [cvLoadingError, setCvLoadingError] = useState(false);
+  
+  const configRef = useRef({ ...DEFAULT_CONFIG, ...configOverrides });
+  useEffect(() => {
+    configRef.current = { ...DEFAULT_CONFIG, ...configOverrides };
+  }, [configOverrides]);
   
   const [guardState, setGuardState] = useState({
     brightness: 0.5,
@@ -187,12 +206,14 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           const stdVal = stddev.doubleAt(0, 0);
           const blurScore = stdVal * stdVal;
 
+          const cfg = configRef.current;
+          
           // 4. Document Contours / Quadrilateral Detection
           const blurred = new cv.Mat();
           cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
           
           const edges = new cv.Mat();
-          cv.Canny(blurred, edges, 40, 120, 3); // Wider thresholds to pick up more faint edges
+          cv.Canny(blurred, edges, cfg.cannyThresh1, cfg.cannyThresh2, 3);
 
           // Add morphological operations to connect broken lines
           const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
@@ -205,8 +226,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
           const totalArea = width * height;
-          const minArea = totalArea * 0.10; // Must be at least 10% of screen to be a document
-          const maxArea = totalArea * 0.95; // Reject if it spans the whole screen border
+          const minArea = totalArea * cfg.minAreaPct;
+          const maxArea = totalArea * cfg.maxAreaPct;
 
           const contourList = [];
           for (let i = 0; i < contours.size(); ++i) {
@@ -263,8 +284,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                     maxCos = Math.max(maxCos, Math.abs(cos));
                   }
                   
-                  // Relaxed perspective check: ~56 degrees to 124 degrees max variance
-                  if (maxCos < 0.55) {
+                  // Relaxed perspective check
+                  if (maxCos < cfg.maxCos) {
                     foundQuad = true;
                     break;
                   }
@@ -327,33 +348,33 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           // C. Brightness Hysteresis (ALWAYS CHECKED)
           // Dark State
           if (sm.isInDarkState) {
-            if (mean >= 0.35) sm.darkHits += 1;
+            if (mean >= cfg.darkExit) sm.darkHits += 1;
             else sm.darkHits = 0;
             if (sm.darkHits >= 3) sm.isInDarkState = false;
           } else {
-            if (mean < 0.30) sm.darkMisses += 1;
+            if (mean < cfg.darkEnter) sm.darkMisses += 1;
             else sm.darkMisses = 0;
             if (sm.darkMisses >= 3) sm.isInDarkState = true;
           }
 
           // Bright State
           if (sm.isInBrightState) {
-            if (mean <= 0.70) sm.brightHits += 1;
+            if (mean <= cfg.brightExit) sm.brightHits += 1;
             else sm.brightHits = 0;
             if (sm.brightHits >= 3) sm.isInBrightState = false;
           } else {
-            if (mean > 0.75) sm.brightMisses += 1;
+            if (mean > cfg.brightEnter) sm.brightMisses += 1;
             else sm.brightMisses = 0;
             if (sm.brightMisses >= 3) sm.isInBrightState = true;
           }
 
           // D. Blur Hysteresis (ALWAYS CHECKED, properly scaled for 320px)
           if (sm.isInBlurryState) {
-            if (blurScore >= 35.0) sm.blurryHits += 1;
+            if (blurScore >= cfg.blurExit) sm.blurryHits += 1;
             else sm.blurryHits = 0;
             if (sm.blurryHits >= 3) sm.isInBlurryState = false;
           } else {
-            if (blurScore < 20.0) sm.blurryMisses += 1;
+            if (blurScore < cfg.blurEnter) sm.blurryMisses += 1;
             else sm.blurryMisses = 0;
             if (sm.blurryMisses >= 3) sm.isInBlurryState = true;
           }
