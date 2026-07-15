@@ -28,9 +28,13 @@ const DEFAULT_CONFIG = {
   brightEnter: 0.75,
   brightExit: 0.70,
 
-  // Blur hysteresis (calibrated for 320px)
-  blurEnter: 20.0,
-  blurExit: 35.0,
+  // Coverage thresholds (document area relative to frame)
+  farEnterCoverage: 0.18,
+  farExitCoverage: 0.25,
+
+  // Blur hysteresis (calibrated for 300x200 cropped quad text focus)
+  blurEnter: 35.0,
+  blurExit: 55.0,
 
   // Confidence
   minConfidence: 0.30,
@@ -252,8 +256,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
 
         try {
           // ── 1. Downsample & convert ──────────────────────────────────
-          const width = 320;
-          const height = Math.floor(video.videoHeight * (width / video.videoWidth)) || 240;
+          const width = 640;
+          const height = Math.floor(video.videoHeight * (width / video.videoWidth)) || 480;
 
           canvas.width = width;
           canvas.height = height;
@@ -269,13 +273,50 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           const mean = cv.mean(gray)[0] / 255.0;
 
           // ── 3. Blur metric (Laplacian variance) ──────────────────────
-          const laplacian = mat(new cv.Mat());
-          cv.Laplacian(gray, laplacian, cv.CV_64F, 1);
-          const lapMean = mat(new cv.Mat());
-          const lapStddev = mat(new cv.Mat());
-          cv.meanStdDev(laplacian, lapMean, lapStddev);
-          const stdVal = lapStddev.doubleAt(0, 0);
-          const blurScore = stdVal * stdVal;
+          let blurScore = 0;
+          let calculatedBlurOnCrop = false;
+
+          // If we have a tracked quad from the previous frame, calculate blur on its cropped/warped version
+          if (sm.isDetected && sm.smoothedQuad && sm.smoothedQuad.length === 4) {
+            try {
+              const srcPts = sm.smoothedQuad.map(p => [p.x * width, p.y * height]);
+              const srcMat = mat(cv.matFromArray(4, 1, cv.CV_32FC2, srcPts.flat()));
+              
+              const dstW = 300;
+              const dstH = 200;
+              const dstMat = mat(cv.matFromArray(4, 1, cv.CV_32FC2, [
+                0, 0,       dstW, 0,
+                dstW, dstH, 0, dstH
+              ]));
+              
+              const M = mat(cv.getPerspectiveTransform(srcMat, dstMat));
+              const warpedGray = mat(new cv.Mat());
+              cv.warpPerspective(gray, warpedGray, M, new cv.Size(dstW, dstH), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+              
+              const laplacian = mat(new cv.Mat());
+              cv.Laplacian(warpedGray, laplacian, cv.CV_64F, 1);
+              
+              const lapMean = mat(new cv.Mat());
+              const lapStddev = mat(new cv.Mat());
+              cv.meanStdDev(laplacian, lapMean, lapStddev);
+              
+              const stdVal = lapStddev.doubleAt(0, 0);
+              blurScore = stdVal * stdVal;
+              calculatedBlurOnCrop = true;
+            } catch (warpErr) {
+              console.warn('[useCaptureGuard] Failed to calculate blur on cropped quad:', warpErr);
+            }
+          }
+
+          if (!calculatedBlurOnCrop) {
+            const laplacian = mat(new cv.Mat());
+            cv.Laplacian(gray, laplacian, cv.CV_64F, 1);
+            const lapMean = mat(new cv.Mat());
+            const lapStddev = mat(new cv.Mat());
+            cv.meanStdDev(laplacian, lapMean, lapStddev);
+            const stdVal = lapStddev.doubleAt(0, 0);
+            blurScore = stdVal * stdVal;
+          }
 
           const cfg = configRef.current;
 
@@ -456,14 +497,48 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             }
           }
 
-          // B. Coverage (Move Closer) Hysteresis
+          // B. Coverage & Native Resolution (Move Closer) Hysteresis
           if (sm.isDetected) {
+            let isCloseEnough = (coverage >= cfg.farExitCoverage);
+            
+            // Check native resolution of document if quad is present
+            if (documentQuad && documentQuad.length === 4) {
+              const nativeW = video.videoWidth || 1920;
+              const nativeH = video.videoHeight || 1080;
+              
+              const pts = documentQuad.map(p => ({ x: p.x * nativeW, y: p.y * nativeH }));
+              const widthTop = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+              const widthBot = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
+              const heightL  = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y);
+              const heightR  = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+              
+              const minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
+              // Require shortest edge to be at least 500px native resolution for quality OCR
+              if (minEdgeNative < 500) {
+                isCloseEnough = false;
+              }
+            }
+
             if (sm.isInFarState) {
-              if (coverage >= 0.08) sm.farHits += 1;
+              if (isCloseEnough) sm.farHits += 1;
               else sm.farHits = 0;
               if (sm.farHits >= 2) sm.isInFarState = false;
             } else {
-              if (coverage < 0.05) sm.farMisses += 1;
+              const isStillCloseEnough = (coverage >= cfg.farEnterCoverage);
+              // Check native resolution for hysteresis too
+              let minEdgeNative = 9999;
+              if (documentQuad && documentQuad.length === 4) {
+                const nativeW = video.videoWidth || 1920;
+                const nativeH = video.videoHeight || 1080;
+                const pts = documentQuad.map(p => ({ x: p.x * nativeW, y: p.y * nativeH }));
+                const widthTop = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+                const widthBot = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
+                const heightL  = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y);
+                const heightR  = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+                minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
+              }
+
+              if (!isStillCloseEnough || minEdgeNative < 450) sm.farMisses += 1;
               else sm.farMisses = 0;
               if (sm.farMisses >= 3) sm.isInFarState = true;
             }
@@ -520,13 +595,13 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
 
           if (sm.isDetected) {
             if (sm.isInStableState) {
-              if (motion >= 0.025) sm.stableMisses += 1;
+              if (motion >= 0.020) sm.stableMisses += 1;
               else sm.stableMisses = 0;
               if (sm.stableMisses >= 2) sm.isInStableState = false;
             } else {
-              if (motion < 0.015) sm.stableHits += 1;
+              if (motion < 0.012) sm.stableHits += 1;
               else sm.stableHits = 0;
-              if (sm.stableHits >= 3) sm.isInStableState = true;
+              if (sm.stableHits >= 5) sm.isInStableState = true;
             }
           }
 
