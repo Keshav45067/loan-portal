@@ -17,55 +17,10 @@ const DEFAULT_CONFIG = {
   useAdaptiveCanny: true,
   cannySigma: 0.33,
 
-  // Pre-edge smoothing. Bilateral filtering suppresses high-frequency
-  // texture (wood grain, patterned surfaces, etc.) while preserving strong
-  // edges like the document boundary, which plain GaussianBlur does not do
-  // well. Falls back to GaussianBlur if bilateralFilter throws.
-  // d=7/sigma=50 is a lighter (cheaper) setting than the initial 9/75/75 —
-  // drop to 5/50/50 first if this is still the slowest stage on low-end devices.
-  useBilateralFilter: true,
-  bilateralD: 7,
-  bilateralSigmaColor: 50,
-  bilateralSigmaSpace: 50,
-  edgeBlurKernel: 5, // used only for the GaussianBlur fallback
-
   // Geometry
   minAreaPct: 0.03,
   maxAreaPct: 0.95,
   maxCos: 0.55,
-
-  // Shape sanity filters — these catch the false positives that textured
-  // backgrounds tend to produce (jagged noise contours forced into a quad
-  // shape by a large approxPolyDP epsilon). 0.80 rather than a stricter
-  // value because perspective-skewed or slightly curled real pages
-  // routinely land at 0.75-0.85 solidity — going tighter starts rejecting
-  // legitimate documents, not just noise.
-  minSolidity: 0.80,             // contourArea / convexHullArea
-  quadAreaConsistencyMin: 0.75,  // simplified-quad-area / raw-contour-area
-  quadAreaConsistencyMax: 1.30,
-
-  // Only run the (relatively expensive) convexHull/solidity + polygon
-  // approximation pipeline on the N largest candidate contours per frame,
-  // not every contour that survives the area filter.
-  maxContoursToEvaluate: 12,
-
-  // Secondary contour source: a saturation-based mask. Paper is often
-  // near-white/low-saturation, but this is not universal (colored IDs,
-  // invoices, brochures) and a low-saturation desk/table can generate a
-  // competing false candidate. Off by default — enable it for known
-  // scenarios (plain white paper on a textured surface) where it helps
-  // more than it risks.
-  useColorMaskAssist: false,
-
-  // Edge-strength confidence signal: samples gradient magnitude along a
-  // candidate quad's perimeter. A real document boundary has a much
-  // stronger intensity gradient than a coincidental noise/texture quad or
-  // a flat-region mask blob, so this is the strongest discriminator we
-  // have against exactly that failure mode. edgeStrengthNormalization is
-  // a heuristic starting point (raw Sobel magnitude units) — tune it
-  // against real footage; it will vary with lighting/contrast.
-  edgeStrengthSampleCount: 24,
-  edgeStrengthNormalization: 120,
 
   // Lighting hysteresis
   darkEnter: 0.30,
@@ -86,9 +41,6 @@ const DEFAULT_CONFIG = {
 
   // Frame-to-frame tracking
   iouPreferenceWeight: 0.6, // weight given to IoU vs confidence when tracking
-  reacquireConfidenceMargin: 0.22, // let a much-higher-confidence candidate override a tracked (possibly wrong) quad
-  trackingMissIoUThresh: 0.15,     // below this, a frame counts as a "tracking miss"
-  trackingMissStreakLimit: 4,      // consecutive misses before we drop the track and re-acquire cleanly
 };
 
 // ─── Geometry Helpers ────────────────────────────────────────────────────────
@@ -124,97 +76,6 @@ function sortQuadClockwise(pts) {
   const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
   const bottom = sorted.slice(2, 4).sort((a, b) => b.x - a.x);
   return [top[0], top[1], bottom[0], bottom[1]];
-}
-
-/** Shoelace-formula area of a 4-point polygon (points in px, any winding order) */
-function polygonArea(pts) {
-  let area = 0;
-  for (let i = 0; i < pts.length; i++) {
-    const j = (i + 1) % pts.length;
-    area += pts[i].x * pts[j].y;
-    area -= pts[j].x * pts[i].y;
-  }
-  return Math.abs(area) / 2;
-}
-
-/**
- * Average gradient-magnitude value sampled along a 4-point polygon's
- * perimeter (points in px). Used as a confidence signal: a real document
- * edge has a much stronger intensity gradient than a coincidental
- * texture/noise contour or a flat-region mask boundary.
- */
-function sampleEdgeStrength(magnitudeData, matWidth, matHeight, pts, sampleCount) {
-  let total = 0;
-  let count = 0;
-  for (let e = 0; e < 4; e++) {
-    const p1 = pts[e];
-    const p2 = pts[(e + 1) % 4];
-    for (let s = 0; s < sampleCount; s++) {
-      const t = sampleCount > 1 ? s / (sampleCount - 1) : 0;
-      const x = Math.round(p1.x + (p2.x - p1.x) * t);
-      const y = Math.round(p1.y + (p2.y - p1.y) * t);
-      if (x < 0 || x >= matWidth || y < 0 || y >= matHeight) continue;
-      total += magnitudeData[y * matWidth + x];
-      count++;
-    }
-  }
-  return count > 0 ? total / count : 0;
-}
-
-// ─── Capture-time corner refinement ─────────────────────────────────────────
-// The main loop deliberately works on a downsampled (640px) frame — that's
-// plenty for real-time guidance and keeps the loop fast. It is NOT enough
-// precision for the final crop/warp. Call this once, at the moment you
-// actually capture (e.g. when overallReady flips true and you snap the
-// photo), against the live full-resolution video frame, to subpixel-refine
-// the coarse quad's corners before using them to warp/crop the final image.
-export function refineQuadCorners(videoEl, normalizedQuad) {
-  const cv = window.cv;
-  if (!cv || !cv.Mat || !videoEl || !normalizedQuad || normalizedQuad.length !== 4) {
-    return normalizedQuad;
-  }
-
-  const w = videoEl.videoWidth;
-  const h = videoEl.videoHeight;
-  if (!w || !h) return normalizedQuad;
-
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(videoEl, 0, 0, w, h);
-
-  let src, gray, corners;
-  try {
-    const imgData = ctx.getImageData(0, 0, w, h);
-    src = cv.matFromImageData(imgData);
-    gray = new cv.Mat();
-    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-
-    const flatPts = normalizedQuad.flatMap(p => [p.x * w, p.y * h]);
-    corners = cv.matFromArray(4, 1, cv.CV_32FC2, flatPts);
-
-    const winSize = new cv.Size(11, 11);
-    const zeroZone = new cv.Size(-1, -1);
-    const criteria = new cv.TermCriteria(cv.TermCriteria_EPS + cv.TermCriteria_COUNT, 30, 0.01);
-    cv.cornerSubPix(gray, corners, winSize, zeroZone, criteria);
-
-    const refined = [];
-    for (let i = 0; i < 4; i++) {
-      refined.push({
-        x: corners.data32F[i * 2] / w,
-        y: corners.data32F[i * 2 + 1] / h,
-      });
-    }
-    return refined;
-  } catch (err) {
-    console.warn('[useCaptureGuard] refineQuadCorners failed, using coarse quad:', err);
-    return normalizedQuad;
-  } finally {
-    if (src) src.delete();
-    if (gray) gray.delete();
-    if (corners) corners.delete();
-  }
 }
 
 // ─── Main Hook ───────────────────────────────────────────────────────────────
@@ -268,7 +129,6 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
 
     smoothedQuad: null,
     lastConfidence: 0,
-    trackingMissStreak: 0,
   });
 
   const lastCentroidRef = useRef(null);
@@ -298,7 +158,6 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
     sm.stableHits = 0; sm.stableMisses = 0;
     sm.smoothedQuad = null;
     sm.lastConfidence = 0;
-    sm.trackingMissStreak = 0;
     lastCentroidRef.current = null;
   }, []);
 
@@ -464,32 +323,11 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             blurScore = stdVal * stdVal;
           }
 
-          // ── 3b. Gradient magnitude (for edge-strength confidence scoring) ──
-          const sobelX = mat(new cv.Mat());
-          const sobelY = mat(new cv.Mat());
-          cv.Sobel(gray, sobelX, cv.CV_32F, 1, 0, 3);
-          cv.Sobel(gray, sobelY, cv.CV_32F, 0, 1, 3);
-          const gradMag = mat(new cv.Mat());
-          cv.magnitude(sobelX, sobelY, gradMag);
-          const gradMagData = gradMag.data32F;
+
 
           // ── 4. Edge extraction ───────────────────────────────────────
-          // Bilateral filtering (rather than plain Gaussian) suppresses
-          // high-frequency background texture while preserving strong
-          // edges like the document boundary. Falls back gracefully.
           const blurred = mat(new cv.Mat());
-          let usedBilateral = false;
-          if (cfg.useBilateralFilter) {
-            try {
-              cv.bilateralFilter(gray, blurred, cfg.bilateralD, cfg.bilateralSigmaColor, cfg.bilateralSigmaSpace, cv.BORDER_DEFAULT);
-              usedBilateral = true;
-            } catch (bilateralErr) {
-              usedBilateral = false;
-            }
-          }
-          if (!usedBilateral) {
-            cv.GaussianBlur(gray, blurred, new cv.Size(cfg.edgeBlurKernel, cfg.edgeBlurKernel), 0);
-          }
+          cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
           const edges = mat(new cv.Mat());
 
@@ -510,15 +348,10 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           cv.dilate(edges, edges, kernel, new cv.Point(-1, -1), 1);
           cv.erode(edges, edges, kernel, new cv.Point(-1, -1), 1);
 
-          // ── 5. Contour extraction ─────────────────────────────────────
-          // RETR_EXTERNAL (not RETR_LIST): we only care about outer
-          // boundaries. RETR_LIST also pulls in every nested/internal
-          // contour (text, print patterns, texture noise), which massively
-          // inflates the candidate pool with things that were never
-          // going to be the document.
+          // ── 5. Contour extraction — EXTERNAL ONLY ────────────────────
           const contours = mat(new cv.MatVector());
           const hierarchy = mat(new cv.Mat());
-          cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+          cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
           const totalArea = width * height;
           const minArea = totalArea * cfg.minAreaPct;
@@ -535,71 +368,13 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               contourList.push({ contour, area, index: i });
             }
           }
-
-          // ── 5b. Secondary contour source: saturation-based mask ──────
-          // Paper is typically near-white / low-saturation. This gives an
-          // independent signal that often stays clean even when Canny
-          // edges are swamped by a textured background/tablecloth/desk.
-          if (cfg.useColorMaskAssist) {
-            try {
-              const rgb = mat(new cv.Mat());
-              cv.cvtColor(src, rgb, cv.COLOR_RGBA2RGB);
-              const hsv = mat(new cv.Mat());
-              cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
-
-              const hsvPlanes = mat(new cv.MatVector());
-              cv.split(hsv, hsvPlanes);
-              const hChannel = mat(hsvPlanes.get(0));
-              const satChannel = mat(hsvPlanes.get(1));
-              const vChannel = mat(hsvPlanes.get(2));
-              void hChannel; void vChannel; // unused, tracked only for cleanup
-
-              const satMask = mat(new cv.Mat());
-              cv.threshold(satChannel, satMask, 0, 255, cv.THRESH_BINARY_INV | cv.THRESH_OTSU);
-
-              const maskKernel = mat(cv.Mat.ones(5, 5, cv.CV_8U));
-              cv.morphologyEx(satMask, satMask, cv.MORPH_CLOSE, maskKernel);
-              cv.morphologyEx(satMask, satMask, cv.MORPH_OPEN, maskKernel);
-
-              const maskContours = mat(new cv.MatVector());
-              const maskHierarchy = mat(new cv.Mat());
-              cv.findContours(satMask, maskContours, maskHierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-              for (let i = 0; i < maskContours.size(); ++i) {
-                const contour = maskContours.get(i);
-                contourMats.push(contour);
-                const area = cv.contourArea(contour);
-                if (area >= minArea && area <= maxArea) {
-                  contourList.push({ contour, area, index: -1 });
-                }
-              }
-            } catch (maskErr) {
-              console.warn('[useCaptureGuard] Color-mask assist failed:', maskErr);
-            }
-          }
-
           contourList.sort((a, b) => b.area - a.area);
-          const evaluatedContours = contourList.slice(0, cfg.maxContoursToEvaluate);
 
           // ── 6. Quadrilateral search with confidence scoring ──────────
 
           const candidates = []; // {quad, coverage, confidence, maxCos}
 
-          for (const item of evaluatedContours) {
-            // Solidity precheck — rejects jagged/noisy contours (the
-            // hallmark of textured-background false positives) before
-            // spending time on polygon approximation.
-            let solidity = 1;
-            try {
-              const hull = mat(new cv.Mat());
-              cv.convexHull(item.contour, hull);
-              const hullArea = cv.contourArea(hull);
-              solidity = hullArea > 0 ? item.area / hullArea : 0;
-            } catch (hullErr) {
-              solidity = 1; // fail open if hull computation errors
-            }
-            if (solidity < cfg.minSolidity) continue;
-
+          for (const item of contourList) {
             const peri = cv.arcLength(item.contour, true);
             const approx = mat(new cv.Mat());
 
@@ -632,17 +407,6 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                 }
 
                 if (maxCos < cfg.maxCos) {
-                  // Area-consistency check: reject quads whose area diverges
-                  // too much from the original contour's area. This catches
-                  // cases where approxPolyDP over-simplified a noisy/jagged
-                  // contour into a shape that coincidentally has 4 convex
-                  // points but doesn't actually represent it well.
-                  const quadAreaPx = polygonArea(pts);
-                  const areaRatio = item.area > 0 ? quadAreaPx / item.area : 0;
-                  if (areaRatio < cfg.quadAreaConsistencyMin || areaRatio > cfg.quadAreaConsistencyMax) {
-                    continue; // try a different epsilon rather than accepting a bad fit
-                  }
-
                   // ── Compute confidence score ──
                   const rectScore = 1.0 - (maxCos / cfg.maxCos); // 0-1, higher = more rectangular
                   const coveragePct = item.area / totalArea;
@@ -667,18 +431,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                   const aspect = Math.max(avgW, avgH) / (Math.min(avgW, avgH) + 1e-10);
                   const aspectScore = aspect > 4 ? 0.3 : 1.0;
 
-                  // Edge strength: real document boundaries have a much
-                  // stronger intensity gradient than a coincidental noise
-                  // quad, so this is weighted as heavily as rectangularity.
-                  const edgeStrengthRaw = sampleEdgeStrength(gradMagData, width, height, pts, cfg.edgeStrengthSampleCount);
-                  const edgeStrengthScore = Math.min(1, edgeStrengthRaw / cfg.edgeStrengthNormalization);
-
-                  const confidence = (
-                    rectScore * 0.30 +
-                    areaScore * 0.20 +
-                    aspectScore * 0.20 +
-                    edgeStrengthScore * 0.30
-                  );
+                  const confidence = (rectScore * 0.4 + areaScore * 0.35 + aspectScore * 0.25);
 
                   if (confidence >= cfg.minConfidence) {
                     // Build normalized quad
@@ -698,61 +451,25 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             }
           }
 
-          // ── 7. Pick best candidate (confidence-aware IoU tracking) ────
+          // ── 7. Pick best candidate (IoU-aware when tracking) ─────────
           let documentQuad = null;
           let coverage = 0;
           let bestConfidence = 0;
 
           if (candidates.length > 0) {
             if (sm.isDetected && sm.smoothedQuad) {
-              // IoU-weighted selection: prefer candidate closest to tracked quad,
-              // but don't let that lock the tracker onto a wrong region forever.
-              let bestByIoU = null;
-              let bestIoUScore = -1;
-              let bestByConfidence = null;
-
+              // IoU-weighted selection: prefer candidate closest to tracked quad
+              let bestScore = -1;
               for (const c of candidates) {
                 const iou = computeQuadIoU(c.quad, sm.smoothedQuad);
                 const combinedScore = iou * cfg.iouPreferenceWeight + c.confidence * (1 - cfg.iouPreferenceWeight);
-                if (combinedScore > bestIoUScore) {
-                  bestIoUScore = combinedScore;
-                  bestByIoU = c;
-                }
-                if (!bestByConfidence || c.confidence > bestByConfidence.confidence) {
-                  bestByConfidence = c;
+                if (combinedScore > bestScore) {
+                  bestScore = combinedScore;
+                  documentQuad = c.quad;
+                  coverage = c.coverage;
+                  bestConfidence = c.confidence;
                 }
               }
-
-              let chosen = bestByIoU;
-
-              // Re-acquisition: if a much higher-confidence candidate exists
-              // elsewhere in frame, don't stay locked onto a stale/wrong track.
-              if (
-                bestByConfidence &&
-                bestByConfidence !== bestByIoU &&
-                bestByConfidence.confidence - bestByIoU.confidence > cfg.reacquireConfidenceMargin
-              ) {
-                chosen = bestByConfidence;
-              }
-
-              // Track consecutive frames where we're tracking poorly. After
-              // enough misses in a row, drop the smoothed quad so the next
-              // pick is a clean, confidence-only re-acquisition instead of
-              // staying biased toward a track that's drifted onto noise.
-              const iouOfChosen = computeQuadIoU(chosen.quad, sm.smoothedQuad);
-              if (iouOfChosen < cfg.trackingMissIoUThresh) {
-                sm.trackingMissStreak = (sm.trackingMissStreak || 0) + 1;
-                if (sm.trackingMissStreak >= cfg.trackingMissStreakLimit) {
-                  sm.smoothedQuad = null;
-                  sm.trackingMissStreak = 0;
-                }
-              } else {
-                sm.trackingMissStreak = 0;
-              }
-
-              documentQuad = chosen.quad;
-              coverage = chosen.coverage;
-              bestConfidence = chosen.confidence;
             } else {
               // No prior — pick highest confidence
               candidates.sort((a, b) => b.confidence - a.confidence);
@@ -786,35 +503,24 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           }
 
           // B. Coverage & Native Resolution (Move Closer) Hysteresis
-          //
-          // FIX: nativeW/nativeH used to be declared with `const` inside the
-          // `if (documentQuad...)` block below and then referenced again
-          // outside that block in the `else` branch — a ReferenceError on
-          // every frame once isInFarState became false, silently caught by
-          // the outer try/catch, which meant guardState stopped updating
-          // right when the user got close enough for accurate tracking to
-          // matter. Hoisted here and deduplicated into one helper.
           if (sm.isDetected) {
-            const nativeW = video.videoWidth || 1920;
-            const nativeH = video.videoHeight || 1080;
+            let isCloseEnough = (coverage >= cfg.farExitCoverage);
 
-            const computeMinEdgeNative = (quad) => {
-              if (!quad || quad.length !== 4) return null;
-              const pts = quad.map(p => ({ x: p.x * nativeW, y: p.y * nativeH }));
+            // Check native resolution of document if quad is present
+            if (documentQuad && documentQuad.length === 4) {
+              const nativeW = video.videoWidth || 1920;
+              const nativeH = video.videoHeight || 1080;
+
+              const pts = documentQuad.map(p => ({ x: p.x * nativeW, y: p.y * nativeH }));
               const widthTop = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
               const widthBot = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
               const heightL = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y);
               const heightR = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
-              return Math.min(widthTop, widthBot, heightL, heightR);
-            };
 
-            let isCloseEnough = (coverage >= cfg.farExitCoverage);
-
-            // Require shortest edge to be at least 500px or 45% of camera stream height
-            const minEdgeForEntry = computeMinEdgeNative(documentQuad);
-            if (minEdgeForEntry !== null) {
+              const minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
+              // Require shortest edge to be at least 500px or 45% of camera stream height
               const dynamicMinEdgeLimit = Math.min(500, nativeH * 0.45);
-              if (minEdgeForEntry < dynamicMinEdgeLimit) {
+              if (minEdgeNative < dynamicMinEdgeLimit) {
                 isCloseEnough = false;
               }
             }
@@ -825,9 +531,20 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               if (sm.farHits >= 2) sm.isInFarState = false;
             } else {
               const isStillCloseEnough = (coverage >= cfg.farEnterCoverage);
-              const minEdgeNative = computeMinEdgeNative(documentQuad) ?? 9999;
-              const dynamicMinEdgeHysteresisLimit = Math.min(450, nativeH * 0.40);
+              // Check native resolution for hysteresis too
+              let minEdgeNative = 9999;
+              if (documentQuad && documentQuad.length === 4) {
+                const nativeW = video.videoWidth || 1920;
+                const nativeH = video.videoHeight || 1080;
+                const pts = documentQuad.map(p => ({ x: p.x * nativeW, y: p.y * nativeH }));
+                const widthTop = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+                const widthBot = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
+                const heightL = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y);
+                const heightR = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+                minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
+              }
 
+              const dynamicMinEdgeHysteresisLimit = Math.min(450, nativeH * 0.40);
               if (!isStillCloseEnough || minEdgeNative < dynamicMinEdgeHysteresisLimit) sm.farMisses += 1;
               else sm.farMisses = 0;
               if (sm.farMisses >= 3) sm.isInFarState = true;

@@ -27,6 +27,40 @@
   "visa_country": { "label": {"English":"Visa Country","Hindi":"वीज़ा देश"}, "type":"text", "criticality":"standard" },
   "visa_type": { "label": {"English":"Visa Type","Hindi":"वीज़ा प्रकार"}, "type":"text", "criticality":"standard" },
   "visa_issue_date": { "label": {"English":"Visa Issue Date","Hindi":"वीज़ा जारी करने की तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
+  
+  "doc_pan_number": { "label": {"English":"PAN Number","Hindi":"पैन नंबर"}, "type":"text", "pattern":"^[A-Z]{5}[0-9]{4}[A-Z]$", "criticality":"critical" },
+  "doc_pan_name": { "label": {"English":"Full Name","Hindi":"पूरा नाम"}, "type":"text", "criticality":"critical" },
+  "doc_pan_father_name": { "label": {"English":"Father's Name","Hindi":"पिता का नाम"}, "type":"text", "criticality":"standard" },
+  "doc_pan_dob": { "label": {"English":"Date of Birth","Hindi":"जन्म तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"critical" },
+
+  "doc_udyam_registration_number": { "label": {"English":"Udyam Registration Number"}, "type":"text", "pattern":"^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$", "criticality":"critical" },
+  "doc_udyam_enterprise_name": { "label": {"English":"Name of Enterprise"}, "type":"text", "criticality":"critical" },
+  "doc_udyam_enterprise_type": { "label": {"English":"Enterprise Type"}, "type":"categorical", "values":["MICRO","SMALL","MEDIUM"], "criticality":"critical" },
+  "doc_udyam_major_activity": { "label": {"English":"Major Activity"}, "type":"categorical", "values":["MANUFACTURING","SERVICES"], "criticality":"standard" },
+  "doc_udyam_social_category": { "label": {"English":"Social Category"}, "type":"categorical", "values":["GENERAL","OBC","SC","ST"], "criticality":"standard" },
+  "doc_udyam_date_of_incorporation": { "label": {"English":"Date of Incorporation"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
+  "doc_udyam_date_of_commencement": { "label": {"English":"Date of Commencement"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
+  "doc_udyam_enterprise_address": { "label": {"English":"Enterprise Address"}, "type":"object", "fields":["flat_door_block","premises_building","road_street","locality","city_town","pincode","state","district"], "criticality":"standard" },
+
+  "doc_gst_registration_number": { "label": {"English":"GSTIN (GST Registration Number)"}, "type":"text", "pattern":"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$", "criticality":"critical" },
+  "doc_gst_legal_name": { "label": {"English":"Legal Name of Business"}, "type":"text", "criticality":"critical" },
+  "doc_gst_trade_name": { "label": {"English":"Trade Name (if any)"}, "type":"text", "criticality":"standard" },
+  "doc_gst_constitution_of_business": { "label": {"English":"Constitution of Business"}, "type":"categorical", "values":["Proprietorship","Partnership","Private Limited Company","Public Limited Company","HUF","Trust","Society","LLP","Other"], "criticality":"critical" },
+  "doc_gst_principal_address": { "label": {"English":"Principal Place of Business Address"}, "type":"object", "fields":["flat_door_block","premises_building","road_street","locality","city_town","pincode","state","district"], "criticality":"critical" },
+  "doc_gst_date_of_liability": { "label": {"English":"Date of Liability"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
+  "doc_gst_date_of_registration": { "label": {"English":"Date of Registration"}, "type":"date", "normalize":"iso_date", "criticality":"critical" },
+  "doc_gst_registration_type": { "label": {"English":"Type of Registration"}, "type":"categorical", "values":["Regular","Composition","Casual Taxable Person","Non-Resident Taxable Person","Other"], "criticality":"standard" },
+  "doc_gst_approving_authority": { "label": {"English":"Approving Authority"}, "type":"text", "criticality":"standard" },
+
+  "flat_door_block": { "label": {"English":"Flat/Door/Block Number"}, "type":"text", "criticality":"standard" },
+  "premises_building": { "label": {"English":"Premises/Building Name"}, "type":"text", "criticality":"standard" },
+  "road_street": { "label": {"English":"Road/Street/Lane"}, "type":"text", "criticality":"standard" },
+  "locality": { "label": {"English":"Area/Locality"}, "type":"text", "criticality":"standard" },
+  "city_town": { "label": {"English":"City/Town/Village"}, "type":"text", "criticality":"standard" },
+  "pincode": { "label": {"English":"PIN Code"}, "type":"text", "pattern":"^[0-9]{6}$", "criticality":"standard" },
+  "state": { "label": {"English":"State"}, "type":"text", "criticality":"standard" },
+  "district": { "label": {"English":"District"}, "type":"text", "criticality":"standard" },
+
   "_defaults": {
     "confidence_bands": {
       "critical": { "accept": 0.92, "confirm": 0.75 },

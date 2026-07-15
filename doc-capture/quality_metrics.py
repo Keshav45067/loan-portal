@@ -235,7 +235,7 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
         logger.error(f"Failed to build quality report: {e}")
         # Return fallback report
         return QualityReport(
-            blur=0.0,
+            blur=999.0,
             brightness=0.5,
             contrast=0.0,
             noise=0.0,

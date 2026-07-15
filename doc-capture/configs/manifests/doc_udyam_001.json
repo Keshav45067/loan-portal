@@ -1,0 +1,88 @@
+{
+  "document_id": "doc_udyam_001",
+  "title": { "English": "Udyam Registration Certificate", "Hindi": "उद्यम पंजीकरण प्रमाण पत्र" },
+  "proves": ["identity", "financial_standing"],
+  "required_when": "always",
+  "expects": [
+    "doc_udyam_registration_number",
+    "doc_udyam_enterprise_name",
+    "doc_udyam_enterprise_type",
+    "doc_udyam_major_activity",
+    "doc_udyam_social_category",
+    "doc_udyam_date_of_incorporation",
+    "doc_udyam_date_of_commencement",
+    "doc_udyam_enterprise_address"
+  ],
+  "parts": [
+    {
+      "id": "certificate",
+      "name": { "English": "Certificate Page", "Hindi": "प्रमाण पत्र पृष्ठ" },
+      "title": { "English": "udyam certificate", "Hindi": "उद्यम प्रमाण पत्र" },
+      "anchors": ["UDYAM REGISTRATION CERTIFICATE", "UDYAM", "Name of Enterprise", "Ministry of Micro", "Small & Medium"],
+      "provides": [
+        "doc_udyam_registration_number",
+        "doc_udyam_enterprise_name",
+        "doc_udyam_enterprise_type",
+        "doc_udyam_major_activity",
+        "doc_udyam_social_category",
+        "doc_udyam_date_of_incorporation",
+        "doc_udyam_date_of_commencement",
+        "doc_udyam_enterprise_address"
+      ],
+      "orientation": "portrait",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 15 },
+    { "type": "camera" }
+  ],
+  "ocr": { "lang": ["en"], "table_mode": false },
+  "quality": {
+    "min_box_confidence": 0.50,
+    "min_anchor_hits": 2,
+    "blur_var_min": 200,
+    "blur_unrecoverable_floor": 30.0
+  },
+  "quality_policy": {
+    "allow_deskew": true,
+    "allow_glare_removal": true,
+    "allow_contrast_enhancement": true,
+    "allow_denoise": false,
+    "allow_gamma": true,
+    "allow_white_balance": false,
+    "allow_sharpen": true,
+    "allow_qr_masking": false
+  },
+  "prompts": {
+    "ask_part": {
+      "en": "Please capture the {part_title} of your {document_title}.",
+      "hi": "कृपया अपने {document_title} का {part_title} कैप्चर करें।"
+    },
+    "success": {
+      "en": "Scanned successfully.",
+      "hi": "सफलतापूर्वक स्कैन हो गया।"
+    },
+    "error_blur": {
+      "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+      "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।"
+    },
+    "error_wrong_page": {
+      "en": "Wrong document page detected. Please check the Udyam certificate page and capture again.",
+      "hi": "गलत दस्तावेज़ पृष्ठ पाया गया। कृपया उद्यम प्रमाण पत्र का सही पृष्ठ जांचें और फिर से कैप्चर करें।"
+    },
+    "error_low_confidence": {
+      "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+      "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।"
+    }
+  },
+  "llm_faq_context": {
+    "system_prompt": "You are an empathetic, authoritative voice assistant guiding a user through capturing their Udyam registration certificate. Keep responses under 2 sentences, use simple vocabulary, and maintain a reassuring tone.",
+    "policies": [
+      "The certificate page contains Udyam Registration Number, Name of Enterprise, and Major Activity.",
+      "Make sure the text is readable, particularly the registration number format starting with UDYAM-."
+    ]
+  },
+  "checks": [],
+  "copy_ref": "udyam"
+}

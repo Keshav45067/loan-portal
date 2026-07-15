@@ -1,0 +1,90 @@
+{
+  "document_id": "doc_gst_001",
+  "title": { "English": "GST Registration Certificate", "Hindi": "जीएसटी पंजीकरण प्रमाण पत्र" },
+  "proves": ["identity", "financial_standing", "address"],
+  "required_when": "always",
+  "expects": [
+    "doc_gst_registration_number",
+    "doc_gst_legal_name",
+    "doc_gst_trade_name",
+    "doc_gst_constitution_of_business",
+    "doc_gst_principal_address",
+    "doc_gst_date_of_liability",
+    "doc_gst_date_of_registration",
+    "doc_gst_registration_type",
+    "doc_gst_approving_authority"
+  ],
+  "parts": [
+    {
+      "id": "main_page",
+      "name": { "English": "Main Page", "Hindi": "मुख्य पृष्ठ" },
+      "title": { "English": "gst certificate main page", "Hindi": "जीएसटी प्रमाण पत्र मुख्य पृष्ठ" },
+      "anchors": ["Registration Certificate", "GSTIN", "Legal Name", "Constitution of Business", "Principal Place of Business"],
+      "provides": [
+        "doc_gst_registration_number",
+        "doc_gst_legal_name",
+        "doc_gst_trade_name",
+        "doc_gst_constitution_of_business",
+        "doc_gst_principal_address",
+        "doc_gst_date_of_liability",
+        "doc_gst_date_of_registration",
+        "doc_gst_registration_type",
+        "doc_gst_approving_authority"
+      ],
+      "orientation": "portrait",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 15 },
+    { "type": "camera" }
+  ],
+  "ocr": { "lang": ["en"], "table_mode": false },
+  "quality": {
+    "min_box_confidence": 0.50,
+    "min_anchor_hits": 2,
+    "blur_var_min": 200,
+    "blur_unrecoverable_floor": 30.0
+  },
+  "quality_policy": {
+    "allow_deskew": true,
+    "allow_glare_removal": true,
+    "allow_contrast_enhancement": true,
+    "allow_denoise": false,
+    "allow_gamma": true,
+    "allow_white_balance": false,
+    "allow_sharpen": true,
+    "allow_qr_masking": false
+  },
+  "prompts": {
+    "ask_part": {
+      "en": "Please capture the {part_title} of your {document_title}.",
+      "hi": "कृपया अपने {document_title} का {part_title} कैप्चर करें।"
+    },
+    "success": {
+      "en": "Scanned successfully.",
+      "hi": "सफलतापूर्वक स्कैन हो गया।"
+    },
+    "error_blur": {
+      "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+      "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।"
+    },
+    "error_wrong_page": {
+      "en": "Wrong document page detected. Please check the GST registration certificate main page and capture again.",
+      "hi": "गलत दस्तावेज़ पृष्ठ पाया गया। कृपया जीएसटी प्रमाण पत्र का मुख्य पृष्ठ जांचें और फिर से कैप्चर करें।"
+    },
+    "error_low_confidence": {
+      "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+      "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।"
+    }
+  },
+  "llm_faq_context": {
+    "system_prompt": "You are an empathetic, authoritative voice assistant guiding a user through capturing their GST registration certificate. Keep responses under 2 sentences, use simple vocabulary, and maintain a reassuring tone.",
+    "policies": [
+      "The main page contains the GSTIN, Legal Name of Business, Constitution of Business, and Principal Place of Business.",
+      "Make sure the text is readable, particularly the GSTIN format starting with your state code."
+    ]
+  },
+  "checks": [],
+  "copy_ref": "gst"
+}

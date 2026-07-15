@@ -160,7 +160,7 @@ export default function CaptureFlowPage({ params }) {
     readinessScore
   } = useCaptureGuard(
     videoRef,
-    isStarted && !previewUrl && !processingDoc && !state.allComplete,
+    false, // OpenCV live analysis disabled/bypassed
     state.pageInfo?.orientation || 'landscape'
   );
 
@@ -402,8 +402,8 @@ export default function CaptureFlowPage({ params }) {
     const cv = window.cv;
     const MAX_DIM = 2500;
 
-    // ── Case A: OpenCV loaded + document quad detected → perspective warp crop
-    if (cv && cv.Mat && documentQuad && documentQuad.length === 4) {
+    // ── Case A: OpenCV loaded + document quad detected → perspective warp crop (Disabled, fallback to downscaling only)
+    if (false && cv && cv.Mat && documentQuad && documentQuad.length === 4) {
       const matsToDelete = [];
       let warpSuccess = false;
 

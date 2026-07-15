@@ -1,0 +1,70 @@
+{
+  "document_id": "doc_pan_001",
+  "title": { "English": "PAN Card", "Hindi": "पैन कार्ड" },
+  "proves": ["identity"],
+  "required_when": "always",
+  "expects": ["doc_pan_number", "doc_pan_name", "doc_pan_father_name", "doc_pan_dob"],
+  "parts": [
+    {
+      "id": "front",
+      "name": { "English": "Front Side", "Hindi": "सामने का हिस्सा" },
+      "title": { "English": "front side", "Hindi": "सामने का हिस्सा" },
+      "anchors": ["Permanent Account Number", "Income Tax Department", "GOVT. OF INDIA"],
+      "provides": ["doc_pan_number", "doc_pan_name", "doc_pan_father_name", "doc_pan_dob"],
+      "orientation": "landscape",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 10 },
+    { "type": "camera" }
+  ],
+  "ocr": { "lang": ["en", "hi"], "table_mode": false },
+  "quality": {
+    "min_box_confidence": 0.50,
+    "min_anchor_hits": 2,
+    "blur_var_min": 200,
+    "blur_unrecoverable_floor": 30.0
+  },
+  "quality_policy": {
+    "allow_deskew": true,
+    "allow_glare_removal": true,
+    "allow_contrast_enhancement": true,
+    "allow_denoise": false,
+    "allow_gamma": true,
+    "allow_white_balance": false,
+    "allow_sharpen": true,
+    "allow_qr_masking": true
+  },
+  "prompts": {
+    "ask_part": {
+      "en": "Please capture the {part_title} of your {document_title}.",
+      "hi": "कृपया अपने {document_title} का {part_title} कैप्चर करें।"
+    },
+    "success": {
+      "en": "Scanned successfully.",
+      "hi": "सफलतापूर्वक स्कैन हो गया।"
+    },
+    "error_blur": {
+      "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+      "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।"
+    },
+    "error_wrong_page": {
+      "en": "Wrong document page detected. Please check the PAN card page and capture again.",
+      "hi": "गलत दस्तावेज़ पृष्ठ पाया गया। कृपया पैन कार्ड का सही पृष्ठ जांचें और फिर से कैप्चर करें।"
+    },
+    "error_low_confidence": {
+      "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+      "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।"
+    }
+  },
+  "llm_faq_context": {
+    "system_prompt": "You are an empathetic, authoritative voice assistant guiding a user through capturing their PAN card for a financial application. Keep responses under 2 sentences, use simple vocabulary, and maintain a reassuring tone.",
+    "policies": [
+      "The front page contains the Permanent Account Number, Name, Father's Name, and Date of Birth.",
+      "Make sure the text and numbers are completely clear, and avoid direct light glare on the card surface."
+    ]
+  },
+  "checks": [],
+  "copy_ref": "pan"
+}
