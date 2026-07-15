@@ -397,22 +397,130 @@ export default function CaptureFlowPage({ params }) {
   }, [loading, state.allComplete, state.pageInfo, startCamera, stopCamera]);
 
   const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          const file = new File([blob], `${state.pageId}.jpg`, { type: 'image/jpeg' });
-          setPreviewUrl(URL.createObjectURL(file));
-          await uploadDocument(file);
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const vw = video.videoWidth || 640;
+    const vh = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    const cv = window.cv;
+    const MAX_DIM = 2500;
+
+    // ── Case A: OpenCV loaded + document quad detected → perspective warp crop
+    if (cv && cv.Mat && documentQuad && documentQuad.length === 4) {
+      const matsToDelete = [];
+      let warpSuccess = false;
+
+      try {
+        // Draw full-res frame to canvas
+        canvas.width = vw;
+        canvas.height = vh;
+        ctx.drawImage(video, 0, 0, vw, vh);
+        const imgData = ctx.getImageData(0, 0, vw, vh);
+
+        const src = cv.matFromImageData(imgData);
+        matsToDelete.push(src);
+
+        // Convert normalized quad (TL, TR, BR, BL) to pixel coordinates
+        const srcPts = documentQuad.map(p => [p.x * vw, p.y * vh]);
+
+        // Compute output dimensions from quad edge lengths
+        const widthTop = Math.hypot(srcPts[1][0] - srcPts[0][0], srcPts[1][1] - srcPts[0][1]);
+        const widthBot = Math.hypot(srcPts[2][0] - srcPts[3][0], srcPts[2][1] - srcPts[3][1]);
+        const heightL  = Math.hypot(srcPts[3][0] - srcPts[0][0], srcPts[3][1] - srcPts[0][1]);
+        const heightR  = Math.hypot(srcPts[2][0] - srcPts[1][0], srcPts[2][1] - srcPts[1][1]);
+
+        let dstW = Math.round(Math.max(widthTop, widthBot));
+        let dstH = Math.round(Math.max(heightL, heightR));
+
+        // Cap at MAX_DIM on longest edge
+        const longest = Math.max(dstW, dstH);
+        if (longest > MAX_DIM) {
+          const scale = MAX_DIM / longest;
+          dstW = Math.round(dstW * scale);
+          dstH = Math.round(dstH * scale);
         }
-      }, 'image/jpeg', 0.85);
+
+        // Ensure minimum dimensions
+        dstW = Math.max(dstW, 100);
+        dstH = Math.max(dstH, 100);
+
+        // Build point matrices for getPerspectiveTransform
+        const srcMat = cv.matFromArray(4, 1, cv.CV_32FC2, srcPts.flat());
+        matsToDelete.push(srcMat);
+
+        const dstMat = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0,       dstW, 0,
+          dstW, dstH, 0, dstH
+        ]);
+        matsToDelete.push(dstMat);
+
+        const M = cv.getPerspectiveTransform(srcMat, dstMat);
+        matsToDelete.push(M);
+
+        const warped = new cv.Mat();
+        matsToDelete.push(warped);
+        cv.warpPerspective(src, warped, M, new cv.Size(dstW, dstH), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+
+        // Copy warped pixels to canvas (must happen before Mat cleanup)
+        canvas.width = dstW;
+        canvas.height = dstH;
+        const outData = new ImageData(new Uint8ClampedArray(warped.data), dstW, dstH);
+        ctx.putImageData(outData, 0, 0);
+
+        warpSuccess = true;
+        console.log(`[Capture] Perspective warp: ${vw}×${vh} → ${dstW}×${dstH}`);
+      } catch (err) {
+        console.error('[Capture] Perspective warp failed, falling back to full frame:', err);
+      } finally {
+        for (const m of matsToDelete) {
+          try { m.delete(); } catch (_) {}
+        }
+      }
+
+      // Fallback: if warp failed, redraw full frame (capped)
+      if (!warpSuccess) {
+        canvas.width = vw;
+        canvas.height = vh;
+        ctx.drawImage(video, 0, 0, vw, vh);
+        if (Math.max(vw, vh) > MAX_DIM) {
+          const scale = MAX_DIM / Math.max(vw, vh);
+          const nw = Math.round(vw * scale);
+          const nh = Math.round(vh * scale);
+          const tmp = document.createElement('canvas');
+          tmp.width = vw; tmp.height = vh;
+          tmp.getContext('2d').drawImage(video, 0, 0, vw, vh);
+          canvas.width = nw; canvas.height = nh;
+          ctx.drawImage(tmp, 0, 0, nw, nh);
+        }
+      }
+    } else {
+      // ── Case B: No quad or no OpenCV → send full frame, capped at MAX_DIM
+      canvas.width = vw;
+      canvas.height = vh;
+      ctx.drawImage(video, 0, 0, vw, vh);
+
+      if (Math.max(vw, vh) > MAX_DIM) {
+        const scale = MAX_DIM / Math.max(vw, vh);
+        const nw = Math.round(vw * scale);
+        const nh = Math.round(vh * scale);
+        const tmp = document.createElement('canvas');
+        tmp.width = vw; tmp.height = vh;
+        tmp.getContext('2d').drawImage(video, 0, 0, vw, vh);
+        canvas.width = nw; canvas.height = nh;
+        ctx.drawImage(tmp, 0, 0, nw, nh);
+      }
     }
+
+    // Compress to JPEG 85% and upload
+    canvas.toBlob(async (blob) => {
+      if (blob) {
+        const file = new File([blob], `${state.pageId}.jpg`, { type: 'image/jpeg' });
+        setPreviewUrl(URL.createObjectURL(file));
+        await uploadDocument(file);
+      }
+    }, 'image/jpeg', 0.85);
   };
 
   const handleFileUpload = async (e) => {
