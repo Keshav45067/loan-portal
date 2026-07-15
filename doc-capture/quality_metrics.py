@@ -110,25 +110,66 @@ def measure_rotation(img: Image.Image) -> float:
         return 0.0
 
 def detect_qr_codes(img: Image.Image) -> tuple:
-    """Detects QR codes using OpenCV's QRCodeDetector.
-    Returns (has_qr_codes, list_of_coordinates) where coordinate is {"x": int, "y": int, "width": int, "height": int}
-    """
+    """Detects QR codes robustly by trying multiple scales and preprocessing steps."""
     try:
-        cv_img = np.array(img.convert('RGB'))
-        cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
+        orig_w, orig_h = img.size
+        cv_img_orig = np.array(img.convert('RGB'))
+        cv_img_orig = cv2.cvtColor(cv_img_orig, cv2.COLOR_RGB2BGR)
+        
         detector = cv2.QRCodeDetector()
-        retval, points = detector.detectMulti(cv_img)
+        
+        # 1. Try multiple scales: original size, 1200px max, 800px max
+        # Standard QRCodeDetector struggles with high-resolution coordinates, so resizing helps scale down search grids
+        scales = [1.0]
+        max_dim = max(orig_w, orig_h)
+        if max_dim > 1200:
+            scales.append(1200.0 / max_dim)
+        if max_dim > 800:
+            scales.append(800.0 / max_dim)
+            
+        for scale in scales:
+            if scale == 1.0:
+                cv_img = cv_img_orig
+            else:
+                new_w = int(orig_w * scale)
+                new_h = int(orig_h * scale)
+                cv_img = cv2.resize(cv_img_orig, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                
+            retval, points = detector.detectMulti(cv_img)
+            if retval and points is not None:
+                coords = []
+                for pts in points:
+                    min_x = int(np.min(pts[:, 0]) / scale)
+                    min_y = int(np.min(pts[:, 1]) / scale)
+                    max_x = int(np.max(pts[:, 0]) / scale)
+                    max_y = int(np.max(pts[:, 1]) / scale)
+                    
+                    min_x = max(0, min_x)
+                    min_y = max(0, min_y)
+                    max_x = min(orig_w, max_x)
+                    max_y = min(orig_h, max_y)
+                    
+                    w = max(0, max_x - min_x)
+                    h = max(0, max_y - min_y)
+                    coords.append({"x": min_x, "y": min_y, "width": w, "height": h})
+                return True, coords
+                
+        # 2. If that fails, try thresholding on grayscale image (helps with shadows/contrast)
+        gray = cv2.cvtColor(cv_img_orig, cv2.COLOR_BGR2GRAY)
+        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 51, 11)
+        retval, points = detector.detectMulti(thresh)
         if retval and points is not None:
             coords = []
             for pts in points:
-                min_x = int(np.min(pts[:, 0]))
-                min_y = int(np.min(pts[:, 1]))
-                max_x = int(np.max(pts[:, 0]))
-                max_y = int(np.max(pts[:, 1]))
+                min_x = max(0, int(np.min(pts[:, 0])))
+                min_y = max(0, int(np.min(pts[:, 1])))
+                max_x = min(orig_w, int(np.max(pts[:, 0])))
+                max_y = min(orig_h, int(np.max(pts[:, 1])))
                 w = max(0, max_x - min_x)
                 h = max(0, max_y - min_y)
                 coords.append({"x": min_x, "y": min_y, "width": w, "height": h})
             return True, coords
+            
         return False, []
     except Exception as e:
         logger.error(f"Error detecting QR codes: {e}")

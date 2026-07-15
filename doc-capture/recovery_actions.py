@@ -107,16 +107,16 @@ def white_balance(img: Image.Image) -> Image.Image:
 def mask_qr_codes(img: Image.Image) -> Image.Image:
     """Detects QR codes and masks their regions with solid white blocks."""
     try:
-        cv_img = np.array(img.convert('RGB'))
-        cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
-        detector = cv2.QRCodeDetector()
-        retval, points = detector.detectMulti(cv_img)
-        if retval and points is not None:
-            for pts in points:
-                min_x = int(np.min(pts[:, 0]))
-                min_y = int(np.min(pts[:, 1]))
-                max_x = int(np.max(pts[:, 0]))
-                max_y = int(np.max(pts[:, 1]))
+        from quality_metrics import detect_qr_codes
+        has_qr, coords = detect_qr_codes(img)
+        if has_qr and coords:
+            cv_img = np.array(img.convert('RGB'))
+            cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
+            for c in coords:
+                min_x = c["x"]
+                min_y = c["y"]
+                max_x = min_x + c["width"]
+                max_y = min_y + c["height"]
                 # Draw a solid white rectangle to mask the QR code region
                 cv2.rectangle(cv_img, (min_x, min_y), (max_x, max_y), (255, 255, 255), -1)
             masked_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
