@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Any, List, Dict, Optional, Tuple
 from log_utils.logger import get_logger
 from config_loader import config_loader
-from verhoeff import verify_aadhaar
 import grpc
 
 logger = get_logger("doc-capture")
@@ -60,17 +59,15 @@ def validate_and_coerce(slot_id: str, slot_def: dict, raw_val: Any, raw_conf: fl
     normalize = slot_def.get("normalize")
     pattern = slot_def.get("pattern")
     pii = slot_def.get("pii", "none")
-    
     checksum = slot_def.get("checksum")
     if checksum == "verhoeff":
-        # Expecting a 12-digit number initially to validate via Verhoeff and store last-4 digits
+        # Extract digits and check if there are at least 4 digits, storing the last 4
         cleaned = "".join(c for c in str(raw_val) if c.isdigit())
-        if verify_aadhaar(cleaned):
-            logger.info(f"Checksum validation successful for slot '{slot_id}' using Verhoeff.")
-            # Store only last-4 digits
+        if len(cleaned) >= 4:
+            logger.info(f"Extracting last 4 digits for slot '{slot_id}' without Verhoeff checksum validation.")
             return cleaned[-4:], raw_conf
         else:
-            logger.error(f"Value '{raw_val}' failed Verhoeff checksum validation for slot '{slot_id}'.")
+            logger.error(f"Value '{raw_val}' does not contain at least 4 digits for slot '{slot_id}'.")
             return None, 0.0
             
     if slot_type == "date" or normalize == "iso_date":
