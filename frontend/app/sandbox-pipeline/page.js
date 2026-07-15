@@ -136,7 +136,8 @@ export default function SandboxPipelinePage() {
         imageSrc: `data:image/jpeg;base64,${data.image_base64}`,
         metrics: data.metrics,
         decisions: data.decisions,
-        qualityGate: null
+        qualityGate: null,
+        logs: data.logs || []
       }]);
       setDecisions(data.decisions);
       setCurrentStepIndex(0);
@@ -187,7 +188,8 @@ export default function SandboxPipelinePage() {
         actionReason: nextDecision.reason,
         imageSrc: `data:image/jpeg;base64,${data.image_base64}`,
         metrics: data.metrics,
-        qualityGate: data.quality_gate
+        qualityGate: data.quality_gate,
+        logs: data.logs || []
       }]);
 
       setCurrentStepIndex(prev => prev + 1);
@@ -381,6 +383,29 @@ export default function SandboxPipelinePage() {
                           <div><strong>OCR Confidence:</strong> <span>{(step.qualityGate.ocr_confidence * 100).toFixed(0)}%</span></div>
                           <div><strong>Anchor Hits:</strong> <span>{step.qualityGate.anchor_hits} matched</span></div>
                         </div>
+
+                        {step.qualityGate.anchors_detailed && Object.keys(step.qualityGate.anchors_detailed).length > 0 && (
+                          <div className={styles.anchorsDetailedContainer}>
+                            <strong>Anchor Evaluation Details:</strong>
+                            <div className={styles.anchorsPartsGrid}>
+                              {Object.entries(step.qualityGate.anchors_detailed).map(([pId, anchors]) => (
+                                <div key={pId} className={`${styles.anchorsPartCard} ${pageId === pId ? styles.targetPartCard : ''}`}>
+                                  <span className={styles.anchorsPartTitle}>
+                                    Part '{pId}' ({anchors.filter(a => a.matched).length} / {anchors.length} matches)
+                                  </span>
+                                  <ul className={styles.anchorsList}>
+                                    {anchors.map((a, aIdx) => (
+                                      <li key={aIdx} className={a.matched ? styles.anchorMatched : styles.anchorUnmatched}>
+                                        <span className={styles.checkIcon}>{a.matched ? "✓" : "✗"}</span> {a.anchor}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {step.qualityGate.ocr_text && (
                           <div className={styles.ocrTextContainer}>
                             <strong>Extracted Text (Marked Matches):</strong>
@@ -390,6 +415,16 @@ export default function SandboxPipelinePage() {
                           </div>
                         )}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Execution Logs */}
+                  {step.logs && step.logs.length > 0 && (
+                    <div className={styles.stepLogsContainer}>
+                      <h5>Execution Logs</h5>
+                      <pre className={styles.stepLogs}>
+                        {step.logs.join('\n')}
+                      </pre>
                     </div>
                   )}
                 </div>

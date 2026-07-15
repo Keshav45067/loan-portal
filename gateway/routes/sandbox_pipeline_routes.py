@@ -56,17 +56,23 @@ async def init_pipeline_sandbox(
     - Generates initial QualityReport
     - Computes planned recovery decisions based on manifest configuration
     """
+    logs = []
     try:
         image_bytes = await file.read()
+        logs.append(f"[INFO] Loaded input image. Size: {len(image_bytes) / 1024:.1f} KB.")
         
         # 1. Parse manifest
         try:
             doc_config = json.loads(manifest_json)
+            logs.append(f"[INFO] Successfully parsed Document Manifest (ID: {doc_config.get('document_id', 'unknown')}).")
         except Exception as json_err:
+            logs.append(f"[ERROR] Failed to parse manifest JSON: {str(json_err)}")
             raise HTTPException(status_code=400, detail=f"Invalid manifest JSON: {str(json_err)}")
             
         # 2. Build initial quality report
+        logs.append("[INFO] Calculating initial image quality metrics...")
         report = build_quality_report(image_bytes)
+        logs.append(f"[INFO] Measured metrics: Blur={report.blur:.1f}, Brightness={report.brightness:.3f}, Contrast={report.contrast:.3f}, Glare={report.glare*100:.1f}%, Shadow={report.shadow*100:.1f}%, Skew={report.rotation:.1f}°")
         
         # 3. Determine quality policy
         quality_policy = doc_config.get("quality_policy", {
@@ -89,11 +95,14 @@ async def init_pipeline_sandbox(
                 "allow_white_balance": "white_balance" in pre_flags,
                 "allow_sharpen": "sharpen" in pre_flags
             }
+        logs.append(f"[INFO] Applied Quality Policy: {json.dumps(quality_policy)}")
 
         quality_config = doc_config.get("quality", {})
+        logs.append(f"[INFO] Applied Quality Thresholds: {json.dumps(quality_config)}")
         
         # 4. Compute planned recovery decisions
         decisions = decide_recovery(report, quality_policy, quality_config)
+        logs.append(f"[INFO] Recovery engine planned {len(decisions)} action(s).")
         
         # Formulate response
         decisions_list = []
@@ -102,6 +111,7 @@ async def init_pipeline_sandbox(
                 "action": d.action,
                 "reason": d.reason
             })
+            logs.append(f"[PLAN] Schedule '{d.action}' because: {d.reason}")
             
         # Convert initial image to base64 for display
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
@@ -124,11 +134,12 @@ async def init_pipeline_sandbox(
             "metrics": metrics_dict,
             "manifest": doc_config,
             "page_id": page_id,
-            "language": language
+            "language": language,
+            "logs": logs
         }
     except Exception as e:
         logger.error(f"Sandbox Init Failed: {e}", error=traceback.format_exc())
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "logs": logs}
 
 @router.post("/step")
 async def execute_pipeline_step(body: StepRequest):
@@ -136,7 +147,9 @@ async def execute_pipeline_step(body: StepRequest):
     Applies a single preprocessing step to the current base64 image,
     recalculates quality metrics, and runs the quality gate (OCR & Anchor Matching).
     """
+    logs = []
     try:
+        logs.append(f"[START] Executing step '{body.action}'...")
         # 1. Decode base64 image
         try:
             image_bytes = base64.b64decode(body.image_base64)
@@ -154,25 +167,31 @@ async def execute_pipeline_step(body: StepRequest):
         if func:
             try:
                 img = Image.open(io.BytesIO(image_bytes))
+                logs.append(f"[PROCESS] Opened PIL image in mode '{img.mode}', resolution {img.width}x{img.height}")
                 
                 # Pillow RGBA to RGB conversion to prevent saving errors
                 if img.mode == 'RGBA' or 'transparency' in img.info:
+                    logs.append("[WARNING] RGBA/Alpha transparency detected. Converting image to RGB to prevent save failure.")
                     img = img.convert('RGB')
                     
+                logs.append(f"[PROCESS] Calling recovery function for '{body.action}' (Reason: {body.reason})...")
                 processed_img = func(img)
                 
                 # Save to JPEG bytes
                 out = io.BytesIO()
                 processed_img.save(out, format="JPEG", quality=90)
                 new_image_bytes = out.getvalue()
+                logs.append(f"[SUCCESS] Action '{body.action}' applied. Output JPEG size: {len(new_image_bytes)/1024:.1f} KB.")
             except Exception as proc_err:
+                logs.append(f"[ERROR] Preprocessing action '{body.action}' failed: {str(proc_err)}")
                 logger.error(f"Preprocessing action '{body.action}' failed: {proc_err}")
                 new_image_bytes = image_bytes
         else:
-            logger.warning(f"Action '{body.action}' not found in RECOVERY_ACTIONS. Skipping.")
+            logs.append(f"[WARNING] Action '{body.action}' not found in RECOVERY_ACTIONS catalog. Skipping.")
             new_image_bytes = image_bytes
             
         # 4. Recalculate metrics on intermediate image
+        logs.append("[PROCESS] Recalculating image quality metrics on processed image...")
         report = build_quality_report(new_image_bytes)
         metrics_dict = {
             "blur": report.blur,
@@ -184,9 +203,11 @@ async def execute_pipeline_step(body: StepRequest):
             "rotation": report.rotation,
             "resolution": report.resolution
         }
+        logs.append(f"[INFO] New metrics: Blur={report.blur:.1f}, Brightness={report.brightness:.3f}, Contrast={report.contrast:.3f}, Glare={report.glare*100:.1f}%, Shadow={report.shadow*100:.1f}%, Skew={report.rotation:.1f}°")
         
         # 5. Initialize OCR gRPC client stub dynamically
         ocr_addr = os.getenv("OCR_SERVICE_ADDR", "localhost:50059")
+        logs.append(f"[gRPC] Connecting to OCR Service at {ocr_addr}...")
         channel = grpc.aio.insecure_channel(ocr_addr, options=[
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
@@ -194,8 +215,9 @@ async def execute_pipeline_step(body: StepRequest):
         ocr_stub = ocr_pb2_grpc.OCRServiceStub(channel)
         
         # 6. Run Quality Gate (OCR + Anchor Matching)
-        quality_gate_res = {"passed": False, "error": "Quality gate not run"}
+        quality_gate_res = {"passed": False, "error": "Quality gate not run", "anchors_detailed": {}}
         try:
+            logs.append(f"[GATE] Running Quality Gate check (Target page ID: '{body.page_id}')...")
             q_res = await run_quality_gate(
                 image_bytes=new_image_bytes,
                 manifest=doc_config,
@@ -204,15 +226,41 @@ async def execute_pipeline_step(body: StepRequest):
                 document_id=body.document_id,
                 part_id=body.page_id
             )
+            
+            # Perform detailed anchor verification for analysis report
+            translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
+            clean_text = q_res.ocr_text.translate(translit_map)
+            clean_lower_text = clean_text.lower()
+            
+            anchors_detailed = {}
+            parts = doc_config.get("parts", [])
+            for part in parts:
+                p_id = part.get("id", "")
+                anchors = part.get("anchors", [])
+                anchors_detailed[p_id] = []
+                for a in anchors:
+                    matched = a.lower() in clean_lower_text
+                    anchors_detailed[p_id].append({
+                        "anchor": a,
+                        "matched": matched
+                    })
+                    match_str = "[MATCHED]  " if matched else "[UNMATCHED]"
+                    logs.append(f"[GATE-ANCHORS] Part '{p_id}' -> {match_str} '{a}'")
+                    
             quality_gate_res = {
                 "passed": q_res.passed,
                 "part_id": q_res.part_id,
                 "ocr_text": q_res.ocr_text,
                 "ocr_confidence": q_res.ocr_confidence,
                 "failure_reason": q_res.failure_reason,
-                "anchor_hits": q_res.anchor_hits
+                "anchor_hits": q_res.anchor_hits,
+                "anchors_detailed": anchors_detailed
             }
+            logs.append(f"[GATE-RESULT] Passed: {q_res.passed}, Identified Side: '{q_res.part_id}', Total hits: {q_res.anchor_hits}, OCR Confidence: {q_res.ocr_confidence:.2f}")
+            if not q_res.passed:
+                logs.append(f"[GATE-WARNING] Quality Gate failed. Reason: '{q_res.failure_reason}'")
         except Exception as qg_err:
+            logs.append(f"[GATE-ERROR] Quality Gate failed with exception: {str(qg_err)}")
             logger.error(f"QualityGate run failed in sandbox: {qg_err}")
             quality_gate_res = {
                 "passed": False,
@@ -220,10 +268,12 @@ async def execute_pipeline_step(body: StepRequest):
                 "ocr_text": "",
                 "ocr_confidence": 0.0,
                 "failure_reason": "gRPC_error",
-                "anchor_hits": 0
+                "anchor_hits": 0,
+                "anchors_detailed": {}
             }
         finally:
             await channel.close()
+            logs.append("[gRPC] OCR Service channel closed.")
             
         # Encode intermediate image back to base64
         base64_image = base64.b64encode(new_image_bytes).decode("utf-8")
@@ -232,8 +282,10 @@ async def execute_pipeline_step(body: StepRequest):
             "success": True,
             "image_base64": base64_image,
             "metrics": metrics_dict,
-            "quality_gate": quality_gate_res
+            "quality_gate": quality_gate_res,
+            "logs": logs
         }
     except Exception as e:
+        logs.append(f"[FATAL] Step Execution Failed: {str(e)}")
         logger.error(f"Sandbox Step Execution Failed: {e}", error=traceback.format_exc())
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "logs": logs}
