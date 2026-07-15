@@ -9,90 +9,78 @@ import useCaptureGuard from '../useCaptureGuard';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
 
-// Minimal AudioVisualizer for Voice Agent Feedback
-class AudioVisualizer {
-  constructor(canvas) {
-    this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
-    this.animationId = null;
-    this.isActive = false;
-    this.mode = 'idle'; 
-    this.volumeLevel = 0;
-    this.time = 0;
-    this.bars = Array(40).fill(0).map(() => ({ height: 0, targetHeight: 0, velocity: 0 }));
-    this._setupCanvas();
-    this._animate();
-  }
-  _setupCanvas() {
-    if (!this.canvas) return;
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width * dpr;
-    this.canvas.height = rect.height * dpr;
-    this.ctx.scale(dpr, dpr);
-    this.width = rect.width;
-    this.height = rect.height;
-  }
-  updateAudioData(volumeLevel) {
-    this.volumeLevel = volumeLevel;
-  }
-  setMode(mode) {
-    this.mode = mode;
-  }
-  _animate() {
-    this.time += 0.016; 
-    if (this.ctx && this.width && this.height) {
-      this.ctx.clearRect(0, 0, this.width, this.height);
-      const centerY = this.height / 2;
-      const barCount = this.bars.length;
-      const barWidth = 3;
-      const gap = (this.width - barCount * barWidth) / (barCount + 1);
+const LABEL_MAP = {
+  name: "Full Name",
+  applicant_name: "Applicant Name",
+  full_name: "Full Name",
+  dob: "Date of Birth",
+  date_of_birth: "Date of Birth",
+  year_of_birth: "Year of Birth",
+  gender: "Gender",
+  father_name: "Father's Name",
+  mother_name: "Mother's Name",
+  spouse_name: "Spouse's Name",
+  phone: "Phone Number",
+  mobile_number: "Mobile Number",
+  email: "Email Address",
+  email_id: "Email Address",
+  aadhaar_number: "Aadhaar Number",
+  pan_number: "PAN Number",
+  pan_confirmed: "PAN Verification Status",
+  marital_status: "Marital Status",
+  religion: "Religion",
+  caste_category: "Caste Category",
+  social_category: "Social Category",
+  educational_qualification: "Education",
+  education: "Education",
+  net_worth: "Net Worth",
+  occupation: "Occupation Type",
+  occupation_type: "Occupation Type",
+  business_type: "Business Type",
+  nature_of_business: "Nature of Business",
+  monthly_revenue: "Monthly Revenue",
+  business_revenue: "Monthly Revenue",
+  annual_income: "Annual Income",
+  udyam_number: "Udyam Number",
+  enterprise_name: "Enterprise Name",
+  date_of_registration: "Registration Date",
+  date_of_commencement: "Commencement Date",
+  account_number: "Account Number",
+  bank_name: "Bank Name",
+  ifsc_code: "IFSC Code",
+  pincode: "Pincode",
+  pin_code: "Pincode",
+  full_address: "Full Address",
+  address_line: "Address Line",
+  care_of: "Care Of"
+};
 
-      for (let i = 0; i < barCount; i++) {
-        const x = gap + i * (barWidth + gap);
-        let h = 4;
-        
-        if (this.mode === 'recording') {
-            const wave = Math.sin(this.time * 4 + i * 0.4);
-            const targetHeight = 4 + this.volumeLevel * (this.height * 0.8) * 0.5 * (0.5 + wave * 0.5);
-            this.bars[i].velocity = (this.bars[i].velocity + (targetHeight - this.bars[i].height) * 0.15) * 0.8;
-            this.bars[i].height += this.bars[i].velocity;
-            h = Math.max(2, this.bars[i].height);
-            this.ctx.fillStyle = `rgba(74, 120, 255, 0.8)`;
-        } else if (this.mode === 'processing') {
-            const wave = Math.sin(this.time * 3 + i * 0.25) * 8 + 10;
-            this.bars[i].height += (wave - this.bars[i].height) * 0.08;
-            h = this.bars[i].height;
-            this.ctx.fillStyle = `rgba(167, 139, 250, 0.8)`;
-        } else if (this.mode === 'speaking') {
-            const wave1 = Math.sin(this.time * 3 + i * 0.25) * 12;
-            const targetH = Math.abs(wave1) + 4;
-            this.bars[i].height += (targetH - this.bars[i].height) * 0.12;
-            h = this.bars[i].height;
-            this.ctx.fillStyle = `rgba(34, 201, 104, 0.8)`;
-        } else {
-            const wave = Math.sin(this.time * 2 + i * 0.3) * 3 + 4;
-            this.bars[i].targetHeight = wave;
-            this.bars[i].height += (this.bars[i].targetHeight - this.bars[i].height) * 0.1;
-            h = this.bars[i].height;
-            this.ctx.fillStyle = `rgba(74, 120, 255, 0.3)`;
-        }
-        
-        this.ctx.beginPath();
-        if (this.ctx.roundRect) {
-          this.ctx.roundRect(x, centerY - h / 2, barWidth, h, 1.5);
-        } else {
-          this.ctx.rect(x, centerY - h / 2, barWidth, h);
-        }
-        this.ctx.fill();
-      }
+const formatKey = (key) => {
+  if (LABEL_MAP[key]) return LABEL_MAP[key];
+  const parts = key.split('.');
+  const lastPart = parts[parts.length - 1];
+  if (LABEL_MAP[lastPart]) return LABEL_MAP[lastPart];
+  
+  return key
+    .replace(/^doc_/, '')
+    .replace(/^aadhaar_/, '')
+    .replace(/^pan_/, '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+};
+
+const flattenData = (obj, prefix = '') => {
+  let result = {};
+  for (const key in obj) {
+    if (obj[key] && typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
+      const flat = flattenData(obj[key], prefix ? `${prefix}.${key}` : key);
+      result = { ...result, ...flat };
+    } else {
+      result[prefix ? `${prefix}.${key}` : key] = obj[key];
     }
-    this.animationId = requestAnimationFrame(() => this._animate());
   }
-  destroy() {
-    if (this.animationId) cancelAnimationFrame(this.animationId);
-  }
-}
+  return result;
+};
 
 export default function CaptureFlowPage({ params }) {
   const unwrappedParams = use(params);
@@ -137,8 +125,9 @@ export default function CaptureFlowPage({ params }) {
   const [textInputValue, setTextInputValue] = useState('');
   const voiceSessionRef = useRef(null);
   
-  const visualizerCanvasRef = useRef(null);
-  const visualizerInstanceRef = useRef(null);
+  // Final Extraction Results State
+  const [extractedData, setExtractedData] = useState(null);
+  const [fetchingData, setFetchingData] = useState(false);
 
   // Live guard hook for real time guidance and document edge detection
   const {
@@ -212,10 +201,6 @@ export default function CaptureFlowPage({ params }) {
             allComplete: data.all_complete
         });
         setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
-
-        if (data.all_complete) {
-            router.push('/dashboard/details');
-        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -227,7 +212,6 @@ export default function CaptureFlowPage({ params }) {
     return () => {
       stopCamera();
       if (voiceSessionRef.current) voiceSessionRef.current.disconnect();
-      if (visualizerInstanceRef.current) visualizerInstanceRef.current.destroy();
     };
   }, [schemeId, language, router]);
 
@@ -239,17 +223,21 @@ export default function CaptureFlowPage({ params }) {
   }, []);
 
   useEffect(() => {
-    if (visualizerCanvasRef.current && !visualizerInstanceRef.current) {
-        visualizerInstanceRef.current = new AudioVisualizer(visualizerCanvasRef.current);
+    if (state.allComplete && sessionId && token) {
+      setFetchingData(true);
+      fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.extracted_data) {
+            setExtractedData(data.extracted_data);
+          }
+        })
+        .catch(err => console.error("Error fetching completed application data:", err))
+        .finally(() => setFetchingData(false));
     }
-    if (visualizerInstanceRef.current) {
-        let mode = 'idle';
-        if (qaState === 'listening') mode = 'recording';
-        else if (qaState === 'processing') mode = 'processing';
-        else if (qaState === 'speaking') mode = 'speaking';
-        visualizerInstanceRef.current.setMode(mode);
-    }
-  }, [qaState]);
+  }, [state.allComplete, sessionId, token]);
 
   const startSession = () => {
     // Initialize and resume AudioContext synchronously in click handler
@@ -499,7 +487,7 @@ export default function CaptureFlowPage({ params }) {
       }
       
       if (data.all_complete) {
-          router.push('/dashboard/details');
+          setState(prev => ({ ...prev, allComplete: true }));
           return;
       }
 
@@ -612,7 +600,7 @@ export default function CaptureFlowPage({ params }) {
       }
 
       if (data.all_complete) {
-          router.push('/dashboard/details');
+          setState(prev => ({ ...prev, allComplete: true }));
           return;
       }
 
@@ -663,8 +651,116 @@ export default function CaptureFlowPage({ params }) {
     }
   };
 
+  const renderCompletedTable = () => {
+    if (fetchingData) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: 'radial-gradient(circle at center, #0f111a 0%, #050508 100%)', color: '#fff' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#4a78ff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
+          <p style={{ color: '#94a3b8' }}>Retrieving final extraction results...</p>
+        </div>
+      );
+    }
+
+    const flatData = extractedData ? flattenData(extractedData) : {};
+    const items = Object.entries(flatData).map(([key, val]) => {
+      let docName = "Application Details";
+      if (key.includes("aadhaar") || key.includes("address")) docName = "Aadhaar Card";
+      else if (key.includes("pan")) docName = "PAN Card";
+      else if (key.includes("passport")) docName = "Passport";
+      else if (key.includes("bank") || key.includes("account")) docName = "Bank Statement";
+      else if (key.includes("udyam") || key.includes("enterprise")) docName = "Udyam Certificate";
+
+      return {
+        key,
+        docName,
+        label: formatKey(key),
+        value: typeof val === 'object' ? JSON.stringify(val) : String(val)
+      };
+    }).filter(item => item.value && item.value !== 'Not Available' && item.value !== '{}');
+
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: 'radial-gradient(circle at center, #0b0d16 0%, #030408 100%)',
+        color: '#fff',
+        padding: '40px 20px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        fontFamily: 'sans-serif'
+      }}>
+        <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#22c55e', fontSize: '1.5rem', marginBottom: '16px' }}>✓</div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Scanning Completed Successfully</h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>All document pages have been captured, analyzed, and verified by our extraction engine.</p>
+          </div>
+
+          {/* Table Card */}
+          <div style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '16px',
+            padding: '24px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            backdropFilter: 'blur(20px)'
+          }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#a7b4fc', margin: '0 0 20px' }}>Extracted Metadata Summary</h3>
+            {items.length === 0 ? (
+              <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>No metadata extracted from the uploaded files.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Document / Page</th>
+                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Field Label</th>
+                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Extracted Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((item, idx) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
+                        <td style={{ padding: '14px 16px', color: '#a7b4fc', fontWeight: 600 }}>{item.docName}</td>
+                        <td style={{ padding: '14px 16px', color: '#cbd5e1' }}>{item.label}</td>
+                        <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500, fontFamily: 'monospace' }}>{item.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Action Button */}
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => router.push('/dashboard')}
+              style={{
+                background: '#fff',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 32px',
+                fontSize: '0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'transform 0.1s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return <div className={styles.container} style={{ justifyContent: 'center', height: '100vh' }}>Loading capture engine...</div>;
-  if (state.allComplete) return <div className={styles.container} style={{ justifyContent: 'center', height: '100vh' }}>All documents captured! Redirecting...</div>;
+  if (state.allComplete) return renderCompletedTable();
 
   return (
     <div className={styles.container}>
@@ -776,11 +872,47 @@ export default function CaptureFlowPage({ params }) {
         )}
 
         {/* Main Content Layout */}
-        <div className={styles.mainLayout}>
+        <div className={styles.mainLayout} style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: '20px' }}>
           
-          <div className={styles.leftControls}>
+          {/* Sleek Minimal One-Line Voice Agent Capsule */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            background: 'rgba(9, 10, 15, 0.75)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '999px',
+            padding: '8px 18px',
+            maxWidth: '90%',
+            width: 'max-content',
+            margin: '0 auto',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+            fontSize: '0.875rem',
+            color: '#fff',
+            pointerEvents: 'auto'
+          }} className={styles.interactive}>
+            {/* Connection Dot */}
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: qaState === 'listening' ? '#3b82f6' : qaState === 'speaking' ? '#10b981' : qaState === 'processing' ? '#a78bfa' : '#64748b',
+              boxShadow: qaState === 'listening' ? '0 0 8px #3b82f6' : qaState === 'speaking' ? '0 0 8px #10b981' : qaState === 'processing' ? '0 0 8px #a78bfa' : 'none'
+            }}></div>
+            
+            {/* Status & Live Transcript */}
+            <span style={{ fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+              {qaState === 'listening' ? 'Listening' : qaState === 'processing' ? 'Processing' : qaState === 'speaking' ? 'Speaking' : 'Standby'}:
+            </span>
+            <span style={{ color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>
+              {transcript || (qaState === 'listening' ? 'Speak now...' : qaState === 'processing' ? 'Thinking...' : 'Voice assistant ready')}
+            </span>
+          </div>
+
+          <div className={styles.leftControls} style={{ width: '100%', maxWidth: '600px' }}>
             {/* Header / Progress over camera */}
-            <div style={{ width: '100%', maxWidth: '600px', marginBottom: '24px' }}>
+            <div style={{ width: '100%', marginBottom: '16px' }}>
                 <div className={styles.headerRow}>
                     <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
                     <span style={{ fontSize: '0.95rem', color: '#93c5fd', fontWeight: 700 }}>{state.pageInfo?.page_name}</span>
@@ -830,52 +962,6 @@ export default function CaptureFlowPage({ params }) {
                   )}
               </div>
             )}
-          </div>
-
-          {/* Right: Voice Agent Sidebar */}
-          <div className={`${styles.voiceAgentSidebar}`}>
-            <div className={interviewStyles.connectionBar} style={{ marginBottom: '1.5rem' }}>
-              <div className={`${interviewStyles.connectionDot} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.connected : ''}`}></div>
-              <span className={interviewStyles.connectionText} style={{ color: '#475569', fontWeight: 600 }}>
-                {['listening', 'processing', 'speaking'].includes(qaState) ? 'Live Audio Link' : 'Standby'}
-              </span>
-            </div>
-
-            <div className={interviewStyles.neuralCoreWrapper} style={{ transform: 'scale(0.8)', marginBottom: '1rem' }}>
-              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring1} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring2} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-              <div className={`${interviewStyles.coreRing} ${interviewStyles.ring3} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.ringActive : ''}`}></div>
-
-              <div className={`${interviewStyles.coreSphere} ${qaState === 'listening' ? interviewStyles.sphereListening : qaState === 'processing' ? interviewStyles.sphereProcessing : qaState === 'speaking' ? interviewStyles.sphereSpeaking : ''} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.sphereActive : ''}`}>
-                <div className={interviewStyles.coreGlowInner}></div>
-              </div>
-
-              <div className={`${interviewStyles.visualizerWrapper} ${['listening', 'processing', 'speaking'].includes(qaState) ? interviewStyles.visualizerActive : ''}`}>
-                <canvas ref={visualizerCanvasRef} style={{ width: '300px', height: '300px' }}></canvas>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'center', marginBottom: 'auto', minHeight: '60px', color: '#0f172a', fontSize: '0.95rem', width: '100%', padding: '0 0.5rem', lineHeight: '1.5', fontWeight: 600 }}>
-              {transcript || (qaState === 'listening' ? 'Listening...' : qaState === 'processing' ? 'Processing...' : qaState === 'connecting' ? 'Connecting...' : '')}
-            </div>
-
-            <div className={interviewStyles.textInputContainer} style={{ marginTop: '0', width: '100%', maxWidth: '100%' }}>
-              <input 
-                type="text" 
-                className={interviewStyles.textInput} 
-                placeholder="Type here..." 
-                value={textInputValue}
-                onChange={(e) => setTextInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendText()}
-                disabled={qaState === 'connecting'}
-              />
-              <button className={interviewStyles.sendButton} onClick={handleSendText} disabled={!textInputValue.trim() || qaState === 'connecting'}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: '16px', height: '16px' }}>
-                  <line x1="22" y1="2" x2="11" y2="13"></line>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                </svg>
-              </button>
-            </div>
           </div>
 
         </div>
