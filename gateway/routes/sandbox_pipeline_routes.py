@@ -16,10 +16,10 @@ from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from PIL import Image
 
-# Insert python paths so we can import from shared and doc-capture folders
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'doc-capture'))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'grpc_clients'))
+# Append python paths so we can import from shared and doc-capture folders
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'doc-capture'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'grpc_clients'))
 
 from log_utils.logger import get_logger
 from generated import ocr_pb2, ocr_pb2_grpc
