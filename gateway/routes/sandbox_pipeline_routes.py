@@ -205,13 +205,23 @@ async def execute_pipeline_step(body: StepRequest):
         }
         logs.append(f"[INFO] New metrics: Blur={report.blur:.1f}, Brightness={report.brightness:.3f}, Contrast={report.contrast:.3f}, Glare={report.glare*100:.1f}%, Shadow={report.shadow*100:.1f}%, Skew={report.rotation:.1f}°")
         
-        # 5. Initialize OCR gRPC client stub dynamically
-        ocr_addr = os.getenv("OCR_SERVICE_ADDR", "localhost:50059")
+        # 5. Initialize OCR gRPC client stub dynamically (default to secure prod server)
+        ocr_addr = os.getenv("OCR_SERVICE_ADDR", "ocr.augmen.io:443")
         logs.append(f"[gRPC] Connecting to OCR Service at {ocr_addr}...")
-        channel = grpc.aio.insecure_channel(ocr_addr, options=[
+        
+        channel_options = [
             ("grpc.max_send_message_length", 100 * 1024 * 1024),
             ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ])
+        ]
+        
+        if "443" in ocr_addr:
+            credentials = grpc.ssl_channel_credentials()
+            channel = grpc.aio.secure_channel(ocr_addr, credentials, options=channel_options)
+            logs.append("[gRPC] Established SECURE (SSL/TLS) channel to OCR Service.")
+        else:
+            channel = grpc.aio.insecure_channel(ocr_addr, options=channel_options)
+            logs.append("[gRPC] Established INSECURE channel to OCR Service.")
+            
         ocr_stub = ocr_pb2_grpc.OCRServiceStub(channel)
         
         # 6. Run Quality Gate (OCR + Anchor Matching)
