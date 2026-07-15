@@ -21,7 +21,12 @@ const DEFAULT_CONFIG = {
   // texture (wood grain, patterned surfaces, etc.) while preserving strong
   // edges like the document boundary, which plain GaussianBlur does not do
   // well. Falls back to GaussianBlur if bilateralFilter throws.
+  // d=7/sigma=50 is a lighter (cheaper) setting than the initial 9/75/75 —
+  // drop to 5/50/50 first if this is still the slowest stage on low-end devices.
   useBilateralFilter: true,
+  bilateralD: 7,
+  bilateralSigmaColor: 50,
+  bilateralSigmaSpace: 50,
   edgeBlurKernel: 5, // used only for the GaussianBlur fallback
 
   // Geometry
@@ -31,16 +36,36 @@ const DEFAULT_CONFIG = {
 
   // Shape sanity filters — these catch the false positives that textured
   // backgrounds tend to produce (jagged noise contours forced into a quad
-  // shape by a large approxPolyDP epsilon).
-  minSolidity: 0.90,             // contourArea / convexHullArea
+  // shape by a large approxPolyDP epsilon). 0.80 rather than a stricter
+  // value because perspective-skewed or slightly curled real pages
+  // routinely land at 0.75-0.85 solidity — going tighter starts rejecting
+  // legitimate documents, not just noise.
+  minSolidity: 0.80,             // contourArea / convexHullArea
   quadAreaConsistencyMin: 0.75,  // simplified-quad-area / raw-contour-area
   quadAreaConsistencyMax: 1.30,
 
-  // Secondary contour source: a saturation-based mask. Paper is
-  // typically near-white/low-saturation, so this gives a signal that's
-  // independent of (and often much cleaner than) Canny edges when the
-  // background is busy/textured.
-  useColorMaskAssist: true,
+  // Only run the (relatively expensive) convexHull/solidity + polygon
+  // approximation pipeline on the N largest candidate contours per frame,
+  // not every contour that survives the area filter.
+  maxContoursToEvaluate: 12,
+
+  // Secondary contour source: a saturation-based mask. Paper is often
+  // near-white/low-saturation, but this is not universal (colored IDs,
+  // invoices, brochures) and a low-saturation desk/table can generate a
+  // competing false candidate. Off by default — enable it for known
+  // scenarios (plain white paper on a textured surface) where it helps
+  // more than it risks.
+  useColorMaskAssist: false,
+
+  // Edge-strength confidence signal: samples gradient magnitude along a
+  // candidate quad's perimeter. A real document boundary has a much
+  // stronger intensity gradient than a coincidental noise/texture quad or
+  // a flat-region mask blob, so this is the strongest discriminator we
+  // have against exactly that failure mode. edgeStrengthNormalization is
+  // a heuristic starting point (raw Sobel magnitude units) — tune it
+  // against real footage; it will vary with lighting/contrast.
+  edgeStrengthSampleCount: 24,
+  edgeStrengthNormalization: 120,
 
   // Lighting hysteresis
   darkEnter: 0.30,
@@ -110,6 +135,86 @@ function polygonArea(pts) {
     area -= pts[j].x * pts[i].y;
   }
   return Math.abs(area) / 2;
+}
+
+/**
+ * Average gradient-magnitude value sampled along a 4-point polygon's
+ * perimeter (points in px). Used as a confidence signal: a real document
+ * edge has a much stronger intensity gradient than a coincidental
+ * texture/noise contour or a flat-region mask boundary.
+ */
+function sampleEdgeStrength(magnitudeData, matWidth, matHeight, pts, sampleCount) {
+  let total = 0;
+  let count = 0;
+  for (let e = 0; e < 4; e++) {
+    const p1 = pts[e];
+    const p2 = pts[(e + 1) % 4];
+    for (let s = 0; s < sampleCount; s++) {
+      const t = sampleCount > 1 ? s / (sampleCount - 1) : 0;
+      const x = Math.round(p1.x + (p2.x - p1.x) * t);
+      const y = Math.round(p1.y + (p2.y - p1.y) * t);
+      if (x < 0 || x >= matWidth || y < 0 || y >= matHeight) continue;
+      total += magnitudeData[y * matWidth + x];
+      count++;
+    }
+  }
+  return count > 0 ? total / count : 0;
+}
+
+// ─── Capture-time corner refinement ─────────────────────────────────────────
+// The main loop deliberately works on a downsampled (640px) frame — that's
+// plenty for real-time guidance and keeps the loop fast. It is NOT enough
+// precision for the final crop/warp. Call this once, at the moment you
+// actually capture (e.g. when overallReady flips true and you snap the
+// photo), against the live full-resolution video frame, to subpixel-refine
+// the coarse quad's corners before using them to warp/crop the final image.
+export function refineQuadCorners(videoEl, normalizedQuad) {
+  const cv = window.cv;
+  if (!cv || !cv.Mat || !videoEl || !normalizedQuad || normalizedQuad.length !== 4) {
+    return normalizedQuad;
+  }
+
+  const w = videoEl.videoWidth;
+  const h = videoEl.videoHeight;
+  if (!w || !h) return normalizedQuad;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(videoEl, 0, 0, w, h);
+
+  let src, gray, corners;
+  try {
+    const imgData = ctx.getImageData(0, 0, w, h);
+    src = cv.matFromImageData(imgData);
+    gray = new cv.Mat();
+    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+
+    const flatPts = normalizedQuad.flatMap(p => [p.x * w, p.y * h]);
+    corners = cv.matFromArray(4, 1, cv.CV_32FC2, flatPts);
+
+    const winSize = new cv.Size(11, 11);
+    const zeroZone = new cv.Size(-1, -1);
+    const criteria = new cv.TermCriteria(cv.TermCriteria_EPS + cv.TermCriteria_COUNT, 30, 0.01);
+    cv.cornerSubPix(gray, corners, winSize, zeroZone, criteria);
+
+    const refined = [];
+    for (let i = 0; i < 4; i++) {
+      refined.push({
+        x: corners.data32F[i * 2] / w,
+        y: corners.data32F[i * 2 + 1] / h,
+      });
+    }
+    return refined;
+  } catch (err) {
+    console.warn('[useCaptureGuard] refineQuadCorners failed, using coarse quad:', err);
+    return normalizedQuad;
+  } finally {
+    if (src) src.delete();
+    if (gray) gray.delete();
+    if (corners) corners.delete();
+  }
 }
 
 // ─── Main Hook ───────────────────────────────────────────────────────────────
@@ -359,6 +464,15 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             blurScore = stdVal * stdVal;
           }
 
+          // ── 3b. Gradient magnitude (for edge-strength confidence scoring) ──
+          const sobelX = mat(new cv.Mat());
+          const sobelY = mat(new cv.Mat());
+          cv.Sobel(gray, sobelX, cv.CV_32F, 1, 0, 3);
+          cv.Sobel(gray, sobelY, cv.CV_32F, 0, 1, 3);
+          const gradMag = mat(new cv.Mat());
+          cv.magnitude(sobelX, sobelY, gradMag);
+          const gradMagData = gradMag.data32F;
+
           // ── 4. Edge extraction ───────────────────────────────────────
           // Bilateral filtering (rather than plain Gaussian) suppresses
           // high-frequency background texture while preserving strong
@@ -367,7 +481,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           let usedBilateral = false;
           if (cfg.useBilateralFilter) {
             try {
-              cv.bilateralFilter(gray, blurred, 9, 75, 75, cv.BORDER_DEFAULT);
+              cv.bilateralFilter(gray, blurred, cfg.bilateralD, cfg.bilateralSigmaColor, cfg.bilateralSigmaSpace, cv.BORDER_DEFAULT);
               usedBilateral = true;
             } catch (bilateralErr) {
               usedBilateral = false;
@@ -465,12 +579,13 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           }
 
           contourList.sort((a, b) => b.area - a.area);
+          const evaluatedContours = contourList.slice(0, cfg.maxContoursToEvaluate);
 
           // ── 6. Quadrilateral search with confidence scoring ──────────
 
           const candidates = []; // {quad, coverage, confidence, maxCos}
 
-          for (const item of contourList) {
+          for (const item of evaluatedContours) {
             // Solidity precheck — rejects jagged/noisy contours (the
             // hallmark of textured-background false positives) before
             // spending time on polygon approximation.
@@ -552,7 +667,18 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                   const aspect = Math.max(avgW, avgH) / (Math.min(avgW, avgH) + 1e-10);
                   const aspectScore = aspect > 4 ? 0.3 : 1.0;
 
-                  const confidence = (rectScore * 0.4 + areaScore * 0.35 + aspectScore * 0.25);
+                  // Edge strength: real document boundaries have a much
+                  // stronger intensity gradient than a coincidental noise
+                  // quad, so this is weighted as heavily as rectangularity.
+                  const edgeStrengthRaw = sampleEdgeStrength(gradMagData, width, height, pts, cfg.edgeStrengthSampleCount);
+                  const edgeStrengthScore = Math.min(1, edgeStrengthRaw / cfg.edgeStrengthNormalization);
+
+                  const confidence = (
+                    rectScore * 0.30 +
+                    areaScore * 0.20 +
+                    aspectScore * 0.20 +
+                    edgeStrengthScore * 0.30
+                  );
 
                   if (confidence >= cfg.minConfidence) {
                     // Build normalized quad
