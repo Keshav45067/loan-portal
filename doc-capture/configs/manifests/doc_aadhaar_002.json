@@ -11,7 +11,8 @@
       "title": { "English": "front side", "Hindi": "सामने का हिस्सा" },
       "anchors": ["Government of India", "DOB", "Year of Birth"],
       "provides": ["doc_aadhaar_name", "doc_aadhaar_dob", "doc_aadhaar_gender", "doc_aadhaar_last4"],
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     },
     {
       "id": "back",
@@ -19,7 +20,8 @@
       "title": { "English": "back side", "Hindi": "पीछे का हिस्सा" },
       "anchors": ["Address", "S/O", "D/O", "W/O", "C/O", "PIN"],
       "provides": ["doc_aadhaar_address", "doc_aadhaar_last4"],
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     }
   ],
   "sources": [

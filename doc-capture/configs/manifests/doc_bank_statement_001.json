@@ -29,7 +29,8 @@
       ],
       "provides": ["full_name"],
       "page_count": 1,
-      "orientation": "portrait"
+      "orientation": "portrait",
+      "spotting": false
     },
     {
       "id": "cheques",
@@ -50,7 +51,8 @@
       ],
       "provides": ["cheques"],
       "page_count": 0,
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     }
   ],
   "quality": {

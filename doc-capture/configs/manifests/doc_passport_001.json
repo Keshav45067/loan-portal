@@ -54,7 +54,8 @@
         "doc_passport_date_of_expiry",
         "doc_passport_place_of_birth"
       ],
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     },
     {
       "id": "passport_back",
@@ -79,7 +80,8 @@
         "doc_passport_address",
         "doc_passport_file_number"
       ],
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     },
     {
       "id": "passport_visas",
@@ -104,7 +106,8 @@
       "provides": [
         "doc_passport_visas"
       ],
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "spotting": false
     }
   ],
   "sources": [

@@ -66,13 +66,16 @@ async def run_quality_gate(
 
     while attempts < max_attempts:
         try:
-            # Check if the expected part specifies table recognition format
+            # Check if the expected part specifies table recognition format or spotting
             is_table = False
+            spotting_flag = False
             if part_id:
                 for part in manifest.get("parts", []):
                     if part.get("id") == part_id:
                         if part.get("table") is True:
                             is_table = True
+                        if part.get("spotting") is True:
+                            spotting_flag = True
                         break
 
             ocr_hint = "Table Recognition:" if is_table else document_id
@@ -80,7 +83,8 @@ async def run_quality_gate(
             ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
                 image_data=current_image_bytes,
                 language=language,
-                hint=ocr_hint
+                hint=ocr_hint,
+                spotting=spotting_flag
             ), timeout=30.0)
             
             if not ocr_res.success:
