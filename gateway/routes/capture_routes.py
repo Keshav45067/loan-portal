@@ -179,6 +179,28 @@ async def get_document_config(document_id: str, request: Request):
         logger.error(f"get_document_config failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
+@router.get("/api/capture/fields-registry")
+def get_fields_registry():
+    try:
+        path = "/Users/keshavgarg/Documents/augmen/services/doc-capture/configs/fields.json"
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to read fields.json: {e}")
+        return {}
+
+@router.get("/api/capture/manifest/{document_id}")
+def get_document_manifest(document_id: str):
+    try:
+        path = f"/Users/keshavgarg/Documents/augmen/services/doc-capture/configs/manifests/{document_id}.json"
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error(f"Failed to read manifest {document_id}: {e}")
+        return {}
+
 @router.post("/api/capture/process")
 async def process_document(
     request: Request,

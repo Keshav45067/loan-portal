@@ -82,6 +82,18 @@ const flattenData = (obj, prefix = '') => {
   return result;
 };
 
+const SUB_FIELD_LABELS = {
+  care_of: "C/O",
+  street: "Street",
+  city_village: "City/Village",
+  district: "District",
+  state: "State",
+  pincode: "Pincode",
+  visa_country: "Country",
+  visa_type: "Type",
+  visa_issue_date: "Issue Date"
+};
+
 export default function CaptureFlowPage({ params }) {
   const unwrappedParams = use(params);
   const schemeId = unwrappedParams.schemeId;
@@ -128,6 +140,8 @@ export default function CaptureFlowPage({ params }) {
   // Final Extraction Results State
   const [extractedData, setExtractedData] = useState(null);
   const [fetchingData, setFetchingData] = useState(false);
+  const [fieldsRegistry, setFieldsRegistry] = useState(null);
+  const [manifests, setManifests] = useState({});
 
   // Live guard hook for real time guidance and document edge detection
   const {
@@ -225,17 +239,50 @@ export default function CaptureFlowPage({ params }) {
   useEffect(() => {
     if (state.allComplete && sessionId && token) {
       setFetchingData(true);
-      fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.extracted_data) {
-            setExtractedData(data.extracted_data);
+      
+      const loadAllData = async () => {
+        try {
+          // 1. Fetch application details
+          const appRes = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const appDataJson = await appRes.json();
+          if (appDataJson && appDataJson.extracted_data) {
+            setExtractedData(appDataJson.extracted_data);
           }
-        })
-        .catch(err => console.error("Error fetching completed application data:", err))
-        .finally(() => setFetchingData(false));
+          
+          // 2. Fetch fields registry
+          const fieldsRes = await fetch(`${API_BASE_URL}/api/capture/fields-registry`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const fieldsJson = await fieldsRes.json();
+          setFieldsRegistry(fieldsJson);
+          
+          // 3. For each uploaded document, fetch its manifest config
+          const docTypes = (appDataJson.documents || []).map(d => d.doc_type).filter(Boolean);
+          const uniqueDocTypes = Array.from(new Set(docTypes));
+          
+          const manifestsMap = {};
+          await Promise.all(uniqueDocTypes.map(async (docType) => {
+            try {
+              const manifestRes = await fetch(`${API_BASE_URL}/api/capture/manifest/${docType}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              const manifestJson = await manifestRes.json();
+              manifestsMap[docType] = manifestJson;
+            } catch (err) {
+              console.error(`Failed to load manifest for ${docType}:`, err);
+            }
+          }));
+          setManifests(manifestsMap);
+        } catch (err) {
+          console.error("Error loading final verification data:", err);
+        } finally {
+          setFetchingData(false);
+        }
+      };
+      
+      loadAllData();
     }
   }, [state.allComplete, sessionId, token]);
 
@@ -651,6 +698,90 @@ export default function CaptureFlowPage({ params }) {
     }
   };
 
+  const getPageNameForSlot = (slotId, manifest) => {
+    if (!manifest || !manifest.parts) return "Document Details";
+    const part = manifest.parts.find(p => p.provides && p.provides.includes(slotId));
+    if (part && part.name && part.name.English) {
+      return part.name.English;
+    }
+    return manifest.title?.English || "Document Details";
+  };
+
+  const getValueWithFallback = (slotId, dataObj) => {
+    if (!dataObj) return null;
+    if (dataObj[slotId] !== undefined) return dataObj[slotId];
+    
+    const suffix = slotId.replace(/^doc_[a-z0-9]+_/, '');
+    if (dataObj[suffix] !== undefined) return dataObj[suffix];
+
+    if (slotId === 'doc_aadhaar_name' && dataObj.applicant_name !== undefined) {
+      return dataObj.applicant_name;
+    }
+    if (slotId === 'doc_aadhaar_name' && dataObj.name !== undefined) {
+      return dataObj.name;
+    }
+    return null;
+  };
+
+  const formatExtractedValue = (value, fieldDef) => {
+    if (value === undefined || value === null || value === '') {
+      return <span style={{ color: '#64748b', fontStyle: 'italic' }}>Not Available</span>;
+    }
+
+    const type = fieldDef?.type || 'text';
+
+    if (type === 'object' && typeof value === 'object') {
+      const fields = fieldDef.fields || Object.keys(value);
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+          {fields.map((fKey) => {
+            const fVal = value[fKey];
+            if (fVal === undefined || fVal === null || fVal === '') return null;
+            const subLabel = SUB_FIELD_LABELS[fKey] || formatKey(fKey);
+            return (
+              <div key={fKey} style={{ display: 'flex', gap: '6px' }}>
+                <span style={{ color: '#94a3b8', fontWeight: 500 }}>{subLabel}:</span>
+                <span style={{ color: '#fff' }}>{String(fVal)}</span>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (type === 'array' && Array.isArray(value)) {
+      const itemsDef = fieldDef.items || {};
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
+          {value.map((item, idx) => {
+            if (typeof item === 'object' && item !== null) {
+              const fields = itemsDef.fields || Object.keys(item);
+              return (
+                <div key={idx} style={{ paddingLeft: '8px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ color: '#a7b4fc', fontWeight: 600, fontSize: '0.75rem', marginBottom: '2px' }}>Item {idx + 1}</div>
+                  {fields.map((fKey) => {
+                    const fVal = item[fKey];
+                    if (fVal === undefined || fVal === null || fVal === '') return null;
+                    const subLabel = SUB_FIELD_LABELS[fKey] || formatKey(fKey);
+                    return (
+                      <div key={fKey} style={{ display: 'flex', gap: '6px' }}>
+                        <span style={{ color: '#94a3b8', fontWeight: 500 }}>{subLabel}:</span>
+                        <span style={{ color: '#fff' }}>{String(fVal)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            }
+            return <div key={idx} style={{ color: '#fff' }}>- {String(item)}</div>;
+          })}
+        </div>
+      );
+    }
+
+    return <span style={{ fontFamily: 'monospace', color: '#fff' }}>{String(value)}</span>;
+  };
+
   const renderCompletedTable = () => {
     if (fetchingData) {
       return (
@@ -661,22 +792,30 @@ export default function CaptureFlowPage({ params }) {
       );
     }
 
-    const flatData = extractedData ? flattenData(extractedData) : {};
-    const items = Object.entries(flatData).map(([key, val]) => {
-      let docName = "Application Details";
-      if (key.includes("aadhaar") || key.includes("address")) docName = "Aadhaar Card";
-      else if (key.includes("pan")) docName = "PAN Card";
-      else if (key.includes("passport")) docName = "Passport";
-      else if (key.includes("bank") || key.includes("account")) docName = "Bank Statement";
-      else if (key.includes("udyam") || key.includes("enterprise")) docName = "Udyam Certificate";
+    const items = [];
+    const activeDocTypes = Object.keys(manifests);
 
-      return {
-        key,
-        docName,
-        label: formatKey(key),
-        value: typeof val === 'object' ? JSON.stringify(val) : String(val)
-      };
-    }).filter(item => item.value && item.value !== 'Not Available' && item.value !== '{}');
+    activeDocTypes.forEach((docType) => {
+      const manifest = manifests[docType];
+      if (!manifest) return;
+
+      const expects = manifest.expects || [];
+      expects.forEach((slotId) => {
+        const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
+        const label = fieldDef?.label?.English || formatKey(slotId);
+        const val = getValueWithFallback(slotId, extractedData);
+        const pageName = getPageNameForSlot(slotId, manifest);
+
+        items.push({
+          slotId,
+          docName: manifest.title?.English || "Document",
+          pageName,
+          label,
+          value: val,
+          fieldDef
+        });
+      });
+    });
 
     return (
       <div style={{
@@ -722,9 +861,11 @@ export default function CaptureFlowPage({ params }) {
                   <tbody>
                     {items.map((item, idx) => (
                       <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
-                        <td style={{ padding: '14px 16px', color: '#a7b4fc', fontWeight: 600 }}>{item.docName}</td>
+                        <td style={{ padding: '14px 16px', color: '#a7b4fc', fontWeight: 600 }}>{item.pageName}</td>
                         <td style={{ padding: '14px 16px', color: '#cbd5e1' }}>{item.label}</td>
-                        <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500, fontFamily: 'monospace' }}>{item.value}</td>
+                        <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500 }}>
+                          {formatExtractedValue(item.value, item.fieldDef)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -882,32 +1023,36 @@ export default function CaptureFlowPage({ params }) {
             background: 'rgba(9, 10, 15, 0.75)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '999px',
-            padding: '8px 18px',
+            borderRadius: '20px',
+            padding: '10px 18px',
             maxWidth: '90%',
-            width: 'max-content',
-            margin: '0 auto',
+            width: '100%',
             boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
             fontSize: '0.875rem',
             color: '#fff',
-            pointerEvents: 'auto'
+            pointerEvents: 'auto',
+            flexDirection: 'row',
+            justifyContent: 'flex-start'
           }} className={styles.interactive}>
             {/* Connection Dot */}
             <div style={{
               width: '8px',
               height: '8px',
               borderRadius: '50%',
+              flexShrink: 0,
               background: qaState === 'listening' ? '#3b82f6' : qaState === 'speaking' ? '#10b981' : qaState === 'processing' ? '#a78bfa' : '#64748b',
               boxShadow: qaState === 'listening' ? '0 0 8px #3b82f6' : qaState === 'speaking' ? '0 0 8px #10b981' : qaState === 'processing' ? '0 0 8px #a78bfa' : 'none'
             }}></div>
             
             {/* Status & Live Transcript */}
-            <span style={{ fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
-              {qaState === 'listening' ? 'Listening' : qaState === 'processing' ? 'Processing' : qaState === 'speaking' ? 'Speaking' : 'Standby'}:
-            </span>
-            <span style={{ color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>
-              {transcript || (qaState === 'listening' ? 'Speak now...' : qaState === 'processing' ? 'Thinking...' : 'Voice assistant ready')}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+              <span style={{ fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                {qaState === 'listening' ? 'Listening' : qaState === 'processing' ? 'Processing' : qaState === 'speaking' ? 'Speaking' : 'Standby'}:
+              </span>
+              <span style={{ color: '#fff', fontWeight: 500, wordBreak: 'break-word', whiteSpace: 'normal', textAlign: 'left' }}>
+                {transcript || (qaState === 'listening' ? 'Speak now...' : qaState === 'processing' ? 'Thinking...' : 'Voice assistant ready')}
+              </span>
+            </div>
           </div>
 
           <div className={styles.leftControls} style={{ width: '100%', maxWidth: '600px' }}>
