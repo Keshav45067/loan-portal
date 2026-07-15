@@ -257,7 +257,9 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
         try {
           // ── 1. Downsample & convert ──────────────────────────────────
           const width = 640;
-          const height = Math.floor(video.videoHeight * (width / video.videoWidth)) || 480;
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 480;
+          const height = Math.floor(vh * (width / vw)) || 480;
 
           canvas.width = width;
           canvas.height = height;
@@ -291,7 +293,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               
               const M = mat(cv.getPerspectiveTransform(srcMat, dstMat));
               const warpedGray = mat(new cv.Mat());
-              cv.warpPerspective(gray, warpedGray, M, new cv.Size(dstW, dstH), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+              cv.warpPerspective(gray, warpedGray, M, new cv.Size(dstW, dstH));
               
               const laplacian = mat(new cv.Mat());
               cv.Laplacian(warpedGray, laplacian, cv.CV_64F, 1);

@@ -461,7 +461,7 @@ export default function CaptureFlowPage({ params }) {
 
         const warped = new cv.Mat();
         matsToDelete.push(warped);
-        cv.warpPerspective(src, warped, M, new cv.Size(dstW, dstH), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+        cv.warpPerspective(src, warped, M, new cv.Size(dstW, dstH));
 
         // Copy warped pixels to canvas (must happen before Mat cleanup)
         canvas.width = dstW;
