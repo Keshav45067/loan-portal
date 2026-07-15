@@ -242,7 +242,7 @@ export default function CaptureFlowPage({ params }) {
       
       const loadAllData = async () => {
         try {
-          // 1. Fetch application details
+          // 1. Fetch extracted data from application
           const appRes = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
@@ -251,30 +251,17 @@ export default function CaptureFlowPage({ params }) {
             setExtractedData(appDataJson.extracted_data);
           }
           
-          // 2. Fetch fields registry
-          const fieldsRes = await fetch(`${API_BASE_URL}/api/capture/fields-registry`, {
+          // 2. Fetch scheme config (manifests + fields registry) using schemeId from URL
+          const schemeRes = await fetch(`${API_BASE_URL}/api/capture/scheme-docs/${schemeId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           });
-          const fieldsJson = await fieldsRes.json();
-          setFieldsRegistry(fieldsJson);
-          
-          // 3. For each uploaded document, fetch its manifest config
-          const docTypes = (appDataJson.documents || []).map(d => d.doc_type).filter(Boolean);
-          const uniqueDocTypes = Array.from(new Set(docTypes));
-          
-          const manifestsMap = {};
-          await Promise.all(uniqueDocTypes.map(async (docType) => {
-            try {
-              const manifestRes = await fetch(`${API_BASE_URL}/api/capture/manifest/${docType}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-              });
-              const manifestJson = await manifestRes.json();
-              manifestsMap[docType] = manifestJson;
-            } catch (err) {
-              console.error(`Failed to load manifest for ${docType}:`, err);
-            }
-          }));
-          setManifests(manifestsMap);
+          const schemeData = await schemeRes.json();
+          if (schemeData.manifests) {
+            setManifests(schemeData.manifests);
+          }
+          if (schemeData.fields_registry) {
+            setFieldsRegistry(schemeData.fields_registry);
+          }
         } catch (err) {
           console.error("Error loading final verification data:", err);
         } finally {
@@ -284,7 +271,7 @@ export default function CaptureFlowPage({ params }) {
       
       loadAllData();
     }
-  }, [state.allComplete, sessionId, token]);
+  }, [state.allComplete, sessionId, token, schemeId]);
 
   const startSession = () => {
     // Initialize and resume AudioContext synchronously in click handler

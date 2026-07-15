@@ -182,7 +182,8 @@ async def get_document_config(document_id: str, request: Request):
 @router.get("/api/capture/fields-registry")
 def get_fields_registry():
     try:
-        path = "/Users/keshavgarg/Documents/augmen/services/doc-capture/configs/fields.json"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, "..", "..", "doc-capture", "configs", "fields.json")
         import json
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -193,13 +194,59 @@ def get_fields_registry():
 @router.get("/api/capture/manifest/{document_id}")
 def get_document_manifest(document_id: str):
     try:
-        path = f"/Users/keshavgarg/Documents/augmen/services/doc-capture/configs/manifests/{document_id}.json"
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, "..", "..", "doc-capture", "configs", "manifests", f"{document_id}.json")
         import json
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
         logger.error(f"Failed to read manifest {document_id}: {e}")
         return {}
+
+@router.get("/api/capture/scheme-docs/{scheme_id}")
+def get_scheme_docs(scheme_id: str):
+    """Return required_documents manifests + fields registry for a scheme, in a single call."""
+    import json
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    try:
+        # 1. Load scheme config
+        scheme_path = os.path.join(current_dir, "..", "..", "doc-capture", "configs", "schemes", f"{scheme_id}.json")
+        with open(scheme_path, "r", encoding="utf-8") as f:
+            scheme = json.load(f)
+        required_docs = scheme.get("required_documents", [])
+        
+        # 2. Load each manifest
+        manifests = {}
+        for doc_id in required_docs:
+            manifest_path = os.path.join(current_dir, "..", "..", "doc-capture", "configs", "manifests", f"{doc_id}.json")
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as f:
+                    manifests[doc_id] = json.load(f)
+            except Exception as e:
+                logger.error(f"Failed to read manifest {doc_id}: {e}")
+        
+        # 3. Load fields registry
+        fields_path = os.path.join(current_dir, "..", "..", "doc-capture", "configs", "fields.json")
+        fields_registry = {}
+        try:
+            with open(fields_path, "r", encoding="utf-8") as f:
+                fields_registry = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to read fields.json: {e}")
+        
+        return {
+            "success": True,
+            "scheme_id": scheme_id,
+            "required_documents": required_docs,
+            "manifests": manifests,
+            "fields_registry": fields_registry
+        }
+    except FileNotFoundError:
+        logger.error(f"Scheme config not found: {scheme_id}")
+        return {"success": False, "error": f"Scheme '{scheme_id}' not found", "manifests": {}, "fields_registry": {}}
+    except Exception as e:
+        logger.error(f"get_scheme_docs failed: {e}")
+        return {"success": False, "error": str(e), "manifests": {}, "fields_registry": {}}
 
 @router.post("/api/capture/process")
 async def process_document(
