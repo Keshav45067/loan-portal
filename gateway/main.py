@@ -30,6 +30,7 @@ from routes.application_routes import router as application_router
 from routes.document_routes import router as document_router
 from routes.tts_routes import router as tts_router
 from routes.capture_routes import router as capture_router
+from routes.sandbox_pipeline_routes import router as sandbox_pipeline_router
 
 logger = get_logger("gateway")
 
@@ -60,6 +61,7 @@ app.include_router(application_router)
 app.include_router(document_router)
 app.include_router(tts_router)
 app.include_router(capture_router)
+app.include_router(sandbox_pipeline_router)
 
 
 # ─── Health Check ───
