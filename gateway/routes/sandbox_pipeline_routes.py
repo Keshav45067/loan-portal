@@ -42,6 +42,7 @@ class StepRequest(BaseModel):
     page_id: str
     language: str = "en"
     document_id: str = "doc_sandbox"
+    is_final_step: bool = False
 
 @router.post("/init")
 async def init_pipeline_sandbox(
@@ -131,6 +132,74 @@ async def init_pipeline_sandbox(
             "qr_coordinates": report.qr_coordinates
         }
         
+        # 5. Run Quality Gate immediately on original image if no decisions are planned
+        quality_gate_res = None
+        if len(decisions) == 0:
+            logs.append("[GATE] 0 planned decisions. Running Quality Gate (OCR) on raw image immediately...")
+            ocr_addr = os.getenv("OCR_SERVICE_ADDR", "ocr.augmen.io:443")
+            channel_options = [
+                ("grpc.max_send_message_length", 100 * 1024 * 1024),
+                ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+            ]
+            if "443" in ocr_addr:
+                credentials = grpc.ssl_channel_credentials()
+                channel = grpc.aio.secure_channel(ocr_addr, credentials, options=channel_options)
+            else:
+                channel = grpc.aio.insecure_channel(ocr_addr, options=channel_options)
+            ocr_stub = ocr_pb2_grpc.OCRServiceStub(channel)
+            
+            try:
+                q_res = await run_quality_gate(
+                    image_bytes=image_bytes,
+                    manifest=doc_config,
+                    ocr_stub=ocr_stub,
+                    language=language,
+                    document_id="doc_sandbox",
+                    part_id=page_id
+                )
+                
+                # Perform detailed anchor verification for analysis report
+                translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
+                clean_text = q_res.ocr_text.translate(translit_map)
+                clean_lower_text = clean_text.lower()
+                
+                anchors_detailed = {}
+                parts = doc_config.get("parts", [])
+                for part in parts:
+                    p_id = part.get("id", "")
+                    anchors = part.get("anchors", [])
+                    anchors_detailed[p_id] = []
+                    for a in anchors:
+                        matched = a.lower() in clean_lower_text
+                        anchors_detailed[p_id].append({
+                            "anchor": a,
+                            "matched": matched
+                        })
+                        
+                quality_gate_res = {
+                    "passed": q_res.passed,
+                    "part_id": q_res.part_id,
+                    "ocr_text": q_res.ocr_text,
+                    "ocr_confidence": q_res.ocr_confidence,
+                    "failure_reason": q_res.failure_reason,
+                    "anchor_hits": q_res.anchor_hits,
+                    "anchors_detailed": anchors_detailed
+                }
+                logs.append(f"[GATE-RESULT] Passed: {q_res.passed}, Identified Side: '{q_res.part_id}', Total hits: {q_res.anchor_hits}, OCR Confidence: {q_res.ocr_confidence:.2f}")
+            except Exception as qg_err:
+                logs.append(f"[GATE-ERROR] Quality Gate failed: {str(qg_err)}")
+                quality_gate_res = {
+                    "passed": False,
+                    "error": str(qg_err),
+                    "ocr_text": "",
+                    "ocr_confidence": 0.0,
+                    "failure_reason": "gRPC_error",
+                    "anchor_hits": 0,
+                    "anchors_detailed": {}
+                }
+            finally:
+                await channel.close()
+
         return {
             "success": True,
             "image_base64": base64_image,
@@ -139,7 +208,8 @@ async def init_pipeline_sandbox(
             "manifest": doc_config,
             "page_id": page_id,
             "language": language,
-            "logs": logs
+            "logs": logs,
+            "quality_gate": quality_gate_res
         }
     except Exception as e:
         logger.error(f"Sandbox Init Failed: {e}", error=traceback.format_exc())
@@ -211,85 +281,89 @@ async def execute_pipeline_step(body: StepRequest):
         }
         logs.append(f"[INFO] New metrics: Blur={report.blur:.1f}, Brightness={report.brightness:.3f}, Contrast={report.contrast:.3f}, Glare={report.glare*100:.1f}%, Shadow={report.shadow*100:.1f}%, Skew={report.rotation:.1f}°")
         
-        # 5. Initialize OCR gRPC client stub dynamically (default to secure prod server)
-        ocr_addr = os.getenv("OCR_SERVICE_ADDR", "ocr.augmen.io:443")
-        logs.append(f"[gRPC] Connecting to OCR Service at {ocr_addr}...")
-        
-        channel_options = [
-            ("grpc.max_send_message_length", 100 * 1024 * 1024),
-            ("grpc.max_receive_message_length", 100 * 1024 * 1024),
-        ]
-        
-        if "443" in ocr_addr:
-            credentials = grpc.ssl_channel_credentials()
-            channel = grpc.aio.secure_channel(ocr_addr, credentials, options=channel_options)
-            logs.append("[gRPC] Established SECURE (SSL/TLS) channel to OCR Service.")
+        # 5. Initialize OCR gRPC client stub dynamically if final step
+        quality_gate_res = None
+        if body.is_final_step:
+            ocr_addr = os.getenv("OCR_SERVICE_ADDR", "ocr.augmen.io:443")
+            logs.append(f"[gRPC] Connecting to OCR Service at {ocr_addr}...")
+            
+            channel_options = [
+                ("grpc.max_send_message_length", 100 * 1024 * 1024),
+                ("grpc.max_receive_message_length", 100 * 1024 * 1024),
+            ]
+            
+            if "443" in ocr_addr:
+                credentials = grpc.ssl_channel_credentials()
+                channel = grpc.aio.secure_channel(ocr_addr, credentials, options=channel_options)
+                logs.append("[gRPC] Established SECURE (SSL/TLS) channel to OCR Service.")
+            else:
+                channel = grpc.aio.insecure_channel(ocr_addr, options=channel_options)
+                logs.append("[gRPC] Established INSECURE channel to OCR Service.")
+                
+            ocr_stub = ocr_pb2_grpc.OCRServiceStub(channel)
+            
+            # 6. Run Quality Gate (OCR + Anchor Matching)
+            quality_gate_res = {"passed": False, "error": "Quality gate not run", "anchors_detailed": {}}
+            try:
+                logs.append(f"[GATE] Running Quality Gate check (Target page ID: '{body.page_id}')...")
+                q_res = await run_quality_gate(
+                    image_bytes=new_image_bytes,
+                    manifest=doc_config,
+                    ocr_stub=ocr_stub,
+                    language=body.language,
+                    document_id=body.document_id,
+                    part_id=body.page_id
+                )
+                
+                # Perform detailed anchor verification for analysis report
+                translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
+                clean_text = q_res.ocr_text.translate(translit_map)
+                clean_lower_text = clean_text.lower()
+                
+                anchors_detailed = {}
+                parts = doc_config.get("parts", [])
+                for part in parts:
+                    p_id = part.get("id", "")
+                    anchors = part.get("anchors", [])
+                    anchors_detailed[p_id] = []
+                    for a in anchors:
+                        matched = a.lower() in clean_lower_text
+                        anchors_detailed[p_id].append({
+                            "anchor": a,
+                            "matched": matched
+                        })
+                        match_str = "[MATCHED]  " if matched else "[UNMATCHED]"
+                        logs.append(f"[GATE-ANCHORS] Part '{p_id}' -> {match_str} '{a}'")
+                        
+                quality_gate_res = {
+                    "passed": q_res.passed,
+                    "part_id": q_res.part_id,
+                    "ocr_text": q_res.ocr_text,
+                    "ocr_confidence": q_res.ocr_confidence,
+                    "failure_reason": q_res.failure_reason,
+                    "anchor_hits": q_res.anchor_hits,
+                    "anchors_detailed": anchors_detailed
+                }
+                logs.append(f"[GATE-RESULT] Passed: {q_res.passed}, Identified Side: '{q_res.part_id}', Total hits: {q_res.anchor_hits}, OCR Confidence: {q_res.ocr_confidence:.2f}")
+                if not q_res.passed:
+                    logs.append(f"[GATE-WARNING] Quality Gate failed. Reason: '{q_res.failure_reason}'")
+            except Exception as qg_err:
+                logs.append(f"[GATE-ERROR] Quality Gate failed with exception: {str(qg_err)}")
+                logger.error(f"QualityGate run failed in sandbox: {qg_err}")
+                quality_gate_res = {
+                    "passed": False,
+                    "error": str(qg_err),
+                    "ocr_text": "",
+                    "ocr_confidence": 0.0,
+                    "failure_reason": "gRPC_error",
+                    "anchor_hits": 0,
+                    "anchors_detailed": {}
+                }
+            finally:
+                await channel.close()
+                logs.append("[gRPC] OCR Service channel closed.")
         else:
-            channel = grpc.aio.insecure_channel(ocr_addr, options=channel_options)
-            logs.append("[gRPC] Established INSECURE channel to OCR Service.")
-            
-        ocr_stub = ocr_pb2_grpc.OCRServiceStub(channel)
-        
-        # 6. Run Quality Gate (OCR + Anchor Matching)
-        quality_gate_res = {"passed": False, "error": "Quality gate not run", "anchors_detailed": {}}
-        try:
-            logs.append(f"[GATE] Running Quality Gate check (Target page ID: '{body.page_id}')...")
-            q_res = await run_quality_gate(
-                image_bytes=new_image_bytes,
-                manifest=doc_config,
-                ocr_stub=ocr_stub,
-                language=body.language,
-                document_id=body.document_id,
-                part_id=body.page_id
-            )
-            
-            # Perform detailed anchor verification for analysis report
-            translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
-            clean_text = q_res.ocr_text.translate(translit_map)
-            clean_lower_text = clean_text.lower()
-            
-            anchors_detailed = {}
-            parts = doc_config.get("parts", [])
-            for part in parts:
-                p_id = part.get("id", "")
-                anchors = part.get("anchors", [])
-                anchors_detailed[p_id] = []
-                for a in anchors:
-                    matched = a.lower() in clean_lower_text
-                    anchors_detailed[p_id].append({
-                        "anchor": a,
-                        "matched": matched
-                    })
-                    match_str = "[MATCHED]  " if matched else "[UNMATCHED]"
-                    logs.append(f"[GATE-ANCHORS] Part '{p_id}' -> {match_str} '{a}'")
-                    
-            quality_gate_res = {
-                "passed": q_res.passed,
-                "part_id": q_res.part_id,
-                "ocr_text": q_res.ocr_text,
-                "ocr_confidence": q_res.ocr_confidence,
-                "failure_reason": q_res.failure_reason,
-                "anchor_hits": q_res.anchor_hits,
-                "anchors_detailed": anchors_detailed
-            }
-            logs.append(f"[GATE-RESULT] Passed: {q_res.passed}, Identified Side: '{q_res.part_id}', Total hits: {q_res.anchor_hits}, OCR Confidence: {q_res.ocr_confidence:.2f}")
-            if not q_res.passed:
-                logs.append(f"[GATE-WARNING] Quality Gate failed. Reason: '{q_res.failure_reason}'")
-        except Exception as qg_err:
-            logs.append(f"[GATE-ERROR] Quality Gate failed with exception: {str(qg_err)}")
-            logger.error(f"QualityGate run failed in sandbox: {qg_err}")
-            quality_gate_res = {
-                "passed": False,
-                "error": str(qg_err),
-                "ocr_text": "",
-                "ocr_confidence": 0.0,
-                "failure_reason": "gRPC_error",
-                "anchor_hits": 0,
-                "anchors_detailed": {}
-            }
-        finally:
-            await channel.close()
-            logs.append("[gRPC] OCR Service channel closed.")
+            logs.append("[GATE] Intermediate step: skipping OCR and Quality Gate checks.")
             
         # Encode intermediate image back to base64
         base64_image = base64.b64encode(new_image_bytes).decode("utf-8")

@@ -137,7 +137,7 @@ export default function SandboxPipelinePage() {
         imageSrc: `data:image/jpeg;base64,${data.image_base64}`,
         metrics: data.metrics,
         decisions: data.decisions,
-        qualityGate: null,
+        qualityGate: data.quality_gate,
         logs: data.logs || []
       }]);
       setDecisions(data.decisions);
@@ -162,6 +162,8 @@ export default function SandboxPipelinePage() {
     // Use the base64 from the most recent step
     const currentStepImage = steps[steps.length - 1].imageSrc.replace(/^data:image\/[a-z]+;base64,/, '');
 
+    const isFinal = currentStepIndex === decisions.length - 1;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/sandbox/pipeline/step`, {
         method: "POST",
@@ -172,7 +174,8 @@ export default function SandboxPipelinePage() {
           reason: nextDecision.reason,
           manifest_json: manifestStr,
           page_id: pageId,
-          language: language
+          language: language,
+          is_final_step: isFinal
         })
       });
 
