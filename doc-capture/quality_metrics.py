@@ -170,6 +170,41 @@ def detect_qr_codes(img: Image.Image) -> tuple:
                 coords.append({"x": min_x, "y": min_y, "width": w, "height": h})
             return True, coords
             
+        # 3. Sobel morphology fallback (detects high-density QR code textures like Secure Aadhaar QR codes)
+        kernel_size = max(9, int(orig_w * 0.02) | 1) # ~2% of image width
+        gradX = cv2.Sobel(gray, ddepth=cv2.CV_32F, dx=1, dy=0, ksize=-1)
+        gradY = cv2.Sobel(gray, ddepth=cv2.CV_32F, dx=0, dy=1, ksize=-1)
+        gradient = cv2.subtract(gradX, gradY)
+        gradient = cv2.convertScaleAbs(gradient)
+
+        blurred = cv2.blur(gradient, (9, 9))
+        (_, thresh_sobel) = cv2.threshold(blurred, 225, 255, cv2.THRESH_BINARY)
+
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+        closed = cv2.morphologyEx(thresh_sobel, cv2.MORPH_CLOSE, kernel)
+        closed = cv2.erode(closed, None, iterations=4)
+        closed = cv2.dilate(closed, None, iterations=4)
+
+        contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        coords = []
+        total_area = orig_w * orig_h
+        for c in contours:
+            x, y, cw, ch = cv2.boundingRect(c)
+            aspect_ratio = float(cw) / ch
+            area = cv2.contourArea(c)
+            area_ratio = area / total_area
+            
+            rect_area = cw * ch
+            solidity = float(area) / rect_area if rect_area > 0 else 0
+            
+            # QR codes are square, occupy 1% to 35% of page, and are dense solid squares
+            if 0.75 <= aspect_ratio <= 1.3 and 0.01 <= area_ratio <= 0.35 and solidity > 0.65:
+                coords.append({"x": x, "y": y, "width": cw, "height": ch})
+                
+        if coords:
+            return True, coords
+            
         return False, []
     except Exception as e:
         logger.error(f"Error detecting QR codes: {e}")
