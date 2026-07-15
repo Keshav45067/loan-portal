@@ -38,6 +38,7 @@ DEFAULT_THRESHOLDS = {
 ACTION_ORDER = [
     "auto_deskew",
     "crop_to_overlay",
+    "mask_qr_codes",
     "white_balance",
     "denoise",
     "gamma",
@@ -116,6 +117,11 @@ def decide_recovery(
     # 9. Denoise (if enabled)
     if quality_policy.get("allow_denoise", False):
         decisions.append(RecoveryDecision("denoise", "Noise reduction requested by policy"))
+
+    # 10. QR Code Masking (if has QR code and enabled by policy)
+    if report.has_qr_codes:
+        if quality_policy.get("allow_qr_masking", True) or quality_policy.get("allow_qr_code_masking", True):
+            decisions.append(RecoveryDecision("mask_qr_codes", f"Detected {len(report.qr_coordinates)} QR code(s) requiring masking"))
 
     # Cap total actions to 3 to prevent over-processing / high latency
     if len(decisions) > 3:

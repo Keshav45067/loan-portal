@@ -40,7 +40,8 @@
     "allow_denoise": false,
     "allow_gamma": true,
     "allow_white_balance": false,
-    "allow_sharpen": true
+    "allow_sharpen": true,
+    "allow_qr_masking": true
   },
   "prompts": {
     "ask_part": {

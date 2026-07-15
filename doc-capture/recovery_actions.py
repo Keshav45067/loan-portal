@@ -104,6 +104,28 @@ def white_balance(img: Image.Image) -> Image.Image:
         logger.error(f"Error in white_balance: {e}")
         return img
 
+def mask_qr_codes(img: Image.Image) -> Image.Image:
+    """Detects QR codes and masks their regions with solid white blocks."""
+    try:
+        cv_img = np.array(img.convert('RGB'))
+        cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
+        detector = cv2.QRCodeDetector()
+        retval, points = detector.detectMulti(cv_img)
+        if retval and points is not None:
+            for pts in points:
+                min_x = int(np.min(pts[:, 0]))
+                min_y = int(np.min(pts[:, 1]))
+                max_x = int(np.max(pts[:, 0]))
+                max_y = int(np.max(pts[:, 1]))
+                # Draw a solid white rectangle to mask the QR code region
+                cv2.rectangle(cv_img, (min_x, min_y), (max_x, max_y), (255, 255, 255), -1)
+            masked_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
+            return Image.fromarray(masked_rgb)
+        return img
+    except Exception as e:
+        logger.error(f"Error in mask_qr_codes action: {e}")
+        return img
+
 RECOVERY_ACTIONS = {
     "auto_deskew": auto_deskew,
     "remove_glare": remove_glare,
@@ -112,7 +134,8 @@ RECOVERY_ACTIONS = {
     "sharpen": sharpen,
     "denoise": denoise,
     "gamma": gamma,
-    "white_balance": white_balance
+    "white_balance": white_balance,
+    "mask_qr_codes": mask_qr_codes
 }
 
 RECOVERY_METADATA: Dict[str, Dict[str, Any]] = {
@@ -163,6 +186,12 @@ RECOVERY_METADATA: Dict[str, Dict[str, Any]] = {
         "safe_before_detector": True,
         "safe_after_detector": True,
         "estimated_cost": 2.5
+    },
+    "mask_qr_codes": {
+        "purpose": "Find and mask QR codes with solid blocks.",
+        "safe_before_detector": True,
+        "safe_after_detector": True,
+        "estimated_cost": 2.0
     }
 }
 

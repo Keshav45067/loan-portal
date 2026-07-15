@@ -82,7 +82,8 @@ async def init_pipeline_sandbox(
             "allow_denoise": False,
             "allow_gamma": False,
             "allow_white_balance": False,
-            "allow_sharpen": False
+            "allow_sharpen": False,
+            "allow_qr_masking": True
         })
         if "quality_policy" not in doc_config and "preprocessing" in doc_config:
             pre_flags = doc_config["preprocessing"]
@@ -93,7 +94,8 @@ async def init_pipeline_sandbox(
                 "allow_denoise": "denoise" in pre_flags,
                 "allow_gamma": "gamma" in pre_flags,
                 "allow_white_balance": "white_balance" in pre_flags,
-                "allow_sharpen": "sharpen" in pre_flags
+                "allow_sharpen": "sharpen" in pre_flags,
+                "allow_qr_masking": "mask_qr_codes" in pre_flags
             }
         logs.append(f"[INFO] Applied Quality Policy: {json.dumps(quality_policy)}")
 
@@ -124,7 +126,9 @@ async def init_pipeline_sandbox(
             "glare": report.glare,
             "shadow": report.shadow,
             "rotation": report.rotation,
-            "resolution": report.resolution
+            "resolution": report.resolution,
+            "has_qr_codes": report.has_qr_codes,
+            "qr_coordinates": report.qr_coordinates
         }
         
         return {
@@ -201,7 +205,9 @@ async def execute_pipeline_step(body: StepRequest):
             "glare": report.glare,
             "shadow": report.shadow,
             "rotation": report.rotation,
-            "resolution": report.resolution
+            "resolution": report.resolution,
+            "has_qr_codes": report.has_qr_codes,
+            "qr_coordinates": report.qr_coordinates
         }
         logs.append(f"[INFO] New metrics: Blur={report.blur:.1f}, Brightness={report.brightness:.3f}, Contrast={report.contrast:.3f}, Glare={report.glare*100:.1f}%, Shadow={report.shadow*100:.1f}%, Skew={report.rotation:.1f}°")
         

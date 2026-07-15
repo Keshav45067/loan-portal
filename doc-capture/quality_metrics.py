@@ -19,6 +19,8 @@ class QualityReport:
     shadow: float
     rotation: float
     resolution: dict  # {"width": int, "height": int}
+    has_qr_codes: bool = False
+    qr_coordinates: list = None
 
 def measure_blur(img: Image.Image) -> float:
     """Calculates Laplacian variance as a proxy for blur."""
@@ -107,6 +109,31 @@ def measure_rotation(img: Image.Image) -> float:
         logger.error(f"Error measuring rotation: {e}")
         return 0.0
 
+def detect_qr_codes(img: Image.Image) -> tuple:
+    """Detects QR codes using OpenCV's QRCodeDetector.
+    Returns (has_qr_codes, list_of_coordinates) where coordinate is {"x": int, "y": int, "width": int, "height": int}
+    """
+    try:
+        cv_img = np.array(img.convert('RGB'))
+        cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
+        detector = cv2.QRCodeDetector()
+        retval, points = detector.detectMulti(cv_img)
+        if retval and points is not None:
+            coords = []
+            for pts in points:
+                min_x = int(np.min(pts[:, 0]))
+                min_y = int(np.min(pts[:, 1]))
+                max_x = int(np.max(pts[:, 0]))
+                max_y = int(np.max(pts[:, 1]))
+                w = max(0, max_x - min_x)
+                h = max(0, max_y - min_y)
+                coords.append({"x": min_x, "y": min_y, "width": w, "height": h})
+            return True, coords
+        return False, []
+    except Exception as e:
+        logger.error(f"Error detecting QR codes: {e}")
+        return False, []
+
 def measure_resolution(img: Image.Image) -> dict:
     """Returns width and height of the image."""
     return {"width": img.width, "height": img.height}
@@ -115,6 +142,7 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
     """Loads image and builds a full QualityReport."""
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        has_qr, qr_coords = detect_qr_codes(img)
         return QualityReport(
             blur=measure_blur(img),
             brightness=measure_brightness(img),
@@ -123,7 +151,9 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
             glare=measure_glare(img),
             shadow=measure_shadow(img),
             rotation=measure_rotation(img),
-            resolution=measure_resolution(img)
+            resolution=measure_resolution(img),
+            has_qr_codes=has_qr,
+            qr_coordinates=qr_coords
         )
     except Exception as e:
         logger.error(f"Failed to build quality report: {e}")
@@ -136,5 +166,7 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
             glare=0.0,
             shadow=0.0,
             rotation=0.0,
-            resolution={"width": 0, "height": 0}
+            resolution={"width": 0, "height": 0},
+            has_qr_codes=False,
+            qr_coordinates=[]
         )

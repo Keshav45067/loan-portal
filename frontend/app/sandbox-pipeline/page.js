@@ -45,7 +45,8 @@ const DEFAULT_MANIFEST = {
     "allow_denoise": false,
     "allow_gamma": true,
     "allow_white_balance": false,
-    "allow_sharpen": true
+    "allow_sharpen": true,
+    "allow_qr_masking": true
   },
   "prompts": {
     "ask_part": {
@@ -346,6 +347,18 @@ export default function SandboxPipelinePage() {
                           <span className={styles.metricLabel}>Rotation Angle</span>
                           <span className={styles.metricValue}>{step.metrics.rotation.toFixed(1)}°</span>
                         </div>
+                        <div className={styles.metricItem}>
+                          <span className={styles.metricLabel}>QR Codes Detected</span>
+                          <span className={styles.metricValue}>{step.metrics.has_qr_codes ? `Yes (${step.metrics.qr_coordinates ? step.metrics.qr_coordinates.length : 0})` : 'No'}</span>
+                        </div>
+                        {step.metrics.has_qr_codes && step.metrics.qr_coordinates && step.metrics.qr_coordinates.length > 0 && (
+                          <div className={styles.metricItem} style={{ gridColumn: 'span 2' }}>
+                            <span className={styles.metricLabel}>QR Coordinates</span>
+                            <span className={styles.metricValue} style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
+                              {step.metrics.qr_coordinates.map((c, cIdx) => `[${cIdx+1}] x:${c.x}, y:${c.y}, w:${c.width}, h:${c.height}`).join(' | ')}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
