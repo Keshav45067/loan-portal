@@ -255,6 +255,9 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
         const mat = (m) => { matsToDelete.push(m); return m; };
 
         try {
+          const sm = stateMachineRef.current;
+          const cfg = configRef.current;
+
           // ── 1. Downsample & convert ──────────────────────────────────
           const width = 640;
           const vw = video.videoWidth || 640;
@@ -320,7 +323,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
             blurScore = stdVal * stdVal;
           }
 
-          const cfg = configRef.current;
+
 
           // ── 4. Edge extraction ───────────────────────────────────────
           const blurred = mat(new cv.Mat());
@@ -368,7 +371,7 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
           contourList.sort((a, b) => b.area - a.area);
 
           // ── 6. Quadrilateral search with confidence scoring ──────────
-          const sm = stateMachineRef.current;
+
           const candidates = []; // {quad, coverage, confidence, maxCos}
 
           for (const item of contourList) {

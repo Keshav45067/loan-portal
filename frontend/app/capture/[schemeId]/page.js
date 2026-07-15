@@ -314,12 +314,7 @@ export default function CaptureFlowPage({ params }) {
             
             await manager.connect();
 
-            // Hook visualizer after connect so audioProcessor is initialized
-            if (manager.audioProcessor) {
-                manager.audioProcessor.onVolumeLevel = (l) => {
-                    if (visualizerInstanceRef.current) visualizerInstanceRef.current.updateAudioData(l);
-                };
-            }
+
         };
         startVoice();
     }
