@@ -29,8 +29,8 @@ const DEFAULT_CONFIG = {
   brightExit: 0.70,
 
   // Coverage thresholds (document area relative to frame)
-  farEnterCoverage: 0.18,
-  farExitCoverage: 0.25,
+  farEnterCoverage: 0.12,
+  farExitCoverage: 0.16,
 
   // Blur hysteresis (calibrated for 300x200 cropped quad text focus)
   blurEnter: 35.0,
@@ -518,8 +518,9 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
               const heightR  = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
               
               const minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
-              // Require shortest edge to be at least 500px native resolution for quality OCR
-              if (minEdgeNative < 500) {
+              // Require shortest edge to be at least 500px or 45% of camera stream height
+              const dynamicMinEdgeLimit = Math.min(500, nativeH * 0.45);
+              if (minEdgeNative < dynamicMinEdgeLimit) {
                 isCloseEnough = false;
               }
             }
@@ -543,7 +544,8 @@ export default function useCaptureGuard(videoRef, active, orientation = 'landsca
                 minEdgeNative = Math.min(widthTop, widthBot, heightL, heightR);
               }
 
-              if (!isStillCloseEnough || minEdgeNative < 450) sm.farMisses += 1;
+              const dynamicMinEdgeHysteresisLimit = Math.min(450, nativeH * 0.40);
+              if (!isStillCloseEnough || minEdgeNative < dynamicMinEdgeHysteresisLimit) sm.farMisses += 1;
               else sm.farMisses = 0;
               if (sm.farMisses >= 3) sm.isInFarState = true;
             }
