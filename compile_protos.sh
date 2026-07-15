@@ -15,12 +15,13 @@ fi
 BASE_DIR="/var/www/augmen/testing-services"
 
 echo "🔨 Compiling protobuf stubs..."
-SERVICES=("config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator" "gateway")
+SERVICES=("doc-capture" "config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator" "gateway")
 
 for SERVICE in "${SERVICES[@]}"; do
     if [ -f "${BASE_DIR}/${SERVICE}/Makefile" ]; then
         echo "  Compiling protos for $SERVICE..."
         cd "${BASE_DIR}/${SERVICE}"
+	venv/bin/pip install -r requirements.txt
         make proto
     fi
 done
