@@ -36,7 +36,7 @@
   "doc_udyam_registration_number": { "label": {"English":"Udyam Registration Number"}, "type":"text", "pattern":"^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$", "criticality":"critical" },
   "doc_udyam_enterprise_name": { "label": {"English":"Name of Enterprise"}, "type":"text", "criticality":"critical" },
   "doc_udyam_enterprise_type": { "label": {"English":"Enterprise Type"}, "type":"categorical", "values":["MICRO","SMALL","MEDIUM"], "criticality":"critical" },
-  "doc_udyam_major_activity": { "label": {"English":"Major Activity"}, "type":"categorical", "values":["MANUFACTURING","SERVICES"], "criticality":"standard" },
+  "doc_udyam_major_activity": { "label": {"English":"Major Activity"}, "type":"categorical", "values":["MANUFACTURING","SERVICES","TRADING"], "criticality":"standard" },
   "doc_udyam_social_category": { "label": {"English":"Social Category"}, "type":"categorical", "values":["GENERAL","OBC","SC","ST"], "criticality":"standard" },
   "doc_udyam_date_of_incorporation": { "label": {"English":"Date of Incorporation"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
   "doc_udyam_date_of_commencement": { "label": {"English":"Date of Commencement"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
