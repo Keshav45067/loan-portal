@@ -108,6 +108,9 @@ export default function CaptureLandingPage() {
               <option value="aadhaar">Aadhaar Card (Identity & Address)</option>
               <option value="passport">Passport (Identity, Address & Visas)</option>
               <option value="bank_statement">Bank Statement (Account Details & Cheques)</option>
+              <option value="pan">PAN Card (Identity Verification)</option>
+              <option value="udyam">Udyam Registration Certificate (MSME Verification)</option>
+              <option value="gst">GST Registration Certificate (GST REG-06)</option>
             </select>
           </div>
 

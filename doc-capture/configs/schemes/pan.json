@@ -1,0 +1,11 @@
+{
+  "scheme_id": "pan",
+  "scheme_name": "PAN Card Verification",
+  "description": "Verification of Permanent Account Number (PAN) details using Income Tax Department PAN Card",
+  "required_documents": [
+    "doc_pan_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their PAN Card. Keep answers under 3 sentences."
+  }
+}

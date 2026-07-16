@@ -1,0 +1,11 @@
+{
+  "scheme_id": "gst",
+  "scheme_name": "GST Registration Certificate Verification",
+  "description": "Verification of GST registration details using Form GST REG-06",
+  "required_documents": [
+    "doc_gst_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their GST Registration Certificate. Keep answers under 3 sentences."
+  }
+}

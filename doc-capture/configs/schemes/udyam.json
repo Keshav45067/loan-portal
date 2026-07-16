@@ -1,0 +1,11 @@
+{
+  "scheme_id": "udyam",
+  "scheme_name": "Udyam Registration Certificate Verification",
+  "description": "Verification of MSME status using Udyam Registration Certificate",
+  "required_documents": [
+    "doc_udyam_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their Udyam Registration Certificate. Keep answers under 3 sentences."
+  }
+}
