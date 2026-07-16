@@ -1,34 +1,93 @@
 {
   "document_id": "doc_aadhaar_002",
-  "title": { "English": "Aadhaar Card", "Hindi": "आधार कार्ड" },
-  "proves": ["identity", "address"],
+  "title": {
+    "English": "Aadhaar Card",
+    "Hindi": "आधार कार्ड"
+  },
+  "proves": [
+    "identity",
+    "address"
+  ],
   "required_when": "always",
-  "expects": ["doc_aadhaar_name", "doc_aadhaar_dob", "doc_aadhaar_gender", "doc_aadhaar_last4", "doc_aadhaar_address"],
+  "expects": [
+    "doc_aadhaar_name",
+    "doc_aadhaar_dob",
+    "doc_aadhaar_gender",
+    "doc_aadhaar_last4",
+    "doc_aadhaar_address"
+  ],
   "parts": [
     {
       "id": "front",
-      "name": { "English": "Front Side", "Hindi": "सामने का हिस्सा" },
-      "title": { "English": "front side", "Hindi": "सामने का हिस्सा" },
-      "anchors": ["Government of India", "DOB", "Year of Birth"],
-      "provides": ["doc_aadhaar_name", "doc_aadhaar_dob", "doc_aadhaar_gender", "doc_aadhaar_last4"],
+      "name": {
+        "English": "Front Side",
+        "Hindi": "सामने का हिस्सा"
+      },
+      "title": {
+        "English": "front side",
+        "Hindi": "सामने का हिस्सा"
+      },
+      "anchors": [
+        "Government of India",
+        "DOB",
+        "Year of Birth"
+      ],
+      "provides": [
+        "doc_aadhaar_name",
+        "doc_aadhaar_dob",
+        "doc_aadhaar_gender",
+        "doc_aadhaar_last4"
+      ],
       "orientation": "landscape",
       "spotting": false
     },
     {
       "id": "back",
-      "name": { "English": "Back Side", "Hindi": "पीछे का हिस्सा" },
-      "title": { "English": "back side", "Hindi": "पीछे का हिस्सा" },
-      "anchors": ["Address", "S/O", "D/O", "W/O", "C/O", "PIN"],
-      "provides": ["doc_aadhaar_address", "doc_aadhaar_last4"],
+      "name": {
+        "English": "Back Side",
+        "Hindi": "पीछे का हिस्सा"
+      },
+      "title": {
+        "English": "back side",
+        "Hindi": "पीछे का हिस्सा"
+      },
+      "anchors": [
+        "Address",
+        "S/O",
+        "D/O",
+        "W/O",
+        "C/O",
+        "PIN"
+      ],
+      "provides": [
+        "doc_aadhaar_address",
+        "doc_aadhaar_last4"
+      ],
       "orientation": "landscape",
-      "spotting": false
+      "spotting": true
     }
   ],
   "sources": [
-    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 10 },
-    { "type": "camera" }
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
   ],
-  "ocr": { "lang": ["en", "hi"], "table_mode": false },
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,

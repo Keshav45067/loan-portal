@@ -1,25 +1,66 @@
 {
   "document_id": "doc_pan_001",
-  "title": { "English": "PAN Card", "Hindi": "पैन कार्ड" },
-  "proves": ["identity"],
+  "title": {
+    "English": "PAN Card",
+    "Hindi": "पैन कार्ड"
+  },
+  "proves": [
+    "identity"
+  ],
   "required_when": "always",
-  "expects": ["doc_pan_number", "doc_pan_name", "doc_pan_father_name", "doc_pan_dob"],
+  "expects": [
+    "doc_pan_number",
+    "doc_pan_name",
+    "doc_pan_father_name",
+    "doc_pan_dob"
+  ],
   "parts": [
     {
       "id": "front",
-      "name": { "English": "Front Side", "Hindi": "सामने का हिस्सा" },
-      "title": { "English": "front side", "Hindi": "सामने का हिस्सा" },
-      "anchors": ["Permanent Account Number", "Income Tax Department", "GOVT. OF INDIA"],
-      "provides": ["doc_pan_number", "doc_pan_name", "doc_pan_father_name", "doc_pan_dob"],
+      "name": {
+        "English": "Front Side",
+        "Hindi": "सामने का हिस्सा"
+      },
+      "title": {
+        "English": "front side",
+        "Hindi": "सामने का हिस्सा"
+      },
+      "anchors": [
+        "Permanent Account Number",
+        "Income Tax Department",
+        "GOVT. OF INDIA"
+      ],
+      "provides": [
+        "doc_pan_number",
+        "doc_pan_name",
+        "doc_pan_father_name",
+        "doc_pan_dob"
+      ],
       "orientation": "landscape",
-      "spotting": false
+      "spotting": true
     }
   ],
   "sources": [
-    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 10 },
-    { "type": "camera" }
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
   ],
-  "ocr": { "lang": ["en", "hi"], "table_mode": false },
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
