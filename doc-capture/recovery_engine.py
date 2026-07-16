@@ -94,10 +94,10 @@ def decide_recovery(
         if quality_policy.get("allow_contrast_enhancement", True):
             decisions.append(RecoveryDecision("enhance_contrast", f"Contrast of {report.contrast:.2f} is below threshold of {c_min}"))
 
-    # 4b. Local Contrast (Adaptive Thresholding)
+    # 4b. Local Contrast (Green Channel Boost)
     if getattr(report, "has_low_contrast_regions", False):
-        if quality_policy.get("allow_adaptive_thresholding", False):
-            decisions.append(RecoveryDecision("adaptive_threshold", "Detected local low-contrast text regions in the document"))
+        if quality_policy.get("allow_green_channel", False) or quality_policy.get("allow_green_channel_boost", False):
+            decisions.append(RecoveryDecision("green_channel", "Detected local low-contrast text regions in the document"))
 
     # 5. Glare
     g_max = quality_thresholds.get("glare_max", 0.05)

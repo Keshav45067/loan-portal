@@ -86,7 +86,7 @@
     "allow_white_balance": false,
     "allow_sharpen": true,
     "allow_qr_masking": false,
-    "allow_adaptive_thresholding": false
+    "allow_green_channel": true
   },
   "prompts": {
     "ask_part": {
