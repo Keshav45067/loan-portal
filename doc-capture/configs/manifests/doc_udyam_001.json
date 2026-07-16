@@ -1,7 +1,13 @@
 {
   "document_id": "doc_udyam_001",
-  "title": { "English": "Udyam Registration Certificate", "Hindi": "उद्यम पंजीकरण प्रमाण पत्र" },
-  "proves": ["identity", "financial_standing"],
+  "title": {
+    "English": "Udyam Registration Certificate",
+    "Hindi": "उद्यम पंजीकरण प्रमाण पत्र"
+  },
+  "proves": [
+    "identity",
+    "financial_standing"
+  ],
   "required_when": "always",
   "expects": [
     "doc_udyam_registration_number",
@@ -16,9 +22,21 @@
   "parts": [
     {
       "id": "certificate",
-      "name": { "English": "Certificate Page", "Hindi": "प्रमाण पत्र पृष्ठ" },
-      "title": { "English": "udyam certificate", "Hindi": "उद्यम प्रमाण पत्र" },
-      "anchors": ["UDYAM REGISTRATION CERTIFICATE", "UDYAM", "Name of Enterprise", "Ministry of Micro", "Small & Medium"],
+      "name": {
+        "English": "Certificate Page",
+        "Hindi": "प्रमाण पत्र पृष्ठ"
+      },
+      "title": {
+        "English": "udyam certificate",
+        "Hindi": "उद्यम प्रमाण पत्र"
+      },
+      "anchors": [
+        "UDYAM REGISTRATION CERTIFICATE",
+        "UDYAM",
+        "Name of Enterprise",
+        "Ministry of Micro",
+        "Small & Medium"
+      ],
       "provides": [
         "doc_udyam_registration_number",
         "doc_udyam_enterprise_name",
@@ -30,14 +48,29 @@
         "doc_udyam_enterprise_address"
       ],
       "orientation": "portrait",
-      "spotting": false
+      "spotting": true
     }
   ],
   "sources": [
-    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 15 },
-    { "type": "camera" }
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 15
+    },
+    {
+      "type": "camera"
+    }
   ],
-  "ocr": { "lang": ["en"], "table_mode": false },
+  "ocr": {
+    "lang": [
+      "en"
+    ],
+    "table_mode": false
+  },
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
