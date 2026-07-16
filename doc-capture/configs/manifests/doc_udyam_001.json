@@ -85,7 +85,8 @@
     "allow_gamma": true,
     "allow_white_balance": false,
     "allow_sharpen": true,
-    "allow_qr_masking": false
+    "allow_qr_masking": false,
+    "allow_adaptive_thresholding": true
   },
   "prompts": {
     "ask_part": {

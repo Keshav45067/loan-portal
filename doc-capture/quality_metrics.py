@@ -21,6 +21,7 @@ class QualityReport:
     resolution: dict  # {"width": int, "height": int}
     has_qr_codes: bool = False
     qr_coordinates: list = None
+    has_low_contrast_regions: bool = False
 
 def measure_blur(img: Image.Image) -> float:
     """Calculates Laplacian variance as a proxy for blur."""
@@ -214,11 +215,57 @@ def measure_resolution(img: Image.Image) -> dict:
     """Returns width and height of the image."""
     return {"width": img.width, "height": img.height}
 
+def detect_low_contrast_regions(img: Image.Image) -> bool:
+    """
+    Divides the image into an 8x8 grid. Calculates standard deviation of pixel
+    luminances for each grid block containing details (std_dev >= 5).
+    If there is a significant disparity (e.g. some blocks have high contrast >= 55, 
+    but other detail blocks have low contrast <= 25), returns True.
+    """
+    try:
+        # Resize to a standard dimension to speed up computation and unify grid size
+        small_img = img.convert('L').resize((512, 512), Image.Resampling.BILINEAR)
+        img_np = np.array(small_img, dtype=np.uint8)
+        
+        # Grid size (8x8 blocks, each of size 64x64 pixels)
+        grid_size = 8
+        block_size = 64
+        
+        block_stds = []
+        for i in range(grid_size):
+            for j in range(grid_size):
+                row_start = i * block_size
+                col_start = j * block_size
+                block = img_np[row_start:row_start + block_size, col_start:col_start + block_size]
+                std = float(np.std(block))
+                # Only consider blocks with some content (std >= 5 to filter out solid background)
+                if std >= 5.0:
+                    block_stds.append(std)
+                    
+        if len(block_stds) < 3:
+            return False
+            
+        max_std = max(block_stds)
+        min_std = min(block_stds)
+        
+        # If the image has high-contrast sections (max_std >= 55) 
+        # but also contains low-contrast detail sections (min_std <= 25),
+        # it has a local contrast disparity.
+        if max_std >= 55.0 and min_std <= 25.0:
+            logger.info(f"Local contrast imbalance detected: min_std={min_std:.2f}, max_std={max_std:.2f}")
+            return True
+            
+        return False
+    except Exception as e:
+        logger.error(f"Error checking local contrast: {e}")
+        return False
+
 def build_quality_report(image_bytes: bytes) -> QualityReport:
     """Loads image and builds a full QualityReport."""
     try:
         img = Image.open(io.BytesIO(image_bytes))
         has_qr, qr_coords = detect_qr_codes(img)
+        has_low_contrast = detect_low_contrast_regions(img)
         return QualityReport(
             blur=measure_blur(img),
             brightness=measure_brightness(img),
@@ -229,7 +276,8 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
             rotation=measure_rotation(img),
             resolution=measure_resolution(img),
             has_qr_codes=has_qr,
-            qr_coordinates=qr_coords
+            qr_coordinates=qr_coords,
+            has_low_contrast_regions=has_low_contrast
         )
     except Exception as e:
         logger.error(f"Failed to build quality report: {e}")
@@ -244,5 +292,6 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
             rotation=0.0,
             resolution={"width": 0, "height": 0},
             has_qr_codes=False,
-            qr_coordinates=[]
+            qr_coordinates=[],
+            has_low_contrast_regions=False
         )
