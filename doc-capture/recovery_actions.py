@@ -126,22 +126,15 @@ def mask_qr_codes(img: Image.Image) -> Image.Image:
         logger.error(f"Error in mask_qr_codes action: {e}")
         return img
 
-def adaptive_threshold(img: Image.Image) -> Image.Image:
-    """Applies local adaptive thresholding (Gaussian) to binarize text details."""
+def green_channel(img: Image.Image) -> Image.Image:
+    """Isolates the green channel of the image to improve text readability on red backgrounds."""
     try:
-        # Convert PIL image to grayscale numpy array
-        img_np = np.array(img.convert('L'), dtype=np.uint8)
-        
-        # Apply local adaptive thresholding (Gaussian block size 15, constant C=10)
-        binary = cv2.adaptiveThreshold(
-            img_np, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY, blockSize=15, C=10
-        )
-        
-        # Convert back to RGB format for model/pipeline compatibility
-        return Image.fromarray(cv2.cvtColor(binary, cv2.COLOR_GRAY2RGB))
+        # Split image into RGB components
+        r, g, b = img.split()
+        # Merge green channel as grayscale back to a 3-channel RGB image
+        return Image.merge("RGB", (g, g, g))
     except Exception as e:
-        logger.error(f"Error in adaptive_threshold action: {e}")
+        logger.error(f"Error in green_channel action: {e}")
         return img
 
 RECOVERY_ACTIONS = {
@@ -154,7 +147,7 @@ RECOVERY_ACTIONS = {
     "gamma": gamma,
     "white_balance": white_balance,
     "mask_qr_codes": mask_qr_codes,
-    "adaptive_threshold": adaptive_threshold
+    "green_channel": green_channel
 }
 
 RECOVERY_METADATA: Dict[str, Dict[str, Any]] = {

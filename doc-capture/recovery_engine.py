@@ -44,7 +44,7 @@ ACTION_ORDER = [
     "gamma",
     "remove_glare",
     "enhance_contrast",
-    "adaptive_threshold",
+    "green_channel",
     "sharpen"
 ]
 
