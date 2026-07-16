@@ -1,7 +1,14 @@
 {
   "document_id": "doc_gst_001",
-  "title": { "English": "GST Registration Certificate", "Hindi": "जीएसटी पंजीकरण प्रमाण पत्र" },
-  "proves": ["identity", "financial_standing", "address"],
+  "title": {
+    "English": "GST Registration Certificate",
+    "Hindi": "जीएसटी पंजीकरण प्रमाण पत्र"
+  },
+  "proves": [
+    "identity",
+    "financial_standing",
+    "address"
+  ],
   "required_when": "always",
   "expects": [
     "doc_gst_registration_number",
@@ -9,7 +16,6 @@
     "doc_gst_trade_name",
     "doc_gst_constitution_of_business",
     "doc_gst_principal_address",
-    "doc_gst_date_of_liability",
     "doc_gst_date_of_registration",
     "doc_gst_registration_type",
     "doc_gst_approving_authority"
@@ -17,16 +23,27 @@
   "parts": [
     {
       "id": "main_page",
-      "name": { "English": "Main Page", "Hindi": "मुख्य पृष्ठ" },
-      "title": { "English": "gst certificate main page", "Hindi": "जीएसटी प्रमाण पत्र मुख्य पृष्ठ" },
-      "anchors": ["Registration Certificate", "GSTIN", "Legal Name", "Constitution of Business", "Principal Place of Business"],
+      "name": {
+        "English": "Main Page",
+        "Hindi": "मुख्य पृष्ठ"
+      },
+      "title": {
+        "English": "gst certificate main page",
+        "Hindi": "जीएसटी प्रमाण पत्र मुख्य पृष्ठ"
+      },
+      "anchors": [
+        "Registration Certificate",
+        "GSTIN",
+        "Legal Name",
+        "Constitution of Business",
+        "Principal Place of Business"
+      ],
       "provides": [
         "doc_gst_registration_number",
         "doc_gst_legal_name",
         "doc_gst_trade_name",
         "doc_gst_constitution_of_business",
         "doc_gst_principal_address",
-        "doc_gst_date_of_liability",
         "doc_gst_date_of_registration",
         "doc_gst_registration_type",
         "doc_gst_approving_authority"
@@ -36,10 +53,25 @@
     }
   ],
   "sources": [
-    { "type": "upload", "formats": ["image/jpeg", "image/png", "application/pdf"], "max_mb": 15 },
-    { "type": "camera" }
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 15
+    },
+    {
+      "type": "camera"
+    }
   ],
-  "ocr": { "lang": ["en"], "table_mode": false },
+  "ocr": {
+    "lang": [
+      "en"
+    ],
+    "table_mode": false
+  },
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
