@@ -104,7 +104,12 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
 def get_localized_prompt(manifest: dict, key: str, language: str) -> str:
     prompts = manifest.get("prompts", {})
     localized = prompts.get(key, {})
-    return localized.get(language, localized.get("en", ""))
+    val = localized.get(language, localized.get("en", ""))
+    if not val and key == "error_low_light":
+        if language == "hi":
+            return "कम रोशनी पाई गई। कृपया फ्लैश चालू करें या अधिक रोशनी वाले क्षेत्र में जाएं।"
+        return "Low light detected. Please enable flash or move to a brighter area."
+    return val
 
 
 class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
@@ -422,7 +427,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             blur_floor = quality_config.get("blur_unrecoverable_floor", 30.0)
             if report.blur < blur_floor:
                 logger.warning(f"ProcessDocument: quality check failed: blur {report.blur:.2f} is below floor {blur_floor}")
-                val_error_key = "error_blur"
+                val_error_key = "error_low_light" if report.brightness < 0.35 else "error_blur"
                 error_text = get_localized_prompt(doc_config, val_error_key, session.language)
                 return pb2.ProcessDocResponse(
                     success=False,
@@ -454,6 +459,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             if not quality_res.passed:
                 logger.warning(f"ProcessDocument: quality gate failed with reason '{quality_res.failure_reason}'")
                 val_error_key = f"error_{quality_res.failure_reason}" if quality_res.failure_reason else "error_invalid_document"
+                if quality_res.failure_reason == "blur" and report.brightness < 0.35:
+                    val_error_key = "error_low_light"
                 error_text = get_localized_prompt(doc_config, val_error_key, session.language)
                 return pb2.ProcessDocResponse(
                     success=False,

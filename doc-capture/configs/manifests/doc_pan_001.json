@@ -64,7 +64,7 @@
   "quality": {
     "min_box_confidence": 0.50,
     "min_anchor_hits": 2,
-    "blur_var_min": 200,
+    "blur_var_min": 100,
     "blur_unrecoverable_floor": 30.0
   },
   "quality_policy": {

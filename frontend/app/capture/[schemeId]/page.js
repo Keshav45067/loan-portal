@@ -131,6 +131,25 @@ export default function CaptureFlowPage({ params }) {
   const [processingDoc, setProcessingDoc] = useState(false);
   const autoCaptureTriggeredRef = useRef(false);
 
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+
+  const toggleTorch = useCallback(async () => {
+    if (!streamRef.current || !torchSupported) return;
+    try {
+      const track = streamRef.current.getVideoTracks()[0];
+      if (track) {
+        const nextState = !torchOn;
+        await track.applyConstraints({
+          advanced: [{ torch: nextState }]
+        });
+        setTorchOn(nextState);
+      }
+    } catch (e) {
+      console.error("Error toggling torch:", e);
+    }
+  }, [torchOn, torchSupported]);
+
   // Voice Agent State
   const [qaState, setQaState] = useState('idle');
   const [transcript, setTranscript] = useState('');
@@ -326,6 +345,8 @@ export default function CaptureFlowPage({ params }) {
       streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = null;
     }
+    setTorchSupported(false);
+    setTorchOn(false);
   }, []);
 
   const startCamera = useCallback(async (facingMode) => {
@@ -336,6 +357,28 @@ export default function CaptureFlowPage({ params }) {
       setError('Camera API is not supported in this browser. Please use manual upload.');
       return;
     }
+
+    const detectTorch = (stream) => {
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        setTimeout(() => {
+          try {
+            const capabilities = typeof track.getCapabilities === 'function' ? track.getCapabilities() : {};
+            if (capabilities.torch) {
+              setTorchSupported(true);
+              if (torchOn) {
+                track.applyConstraints({ advanced: [{ torch: true }] }).catch(console.error);
+              }
+            } else {
+              setTorchSupported(false);
+            }
+          } catch (e) {
+            console.warn("Failed to get camera capabilities:", e);
+            setTorchSupported(false);
+          }
+        }, 500);
+      }
+    };
 
     const constraints = {
       video: {
@@ -352,6 +395,7 @@ export default function CaptureFlowPage({ params }) {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
       }
+      detectTorch(stream);
     } catch (err) {
       console.warn("Primary camera constraints failed, attempting fallback:", err);
       try {
@@ -363,6 +407,7 @@ export default function CaptureFlowPage({ params }) {
           videoRef.current.srcObject = fallbackStream;
           videoRef.current.play().catch(e => console.error("Error playing video stream:", e));
         }
+        detectTorch(fallbackStream);
       } catch (fallbackErr) {
         console.error("All camera constraints failed:", fallbackErr);
         
@@ -571,6 +616,9 @@ export default function CaptureFlowPage({ params }) {
       if (!res.ok) throw new Error(data.error || 'Failed to process document');
       
       if (!data.success) {
+          if (data.validation_error_key === 'error_low_light' && torchSupported) {
+              setTorchOn(true);
+          }
           // Validation failed
           if (voiceSessionRef.current) {
               voiceSessionRef.current.stopAudioPlayback();
@@ -1172,6 +1220,20 @@ export default function CaptureFlowPage({ params }) {
             {!previewUrl && (
               <div className={styles.cameraControls}>
                   <button className={styles.iconButton} onClick={() => startCamera(activeFacingMode === 'user' ? 'environment' : 'user')} title="Flip Camera">🔄</button>
+                  {torchSupported && (
+                    <button 
+                      className={styles.iconButton} 
+                      onClick={toggleTorch} 
+                      title="Toggle Flash"
+                      style={{
+                        background: torchOn ? 'rgba(234, 179, 8, 0.25)' : 'rgba(0, 0, 0, 0.3)',
+                        borderColor: torchOn ? '#eab308' : 'rgba(255, 255, 255, 0.4)',
+                        color: torchOn ? '#eab308' : '#fff'
+                      }}
+                    >
+                      ⚡
+                    </button>
+                  )}
                   <button className={styles.captureButton} onClick={handleCapture} disabled={processingDoc}>
                       {processingDoc ? 'Processing...' : '📸 Capture'}
                   </button>
