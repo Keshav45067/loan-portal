@@ -9,7 +9,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 export default function CaptureLandingPage() {
   const router = useRouter();
   const [token, setToken] = useState('');
-  const [selectedScheme, setSelectedScheme] = useState('aadhaar');
+  const [selectedScheme, setSelectedScheme] = useState('demo_business_kyc');
   const [language, setLanguage] = useState('en');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -105,6 +105,7 @@ export default function CaptureLandingPage() {
               disabled={loading}
               style={{ width: '100%', padding: '14px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#0f172a', fontSize: '1rem', outline: 'none' }}
             >
+              <option value="demo_business_kyc">Demo Business KYC (Aadhaar, PAN, Udyam, GST)</option>
               <option value="aadhaar">Aadhaar Card (Identity & Address)</option>
               <option value="passport">Passport (Identity, Address & Visas)</option>
               <option value="bank_statement">Bank Statement (Account Details & Cheques)</option>

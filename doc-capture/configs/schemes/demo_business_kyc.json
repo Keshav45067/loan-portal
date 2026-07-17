@@ -1,0 +1,14 @@
+{
+  "scheme_id": "demo_business_kyc",
+  "scheme_name": "Demo Business KYC Verification",
+  "description": "Complete verification of business entities and proprietors using Aadhaar, PAN, Udyam, and GST certificates.",
+  "required_documents": [
+    "doc_aadhaar_002",
+    "doc_pan_001",
+    "doc_udyam_001",
+    "doc_gst_001"
+  ],
+  "faq_context": {
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their business verification documents. Keep answers under 3 sentences."
+  }
+}

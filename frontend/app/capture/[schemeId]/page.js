@@ -930,30 +930,7 @@ export default function CaptureFlowPage({ params }) {
       );
     }
 
-    const items = [];
     const activeDocTypes = Object.keys(manifests);
-
-    activeDocTypes.forEach((docType) => {
-      const manifest = manifests[docType];
-      if (!manifest) return;
-
-      const expects = manifest.expects || [];
-      expects.forEach((slotId) => {
-        const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
-        const label = fieldDef?.label?.English || formatKey(slotId);
-        const val = getValueWithFallback(slotId, extractedData);
-        const pageName = getPageNameForSlot(slotId, manifest);
-
-        items.push({
-          slotId,
-          docName: manifest.title?.English || "Document",
-          pageName,
-          label,
-          value: val,
-          fieldDef
-        });
-      });
-    });
 
     return (
       <div style={{
@@ -974,43 +951,83 @@ export default function CaptureFlowPage({ params }) {
             <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>All document pages have been captured, analyzed, and verified by our extraction engine.</p>
           </div>
 
-          {/* Table Card */}
-          <div style={{
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '16px',
-            padding: '24px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-            backdropFilter: 'blur(20px)'
-          }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#a7b4fc', margin: '0 0 20px' }}>Extracted Metadata Summary</h3>
-            {items.length === 0 ? (
-              <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>No metadata extracted from the uploaded files.</p>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Document / Page</th>
-                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Field Label</th>
-                      <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Extracted Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
-                        <td style={{ padding: '14px 16px', color: '#a7b4fc', fontWeight: 600 }}>{item.pageName}</td>
-                        <td style={{ padding: '14px 16px', color: '#cbd5e1' }}>{item.label}</td>
-                        <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500 }}>
-                          {formatExtractedValue(item.value, item.fieldDef)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          {/* Grouped Document Results */}
+          {activeDocTypes.length === 0 ? (
+            <div style={{
+              background: 'rgba(255,255,255,0.02)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '16px',
+              padding: '24px',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#64748b', fontSize: '0.9rem', padding: '20px' }}>No metadata extracted from the uploaded files.</p>
+            </div>
+          ) : (
+            activeDocTypes.map((docType) => {
+              const manifest = manifests[docType];
+              if (!manifest) return null;
+
+              const expects = manifest.expects || [];
+              const docFields = [];
+
+              expects.forEach((slotId) => {
+                const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
+                const label = fieldDef?.label?.English || formatKey(slotId);
+                const val = getValueWithFallback(slotId, extractedData);
+                const pageName = getPageNameForSlot(slotId, manifest);
+
+                docFields.push({
+                  slotId,
+                  pageName,
+                  label,
+                  value: val,
+                  fieldDef
+                });
+              });
+
+              if (docFields.length === 0) return null;
+
+              return (
+                <div key={docType} style={{
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '16px',
+                  padding: '24px',
+                  boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+                  backdropFilter: 'blur(20px)'
+                }}>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#a7b4fc', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📄</span>
+                    <span>{manifest.title?.English || formatKey(docType)}</span>
+                  </h3>
+                  
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                          <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '30%' }}>Field Name</th>
+                          <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '70%' }}>Extracted Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {docFields.map((field, fIdx) => (
+                          <tr key={fIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
+                            <td style={{ padding: '14px 16px', color: '#cbd5e1' }}>
+                              <div style={{ fontWeight: 600, color: '#fff' }}>{field.label}</div>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{field.pageName}</div>
+                            </td>
+                            <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500 }}>
+                              {formatExtractedValue(field.value, field.fieldDef)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })
+          )}
 
           {/* Action Button */}
           <div style={{ display: 'flex', justifyContent: 'center' }}>
