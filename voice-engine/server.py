@@ -433,13 +433,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             )
                             continue
 
-                        # Send transcription to client
-                        yield pb2.VoiceOutput(
-                            transcription=pb2.TranscriptionUpdate(
-                                text=transcribed,
-                                is_final=True
-                            )
-                        )
+                        # (Removed user transcription yield to keep screen clean as requested)
 
                         # Process the turn with streaming pipeline
                         # This yields VoiceOutput messages as audio becomes available
@@ -680,13 +674,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
                             continue
 
-                        # Send transcription to client
-                        yield pb2.VoiceOutput(
-                            transcription=pb2.TranscriptionUpdate(
-                                text=transcribed,
-                                is_final=True
-                            )
-                        )
+                        # (Removed user transcription yield to keep screen clean as requested)
 
                         # Process response stream
                         async for output in session.process_turn_streaming(transcribed):

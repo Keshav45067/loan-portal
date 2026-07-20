@@ -27,11 +27,12 @@ stt:
 
 # ─── Base Interview Graph ───
 interview_graph:
-  start_node_id: "DOC_SELFIE"
+  start_node_id: "START"
   nodes:
     DOC_SELFIE:
       type: "capture"
       document_id: "selfie"
+      text_template: "कृपया अपनी एक सेल्फी लें।"
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_FRONT"
@@ -39,6 +40,7 @@ interview_graph:
     DOC_AADHAAR_FRONT:
       type: "capture"
       document_id: "aadhaar_front"
+      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_BACK"
@@ -46,9 +48,10 @@ interview_graph:
     DOC_AADHAAR_BACK:
       type: "capture"
       document_id: "aadhaar_back"
+      text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
       edges:
         - condition: "always"
-          next: "START"
+          next: "Q_STATUS"
 
     START:
       type: "voice-qa"
@@ -56,7 +59,7 @@ interview_graph:
       targets: []
       edges:
         - condition: "always"
-          next: "Q_STATUS"
+          next: "DOC_SELFIE"
 
     Q_STATUS:
       type: "voice-qa"
@@ -180,7 +183,7 @@ interview_graph:
         - condition: "routing_decision == 'YES'"
           next: "Q_MACHINE_DETAILS"
         - condition: "always"
-          next: "FV_Q0"
+          next: "Q_FAMILY"
 
     Q_MACHINE_DETAILS:
       type: "voice-qa"
@@ -188,103 +191,9 @@ interview_graph:
       targets: [machine_purpose, machine_supplier, machine_cost]
       edges:
         - condition: "always"
-          next: "FV_Q0"
-
-    # ─── Integrated Financial Viability Nodes ───
-
-    FV_Q0:
-      type: "voice-qa"
-      text_template: "{name} जी, बताइए, अभी आपके या आपके पति के नाम पर कोई लोन चल रहा है क्या?"
-      targets: [current_loan_exists]
-      routing_prompt: "Evaluate if the user has any active ongoing loans. Set 'routing_decision' to 'YES' if they have a current loan, 'NO' if not."
-      edges:
-        - condition: "routing_decision == 'YES'"
-          next: "FV_Q1"
-        - condition: "routing_decision == 'NO'"
-          next: "FV_Q6"
-
-    FV_Q1:
-      type: "voice-qa"
-      text_template: "अच्छा, तो कितने लोन चल रहे हैं अभी? और हर लोन किस काम के लिए लिया था?"
-      targets: [current_loan_count, current_loan_purposes]
-      edges:
-        - condition: "always"
-          next: "FV_Q2"
-
-    FV_Q2:
-      type: "voice-qa"
-      text_template: "ये लोन किस बैंक या संस्था से लिए हैं?"
-      targets: [current_loan_lenders]
-      edges:
-        - condition: "always"
-          next: "FV_Q3"
-
-    FV_Q3:
-      type: "voice-qa"
-      text_template: "हर लोन की किस्त कितनी है महीने में? और किस्त की तारीख क्या है?"
-      targets: [current_emi_amounts, current_emi_dates]
-      edges:
-        - condition: "always"
-          next: "FV_Q4"
-
-    FV_Q4:
-      type: "voice-qa"
-      text_template: "किस्त समय पर भर रहे हैं या कभी देर होती है?"
-      targets: [current_emi_behavior]
-      edges:
-        - condition: "always"
-          next: "FV_Q5"
-
-    FV_Q5:
-      type: "voice-qa"
-      text_template: "क्या कभी बैंक का कोई नोटिस आया है? या बैंक वालों ने कोई फ़ॉलो-अप किया है, जैसे फ़ोन या घर आकर?"
-      targets: [current_bank_notice, current_bank_followups]
-      edges:
-        - condition: "always"
-          next: "FV_Q6"
-
-    FV_Q6:
-      type: "voice-qa"
-      text_template: "अच्छा, अब बताइए पहले कभी कोई लोन लिया था? आपने या आपके पति ने?"
-      targets: [past_loan_exists]
-      routing_prompt: "Evaluate if the user has taken any loans in the past. Set 'routing_decision' to 'YES' if they have, 'NO' if not."
-      edges:
-        - condition: "routing_decision == 'YES'"
-          next: "FV_Q7"
-        - condition: "routing_decision == 'NO'"
           next: "Q_FAMILY"
 
-    FV_Q7:
-      type: "voice-qa"
-      text_template: "कितने लोन लिए थे पहले? और किस-किस काम के लिए?"
-      targets: [past_loan_count, past_loan_purposes]
-      edges:
-        - condition: "always"
-          next: "FV_Q8"
 
-    FV_Q8:
-      type: "voice-qa"
-      text_template: "वो लोन किस बैंक या संस्था से लिए थे?"
-      targets: [past_loan_lenders]
-      edges:
-        - condition: "always"
-          next: "FV_Q9"
-
-    FV_Q9:
-      type: "voice-qa"
-      text_template: "उन लोन की किस्त कैसे भरी थी? समय पर या कभी देर से?"
-      targets: [past_emi_behavior]
-      edges:
-        - condition: "always"
-          next: "FV_Q10"
-
-    FV_Q10:
-      type: "voice-qa"
-      text_template: "पुराने लोन में कभी बैंक का कोई नोटिस आया था?"
-      targets: [past_bank_notice]
-      edges:
-        - condition: "always"
-          next: "Q_FAMILY"
 
     Q_FAMILY:
       type: "voice-qa"
@@ -313,6 +222,7 @@ interview_graph:
     DOC_PAN:
       type: "capture"
       document_id: "pan"
+      text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
       edges:
         - condition: "always"
           next: "DOC_BANK_STATEMENT"
@@ -320,6 +230,7 @@ interview_graph:
     DOC_BANK_STATEMENT:
       type: "capture"
       document_id: "bank_statement"
+      text_template: "कृपया अपने पिछले 6 महीने के बैंक स्टेटमेंट की फोटो या पीडीएफ अपलोड करें।"
       edges:
         - condition: "always"
           next: "DOC_WORKPLACE_VIDEO"
@@ -327,6 +238,7 @@ interview_graph:
     DOC_WORKPLACE_VIDEO:
       type: "video_capture"
       document_id: "workplace_video"
+      text_template: "कृपया अपने कार्यस्थल का 30 सेकंड का वीडियो बनाएं।"
       geo_tagged: true
       max_duration_seconds: 30
       instructions:
@@ -356,17 +268,6 @@ context_map:
   Q_PROPOSED_WAGES: [Q_PROPOSED_HIRING]
   Q_NEED_MACHINES: []
   Q_MACHINE_DETAILS: [Q_NEED_MACHINES]
-  FV_Q0: []
-  FV_Q1: [FV_Q0]
-  FV_Q2: [FV_Q1]
-  FV_Q3: [FV_Q2]
-  FV_Q4: [FV_Q3]
-  FV_Q5: [FV_Q4]
-  FV_Q6: []
-  FV_Q7: [FV_Q6]
-  FV_Q8: [FV_Q7]
-  FV_Q9: [FV_Q8]
-  FV_Q10: [FV_Q9]
   Q_FAMILY: []
   Q_EDUCATION: []
   Q_COBORROWER: [Q_FAMILY, Q_PERSONS_INVOLVED]
@@ -390,21 +291,6 @@ field_instructions:
   machine_purpose: "INFER the purpose in ENGLISH. Be precise and concise."
   machine_supplier: "INFER the supplier name in ENGLISH. If 'local dukaan se' -> 'Local Market'."
   machine_cost: "Extract as integer in rupees. NO commas, NO decimal. Cost of the machine. If no machine, value is 0."
-  current_loan_exists: "INFER as 'Yes' or 'No'. If user or spouse has any active loan, value is 'Yes'."
-  current_loan_count: "Extract as integer. Total active loans. Default to 0."
-  current_loan_purposes: "INFER all active loan purposes in ENGLISH."
-  current_loan_lenders: "INFER all active loan lenders in ENGLISH."
-  current_emi_behavior: "INFER as 'Regular', 'Irregular', or 'Defaulted'."
-  current_emi_amounts: "Extract total monthly EMIs as integer."
-  current_emi_dates: "INFER payment dates in ENGLISH."
-  current_bank_notice: "INFER as 'Yes' or 'No'. Bank notice received?"
-  current_bank_followups: "INFER as 'Yes' or 'No'. Bank follow-ups?"
-  past_loan_exists: "INFER as 'Yes' or 'No'. Any past loans?"
-  past_loan_count: "Extract as integer. Total completed past loans."
-  past_loan_purposes: "INFER all past loan purposes in ENGLISH."
-  past_loan_lenders: "INFER all past loan lenders in ENGLISH."
-  past_emi_behavior: "INFER as 'Regular', 'Irregular', or 'Defaulted'."
-  past_bank_notice: "INFER as 'Yes' or 'No'. Past bank notices?"
   number_of_family_members: "INFER count as integer."
   marital_status: "INFER as Married, Unmarried, Widow, or Widower."
   number_of_kids: "INFER count as integer."
@@ -470,97 +356,8 @@ db_mapping:
   machine_purpose: machine_purpose
   machine_supplier: machine_supplier
   machine_cost: machine_cost
-  current_loan_exists: current_loan_exists
-  current_loan_count: current_loan_count
-  current_loan_purposes: current_loan_purposes
-  current_loan_lenders: current_loan_lenders
-  current_emi_behavior: current_emi_behavior
-  current_emi_amounts: current_emi_amounts
-  current_emi_dates: current_emi_dates
-  current_bank_notice: current_bank_notice
-  current_bank_followups: current_bank_followups
-  past_loan_exists: past_loan_exists
-  past_loan_count: past_loan_count
-  past_loan_purposes: past_loan_purposes
-  past_loan_lenders: past_loan_lenders
-  past_emi_behavior: past_emi_behavior
-  past_bank_notice: past_bank_notice
   number_of_family_members: number_of_family_members
   marital_status: marital_status
   number_of_kids: number_of_kids
   education_level: education_level
   co_borrower: co_borrower
-
-# ─── Dynamic Post-processing Pipelines ───
-post_processing_pipelines:
-  business_viability:
-    trigger: "on_complete"
-    type: "llm_evaluation"
-    model: "gemini-2.5-flash"
-    input_fields:
-      - "monthly_revenue"
-      - "monthly_profit"
-      - "inventory_amount"
-      - "persons_involved"
-      - "proposed_monthly_revenue"
-      - "date_of_commencement"
-      - "existing_business_activity"
-      - "proposed_business_activity"
-    system_instruction: "Evaluate Mudra business viability. Output JSON only."
-    prompt_template: |
-      You are a loan officer evaluating a Mudra loan application for a small rural business owner.
-      Based on the interview data below, classify whether the business has meaningful ongoing activities.
-      
-      Data:
-      {input_data}
-      
-      Decide if the business is 'legitimate', 'suspicious', or 'absent'.
-      Provide a concise explanation.
-    response_schema:
-      type: "object"
-      properties:
-        business_status:
-          type: "string"
-          enum: ["legitimate", "suspicious", "absent"]
-        business_status_explanation:
-          type: "string"
-    output_mapping:
-      business_status: "business_status"
-      business_status_explanation: "business_status_explanation"
-
-  financial_viability:
-    trigger: "on_complete"
-    type: "llm_evaluation"
-    model: "gemini-2.5-flash"
-    input_fields:
-      - "current_loan_exists"
-      - "current_loan_count"
-      - "current_loan_purposes"
-      - "current_loan_lenders"
-      - "current_emi_behavior"
-      - "current_emi_amounts"
-      - "current_bank_notice"
-      - "current_bank_followups"
-      - "past_loan_exists"
-      - "past_loan_count"
-      - "past_loan_purposes"
-      - "past_loan_lenders"
-      - "past_emi_behavior"
-      - "past_bank_notice"
-    system_instruction: "Evaluate Mudra financial viability. Output JSON only."
-    prompt_template: |
-      You are a loan officer assessing the credit discipline and financial viability of a Mudra loan borrower.
-      Based on the borrower's responses about their current and past loan history below, evaluate their credit discipline.
-      
-      Data:
-      {input_data}
-      
-      Decide if the applicant is financially viable (Yes/No).
-    response_schema:
-      type: "object"
-      properties:
-        financial_viability:
-          type: "string"
-          enum: ["Yes", "No"]
-    output_mapping:
-      financial_viability: "financial_viability"

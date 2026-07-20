@@ -439,7 +439,14 @@ class VoiceSession:
                                  session_id=self.session_id,
                                  keys=list(data.keys()))
                     # Extract and sync applicant name from historical data
-                    ext_name = data.get("applicant_name") or data.get("name") or data.get("full_name")
+                    holder_dict = data.get("holder") if isinstance(data.get("holder"), dict) else {}
+                    ext_name = (
+                        data.get("applicant_name") or 
+                        data.get("name") or 
+                        data.get("full_name") or
+                        holder_dict.get("full_name") or
+                        holder_dict.get("name")
+                    )
                     if ext_name and ext_name != "आवेदक":
                         self.applicant_name = ext_name
                         self._walker._name = ext_name
@@ -549,7 +556,14 @@ class VoiceSession:
 
         # Sync applicant name if it was extracted (e.g. from Aadhaar)
         if not self.applicant_name or self.applicant_name == "आवेदक":
-            extracted_name = self._walker.extracted_data.get("full_name") or self._walker.extracted_data.get("name")
+            holder_dict = self._walker.extracted_data.get("holder") if isinstance(self._walker.extracted_data.get("holder"), dict) else {}
+            extracted_name = (
+                self._walker.extracted_data.get("full_name") or 
+                self._walker.extracted_data.get("name") or
+                self._walker.extracted_data.get("applicant_name") or
+                holder_dict.get("full_name") or
+                holder_dict.get("name")
+            )
             if extracted_name:
                 logger.info(f"Syncing extracted applicant name: '{extracted_name}'", session_id=self.session_id)
                 self.applicant_name = extracted_name
