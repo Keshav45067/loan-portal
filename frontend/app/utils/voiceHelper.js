@@ -168,6 +168,8 @@ export class VoiceSessionManager {
     this.audioContext = null;
     this.currentAudioSource = null;
     this.audioQueue = [];
+    this.keepAliveSource = null;
+    this.lastTextFired = null;
 
     // State flags
     this.isRecording = false;
@@ -266,6 +268,7 @@ export class VoiceSessionManager {
 
         ws.onopen = () => {
           clearTimeout(timeout);
+          this.startKeepAliveLoop();
           resolve();
         };
 
@@ -462,7 +465,9 @@ export class VoiceSessionManager {
     this.onStateChange('speaking');
 
     if (chunk.text && chunk.text.trim().length > 0) {
-      this.onTranscript(chunk.text, false);
+      this.lastTextFired = chunk.text;
+      const isLast = this.audioQueue.length === 0 && this.audioEndReceived;
+      this.onTranscript(chunk.text, isLast);
     }
 
     // Initialize or reuse AudioContext
@@ -501,10 +506,10 @@ export class VoiceSessionManager {
           this.playNextAudioChunk(false);
         };
 
-        // Add 300ms hardware wake-up padding ONLY for the very first chunk of a turn
+        // Add 50ms hardware wake-up padding ONLY for the very first chunk of a turn
         try {
           if (isFirstOfTurn) {
-            const scheduledDelay = 300; // ms
+            const scheduledDelay = 50; // ms
             if (this.tSpeechEnd) {
               const playbackStart = performance.now() + scheduledDelay;
               console.log(
@@ -514,7 +519,7 @@ export class VoiceSessionManager {
                 `[LATENCY] Browser buffering overhead (queue delay + decode): ${(performance.now() - (chunk.receivedAt || performance.now())).toFixed(1)} ms`
               );
             }
-            source.start(this.audioContext.currentTime + 0.3);
+            source.start(this.audioContext.currentTime + 0.05);
           } else {
             source.start(0);
           }
@@ -538,6 +543,11 @@ export class VoiceSessionManager {
     this.isPlayingAudio = false;
     this.audioEndReceived = false;
     this.isProcessing = false;
+
+    if (this.lastTextFired) {
+      this.onTranscript(this.lastTextFired, true);
+      this.lastTextFired = null;
+    }
 
     if (this._disconnected) return;
 
@@ -599,14 +609,53 @@ export class VoiceSessionManager {
     this.audioEndReceived = false;
   }
 
+  startKeepAliveLoop() {
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      this.audioContext = window.globalAudioContext;
+    }
+    if (this.audioContext.state === 'suspended') {
+      try { this.audioContext.resume(); } catch {}
+    }
+    this.stopKeepAliveLoop();
+    try {
+      const buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() - 0.5) * 0.00001; // completely inaudible noise to keep threads warm
+      }
+      const source = this.audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.audioContext.destination);
+      source.start(0);
+      this.keepAliveSource = source;
+      console.log('[LATENCY] Silent audio keep-alive loop started');
+    } catch (e) {
+      console.warn('Failed to start silent audio keep-alive loop:', e);
+    }
+  }
+
+  stopKeepAliveLoop() {
+    if (this.keepAliveSource) {
+      try {
+        this.keepAliveSource.stop();
+      } catch (e) {}
+      this.keepAliveSource = null;
+      console.log('[LATENCY] Silent audio keep-alive loop stopped');
+    }
+  }
+
   disconnect() {
     this._disconnected = true;
     this.isRecording = false;
     this.isProcessing = false;
     this.audioEndReceived = false;
     this.isUserSpeaking = false;
+    this.lastTextFired = null;
 
     this.stopAudioPlayback();
+    this.stopKeepAliveLoop();
 
     if (this.ws) {
       try { this.ws.close(); } catch (e) {}

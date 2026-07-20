@@ -1,5 +1,29 @@
 'use client';
 
+// Wrap console logs with precise milliseconds timestamp [HH:MM:SS.mmm]
+if (typeof window !== 'undefined' && !window._consoleWrapped) {
+  window._consoleWrapped = true;
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+  const originalInfo = console.info;
+
+  const getTimestamp = () => `[${new Date().toLocaleTimeString('en-US', { hour12: false })}.${String(new Date().getMilliseconds()).padStart(3, '0')}]`;
+
+  console.log = function (...args) {
+    originalLog.apply(console, [getTimestamp(), ...args]);
+  };
+  console.warn = function (...args) {
+    originalWarn.apply(console, [getTimestamp(), ...args]);
+  };
+  console.error = function (...args) {
+    originalError.apply(console, [getTimestamp(), ...args]);
+  };
+  console.info = function (...args) {
+    originalInfo.apply(console, [getTimestamp(), ...args]);
+  };
+}
+
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './interview.module.css';
@@ -374,7 +398,7 @@ export default function InterviewPage() {
         },
         onTranscript: (text, isFinal) => {
           console.log('[DEBUG Frontend] onTranscript:', text, 'isFinal:', isFinal);
-          if (!isFinal) setTranscript(text);
+          setTranscript(text);
         },
         onProgress: (step, total, nodeId) => {
           console.log('[DEBUG Frontend] onProgress: step =', step, 'total =', total, 'nodeId =', nodeId);
