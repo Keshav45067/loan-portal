@@ -607,15 +607,12 @@ class VoiceSession:
 
         context_str = self._walker.build_context_string()
 
-        # ─── Guard: Do NOT process voice turns on capture nodes ───
-        # Capture nodes require document upload, not voice input.
-        # If VAD fires speech_end on a capture node, ignore it and re-send node_change.
-        if current_node.get("type") == "capture" and not is_capture_complete:
-            logger.info("Ignoring voice turn on capture node — re-sending node_change",
+        if current_node.get("type") in ("capture", "video_capture") and not is_capture_complete:
+            logger.info("Ignoring voice turn on capture/video node — re-sending node_change",
                          session_id=self.session_id, node_id=current_node_id)
             yield pb2.VoiceOutput(
                 node_change=pb2.NodeChange(
-                    node_type="capture",
+                    node_type=current_node.get("type"),
                     document_id=current_node.get("document_id", "")
                 )
             )
@@ -643,10 +640,11 @@ class VoiceSession:
                     )
                 )
 
-                if next_node.get("type") == "capture":
+                node_type = next_node.get("type", "voice-qa")
+                if node_type in ("capture", "video_capture"):
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
-                            node_type="capture",
+                            node_type=node_type,
                             document_id=next_node.get("document_id", "")
                         )
                     )
@@ -867,10 +865,11 @@ class VoiceSession:
                     )
                 )
 
-                if next_node.get("type") == "capture":
+                node_type = next_node.get("type", "voice-qa")
+                if node_type in ("capture", "video_capture"):
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
-                            node_type="capture",
+                            node_type=node_type,
                             document_id=next_node.get("document_id", "")
                         )
                     )

@@ -59,7 +59,7 @@ interview_graph:
       targets: []
       edges:
         - condition: "always"
-          next: "DOC_SELFIE"
+          next: "DOC_WORKPLACE_VIDEO"
 
     Q_STATUS:
       type: "voice-qa"
@@ -225,7 +225,7 @@ interview_graph:
       text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
       edges:
         - condition: "always"
-          next: "DOC_BANK_STATEMENT"
+          next: "DOC_WORKPLACE_VIDEO"
 
 
 

@@ -355,8 +355,8 @@ export class VoiceSessionManager {
               this.onProgress(data.current_step, data.total_steps, data.current_node_id);
             } else if (data.type === 'node_change') {
               console.log('[voiceHelper] ws received node_change:', data.node_type, data.document_id);
-              if (data.node_type === 'capture') {
-                console.log('[voiceHelper] Switching to CAPTURE mode — stopping VAD (keeping audio queue)');
+              if (data.node_type === 'capture' || data.node_type === 'video_capture') {
+                console.log('[voiceHelper] Switching to CAPTURE/VIDEO mode — stopping VAD (keeping audio queue)');
                 this._inCaptureMode = true;
                 // do NOT stop audio playback so that success transitions can play to completion
                 // this.stopAudioPlayback();
