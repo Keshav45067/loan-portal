@@ -314,6 +314,8 @@ export default function InterviewPage() {
   const recordingIntervalRef = useRef(null);
   const capturedLatitudeRef = useRef(null);
   const capturedLongitudeRef = useRef(null);
+  const [locationPermissionState, setLocationPermissionState] = useState('prompt'); // 'prompt', 'checking', 'granted', 'denied'
+  const canvasDrawLoopActiveRef = useRef(false);
 
   // Canvas visualizer refs
   const visualizerCanvasRef = useRef(null);
@@ -604,32 +606,49 @@ export default function InterviewPage() {
     }
   };
 
-  // Video Recording Logic
+  // Geolocation check and request permission helper
+  const checkLocationPermission = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setLocationPermissionState('denied');
+      return false;
+    }
+    setLocationPermissionState('checking');
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          capturedLatitudeRef.current = pos.coords.latitude;
+          capturedLongitudeRef.current = pos.coords.longitude;
+          setLocationPermissionState('granted');
+          resolve(true);
+        },
+        (err) => {
+          console.warn('[geolocation] check failed:', err.message);
+          setLocationPermissionState('denied');
+          resolve(false);
+        },
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    });
+  }, []);
+
+  // Video Recording Logic with Canvas overlay & Web Audio merger
   const startVideoRecording = async () => {
     try {
       videoChunksRef.current = [];
       setRecordingTimeRemaining(30);
 
-      // Start geolocation tracking
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            capturedLatitudeRef.current = pos.coords.latitude;
-            capturedLongitudeRef.current = pos.coords.longitude;
-            console.log(`[video capture] geolocation success: ${pos.coords.latitude}, ${pos.coords.longitude}`);
-          },
-          (err) => {
-            console.warn('[video capture] geolocation failed:', err.message);
-          },
-          { enableHighAccuracy: true, timeout: 5000 }
-        );
+      // Verify permission/location is ready
+      if (locationPermissionState !== 'granted') {
+        const granted = await checkLocationPermission();
+        if (!granted) {
+          throw new Error('Location permission denied or not available');
+        }
       }
 
       // Check if current stream already has audio. If not, request camera with audio.
       let stream = streamRef.current;
       const hasAudio = stream && stream.getAudioTracks().length > 0;
       if (!hasAudio) {
-        // Request fresh audio+video stream for recording
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: activeFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: true
@@ -641,14 +660,58 @@ export default function InterviewPage() {
         }
       }
 
-      // Setup MediaRecorder
+      // Create a 640x480 canvas for burning location and time overlays
+      const canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+
+      // Frame rendering loop
+      canvasDrawLoopActiveRef.current = true;
+      const drawFrame = () => {
+        if (!canvasDrawLoopActiveRef.current) return;
+        if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+          
+          // Transparent bottom banner background
+          ctx.fillStyle = 'rgba(2, 3, 7, 0.65)';
+          ctx.fillRect(0, canvas.height - 70, canvas.width, 70);
+          
+          // Red recording indicator dot
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(30, canvas.height - 35, 6, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Geotag details text
+          ctx.font = 'bold 13px Inter, monospace';
+          ctx.fillStyle = '#ffffff';
+          const timeStr = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+          const latVal = capturedLatitudeRef.current ? capturedLatitudeRef.current.toFixed(6) : 'Fetching...';
+          const lngVal = capturedLongitudeRef.current ? capturedLongitudeRef.current.toFixed(6) : 'Fetching...';
+          
+          ctx.fillText(`REC: ${timeStr}`, 48, canvas.height - 45);
+          ctx.fillText(`GPS: Lat ${latVal}, Lng ${lngVal}`, 48, canvas.height - 25);
+        }
+        requestAnimationFrame(drawFrame);
+      };
+      drawFrame();
+
+      // Grab canvas stream at 25 frames per second
+      const canvasStream = canvas.captureStream(25);
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        canvasStream.addTrack(audioTrack);
+      }
+
+      // Setup media recorder on composite canvasStream
       const options = { mimeType: 'video/webm;codecs=vp8,opus' };
       let recorder;
       try {
-        recorder = new MediaRecorder(stream, options);
+        recorder = new MediaRecorder(canvasStream, options);
       } catch (e) {
         console.warn('VP8/Opus not supported, trying default browser settings');
-        recorder = new MediaRecorder(stream);
+        recorder = new MediaRecorder(canvasStream);
       }
 
       recorder.ondataavailable = (event) => {
@@ -667,7 +730,7 @@ export default function InterviewPage() {
       recorder.start(1000); // chunk data every 1s
       setIsRecordingVideo(true);
 
-      // Timed Vocal Instructions
+      // Timed Vocal Instructions via Central WebSocket TTS Service
       const videoInstructions = [
         { offset: 0, text: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।" },
         { offset: 10, text: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।" },
@@ -677,11 +740,8 @@ export default function InterviewPage() {
       let secondsElapsed = 0;
       const speakInstruction = (text) => {
         setCurrentInstructionText(text);
-        if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = 'hi-IN';
-          window.speechSynthesis.speak(utterance);
+        if (voiceSessionRef.current) {
+          voiceSessionRef.current.sendControlSignal(`capture_speak:${text}`);
         }
       };
 
@@ -704,11 +764,12 @@ export default function InterviewPage() {
 
     } catch (err) {
       console.error('Failed to start video recording:', err);
-      setErrors(prev => ({ ...prev, [documentId]: `Failed to access camera/audio: ${err.message}` }));
+      setErrors(prev => ({ ...prev, [documentId]: `Failed to access camera/audio or geolocation: ${err.message}` }));
     }
   };
 
   const stopVideoRecording = () => {
+    canvasDrawLoopActiveRef.current = false;
     if (recordingIntervalRef.current) {
       clearInterval(recordingIntervalRef.current);
       recordingIntervalRef.current = null;
@@ -717,8 +778,8 @@ export default function InterviewPage() {
       mediaRecorderRef.current.stop();
     }
     setIsRecordingVideo(false);
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current.stopAudioPlayback();
     }
   };
 
@@ -728,14 +789,26 @@ export default function InterviewPage() {
 
   useEffect(() => {
     if (isStarted && (nodeType === 'capture' || nodeType === 'video_capture') && !docs[documentId]) {
-      const meta = DOCUMENT_METADATA[documentId] || {};
-      const facing = meta.facingMode || activeFacingMode;
-      startCamera(facing);
+      if (nodeType === 'video_capture') {
+        checkLocationPermission().then((granted) => {
+          if (granted) {
+            const meta = DOCUMENT_METADATA[documentId] || {};
+            const facing = meta.facingMode || activeFacingMode;
+            startCamera(facing);
+          } else {
+            stopCamera();
+          }
+        });
+      } else {
+        const meta = DOCUMENT_METADATA[documentId] || {};
+        const facing = meta.facingMode || activeFacingMode;
+        startCamera(facing);
+      }
     } else {
       stopCamera();
     }
     return () => stopCamera();
-  }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], startCamera, stopCamera]);
+  }, [isStarted, nodeType, documentId, activeFacingMode, docs[documentId], startCamera, stopCamera, checkLocationPermission]);
 
   // Render Neural Voice Core (Fully aligned with visualizer canvas)
   const renderVoiceUI = () => {
@@ -879,109 +952,153 @@ export default function InterviewPage() {
         </div>
 
         <div className={styles.videoContainer}>
-          {/* 1. Live Video Stream */}
+          {/* 1. Live Video Stream / Geolocation Warning */}
           {!docData && (
-            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className={styles.videoElement}
-              />
-              
-              {/* Dynamic Instructions Overlay during recording */}
-              {isRecordingVideo && (
+            locationPermissionState === 'denied' ? (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                width: '100%',
+                padding: '24px',
+                textAlign: 'center',
+                backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                color: '#fca5a5'
+              }}>
+                <span style={{ fontSize: '3rem', marginBottom: '16px' }}>📍</span>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: '#fff' }}>Location Permission Required</h3>
+                <p style={{ fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '24px', maxWidth: '380px', lineHeight: '1.5' }}>
+                  This government Mudra loan application requires a geotagged video of your workplace. Please enable location permissions for this website in your browser settings and try again.
+                </p>
+                <button 
+                  onClick={async () => {
+                    const granted = await checkLocationPermission();
+                    if (granted) {
+                      const meta = DOCUMENT_METADATA[documentId] || {};
+                      const facing = meta.facingMode || activeFacingMode;
+                      startCamera(facing);
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '99px',
+                    padding: '12px 28px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                    transition: 'transform 0.2s'
+                  }}
+                >
+                  🔄 Retry Location Access
+                </button>
+              </div>
+            ) : (
+              <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={styles.videoElement}
+                />
+                
+                {/* Dynamic Instructions Overlay during recording */}
+                {isRecordingVideo && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '16px',
+                    right: '16px',
+                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                    color: '#38bdf8',
+                    padding: '12px 16px',
+                    borderRadius: '12px',
+                    fontSize: '0.95rem',
+                    fontWeight: 600,
+                    textAlign: 'center',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(56, 189, 248, 0.2)',
+                    zIndex: 30
+                  }}>
+                    📢 {currentInstructionText}
+                  </div>
+                )}
+
                 <div style={{
                   position: 'absolute',
-                  top: '16px',
-                  left: '16px',
-                  right: '16px',
-                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
-                  color: '#38bdf8',
-                  padding: '12px 16px',
-                  borderRadius: '12px',
-                  fontSize: '0.95rem',
-                  fontWeight: 600,
-                  textAlign: 'center',
-                  backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  zIndex: 30
+                  bottom: '16px',
+                  left: 0,
+                  right: 0,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '16px',
+                  zIndex: 20
                 }}>
-                  📢 {currentInstructionText}
+                  <button 
+                    onClick={handleFlipCamera}
+                    disabled={isRecordingVideo}
+                    style={{
+                      backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                      color: 'white',
+                      border: '1px solid rgba(255,255,255,0.2)',
+                      borderRadius: '50%',
+                      width: '48px',
+                      height: '48px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: isRecordingVideo ? 'not-allowed' : 'pointer',
+                      opacity: isRecordingVideo ? 0.5 : 1,
+                      fontSize: '1.25rem',
+                      backdropFilter: 'blur(8px)'
+                    }}
+                    title="Flip Camera"
+                  >
+                    🔄
+                  </button>
+                  
+                  {!isRecordingVideo ? (
+                    <button 
+                      onClick={startVideoRecording}
+                      style={{
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '99px',
+                        padding: '0 24px',
+                        height: '48px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                      }}
+                    >
+                      🔴 Start Recording
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={stopVideoRecordingManual}
+                      style={{
+                        backgroundColor: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '99px',
+                        padding: '0 24px',
+                        height: '48px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                      }}
+                    >
+                      ⏹ Stop ({recordingTimeRemaining}s)
+                    </button>
+                  )}
                 </div>
-              )}
-
-              <div style={{
-                position: 'absolute',
-                bottom: '16px',
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '16px',
-                zIndex: 20
-              }}>
-                <button 
-                  onClick={handleFlipCamera}
-                  disabled={isRecordingVideo}
-                  style={{
-                    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-                    color: 'white',
-                    border: '1px solid rgba(255,255,255,0.2)',
-                    borderRadius: '50%',
-                    width: '48px',
-                    height: '48px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: isRecordingVideo ? 'not-allowed' : 'pointer',
-                    opacity: isRecordingVideo ? 0.5 : 1,
-                    fontSize: '1.25rem',
-                    backdropFilter: 'blur(8px)'
-                  }}
-                  title="Flip Camera"
-                >
-                  🔄
-                </button>
-                
-                {!isRecordingVideo ? (
-                  <button 
-                    onClick={startVideoRecording}
-                    style={{
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '99px',
-                      padding: '0 24px',
-                      height: '48px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                    }}
-                  >
-                    🔴 Start Recording
-                  </button>
-                ) : (
-                  <button 
-                    onClick={stopVideoRecordingManual}
-                    style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '99px',
-                      padding: '0 24px',
-                      height: '48px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
-                    }}
-                  >
-                    ⏹ Stop ({recordingTimeRemaining}s)
-                  </button>
-                )}
               </div>
-            </div>
+            )
           )}
 
           {/* 2. Captured Preview Video */}

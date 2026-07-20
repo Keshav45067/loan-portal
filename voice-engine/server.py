@@ -262,7 +262,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             logger.info("Ignoring speech_start because session is completed", session_id=session_id)
                             continue
                         # ─── Guard: Ignore speech on capture nodes ───
-                        if session and session._walker.current_node and session._walker.current_node.get("type") == "capture":
+                        if session and session._walker.current_node and session._walker.current_node.get("type") in ("capture", "video_capture"):
                             logger.info("Ignoring speech_start on capture node", session_id=session_id)
                             continue
                         if USE_STREAMING_STT:
@@ -354,7 +354,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         # ─── Guard: Discard speech on capture nodes ───
                         # If the current node is a capture type, voice input is irrelevant.
                         # Clean up progressive_stt and skip processing.
-                        if session and session._walker.current_node and session._walker.current_node.get("type") == "capture":
+                        if session and session._walker.current_node and session._walker.current_node.get("type") in ("capture", "video_capture"):
                             logger.info("Discarding speech_end on capture node — voice not applicable",
                                          session_id=session_id)
                             if progressive_stt is not None:

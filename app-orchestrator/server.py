@@ -180,13 +180,15 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
     try:
         # 1. Fetch user_data row
         user_data_json = {}
+        phone = None
         with get_db_cursor(db_pool) as cur:
-            cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
+            cur.execute("SELECT data, phone FROM user_data WHERE id = %s", (session_id,))
             row = cur.fetchone()
             if not row:
                 logger.error(f"Post-processing failed: Session {session_id} not found in user_data")
                 return
             user_data_json = row[0] or {}
+            phone = row[1]
 
         scheme_id = user_data_json.get("scheme_id")
         if not scheme_id:
@@ -199,12 +201,8 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             logger.warning(f"Could not load resolved configuration for scheme {scheme_id}")
             return
 
-        pipelines = config.get("post_processing_pipelines", {})
-        if not pipelines:
-            logger.info(f"No post-processing pipelines configured for scheme {scheme_id}")
-            return
-
-        db_mapping = config.get("db_mapping", {})
+        # Check if the scheme is mudra
+        is_mudra_scheme = "mudra" in str(scheme_id).lower()
 
         # Fetch valid columns in mudra_user_data
         valid_cols = set()
@@ -214,6 +212,105 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 valid_cols = {r[0] for r in cur.fetchall()}
         except Exception as e:
             logger.warning(f"Could not read columns from mudra_user_data: {e}")
+
+        # Gather all current data (both from user_data JSON and mudra_user_data columns)
+        all_fields = {}
+        if user_data_json:
+            all_fields.update(user_data_json)
+        if phone:
+            all_fields["phone"] = phone
+            all_fields["mobile_number"] = phone
+
+        # Read current mudra_user_data row
+        try:
+            with get_db_cursor(db_pool) as cur:
+                cur.execute("SELECT * FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                row = cur.fetchone()
+                if row:
+                    col_names = [desc[0] for desc in cur.description]
+                    for name, val in zip(col_names, row):
+                        if val is not None and val != "":
+                            all_fields[name] = val
+        except Exception as e:
+            logger.warning(f"Could not read from mudra_user_data: {e}")
+
+        db_mapping = config.get("db_mapping", {})
+
+        # Translate keys using db_mapping
+        mapped_fields = {}
+        for k, v in all_fields.items():
+            mapped_k = db_mapping.get(k, k)
+            mapped_fields[mapped_k] = v
+        all_fields.update(mapped_fields)
+
+        # Re-populate/fallback field names
+        if "applicant_name" not in all_fields:
+            all_fields["applicant_name"] = all_fields.get("name") or all_fields.get("full_name") or all_fields.get("holder", {}).get("full_name") or "Applicant"
+        if "business_type" not in all_fields:
+            all_fields["business_type"] = all_fields.get("type_of_business") or "other"
+
+        # If mudra, run general financial calculations
+        if is_mudra_scheme:
+            logger.info("Running Mudra financial calculations in background", session_id=session_id)
+            from calculations import calculate_derived_fields
+            try:
+                derived = calculate_derived_fields(all_fields)
+                all_fields.update(derived)
+                logger.info(f"Mudra financial calculations complete. Derived keys: {list(derived.keys())}")
+            except Exception as calc_err:
+                logger.error(f"Failed to run Mudra financial calculations: {calc_err}", exc_info=True)
+
+        # Sync all fields to mudra_user_data dynamically
+        if valid_cols:
+            columns = ["user_id"]
+            values = [session_id]
+            placeholders = ["%s"]
+            seen_cols = set()
+
+            # Map all_fields keys to DB columns
+            for k, v in all_fields.items():
+                db_col = db_mapping.get(k, k)
+                if db_col in valid_cols and db_col not in seen_cols:
+                    if v is not None and v != "":
+                        columns.append(db_col)
+                        values.append(str(v))
+                        placeholders.append("%s")
+                        seen_cols.add(db_col)
+
+            if len(columns) > 1:
+                update_clauses = [f"{c} = EXCLUDED.{c}" for c in columns if c != "user_id"]
+                sql = f"""
+                    INSERT INTO mudra_user_data (id, {', '.join(columns)}, created_at, updated_at)
+                    VALUES (gen_random_uuid(), {', '.join(placeholders)}, NOW(), NOW())
+                    ON CONFLICT (user_id) DO UPDATE SET
+                        {', '.join(update_clauses)},
+                        updated_at = NOW()
+                """
+                try:
+                    with get_db_cursor(db_pool) as cur:
+                        cur.execute(sql, tuple(values))
+                        logger.info(f"Synced {len(seen_cols)} fields to mudra_user_data dynamically in post-processing", session_id=session_id)
+                except Exception as db_sync_err:
+                    logger.error(f"Failed to sync fields to mudra_user_data: {db_sync_err}", exc_info=True)
+
+        # Update user_data JSON
+        for k, v in all_fields.items():
+            user_data_json[k] = v
+        try:
+            with get_db_cursor(db_pool) as cur:
+                cur.execute(
+                    "UPDATE user_data SET data = %s::json WHERE id = %s",
+                    (json.dumps(user_data_json, ensure_ascii=False), session_id)
+                )
+                logger.info("Updated user_data JSON with derived and mapped fields", session_id=session_id)
+        except Exception as json_sync_err:
+            logger.error(f"Failed to update user_data JSON: {json_sync_err}")
+
+        # Now proceed with post-processing pipelines
+        pipelines = config.get("post_processing_pipelines", {})
+        if not pipelines:
+            logger.info(f"No post-processing pipelines configured for scheme {scheme_id}")
+            return
 
         # 3. Process each pipeline
         evaluation_results = {}
@@ -230,23 +327,15 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
 
             # Gather dynamic input fields
             input_lines = []
-            with get_db_cursor(db_pool) as cur:
-                for key in input_fields:
-                    val = user_data_json.get(key)
-                    # Safe fallback to mudra_user_data column
-                    if (val is None or val == "") and valid_cols:
-                        col = db_mapping.get(key, key)
-                        if col in valid_cols:
-                            try:
-                                cur.execute(f"SELECT {col} FROM mudra_user_data WHERE user_id = %s", (session_id,))
-                                res_row = cur.fetchone()
-                                if res_row:
-                                    val = res_row[0]
-                            except Exception:
-                                pass
-                    if val is None:
-                        val = "Not provided"
-                    input_lines.append(f"{key}: {val}")
+            for key in input_fields:
+                val = user_data_json.get(key)
+                if val is None:
+                    # Safe fallback to mapping translation
+                    db_col = db_mapping.get(key, key)
+                    val = all_fields.get(db_col)
+                if val is None:
+                    val = "Not provided"
+                input_lines.append(f"{key}: {val}")
             
             input_data_str = "\n".join(input_lines)
             prompt = prompt_template.replace("{input_data}", input_data_str)
@@ -261,7 +350,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                         llm_pb2.ExtractRequest(
                             prompt=prompt,
                             model=model_name,
-                            temperature=0.0,
+                            temperature=0.2,
                             system_instruction=system_instruction
                         )
                     )
@@ -281,33 +370,28 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
         if evaluation_results:
             logger.info("Saving evaluation results to DB", results=evaluation_results)
             
-            business_status = evaluation_results.get("business_status")
-            business_status_explanation = evaluation_results.get("business_status_explanation")
-            financial_viability = evaluation_results.get("financial_viability")
-
             with get_db_cursor(db_pool) as cur:
                 # Update mudra_user_data
                 cur.execute("SELECT id FROM mudra_user_data WHERE user_id = %s", (session_id,))
                 if cur.fetchone():
                     update_parts = []
                     update_params = []
-                    if business_status is not None:
-                        update_parts.append("business_status = %s")
-                        update_params.append(business_status.lower())
-                    if business_status_explanation is not None:
-                        update_parts.append("business_status_explanation = %s")
-                        update_params.append(business_status_explanation)
-                    if financial_viability is not None:
-                        # Clean to standard "Yes"/"No"
-                        fv_clean = "Yes" if "yes" in str(financial_viability).lower() else "No"
-                        update_parts.append("financial_viability = %s")
-                        update_params.append(fv_clean)
-                    
+                    for k, v in evaluation_results.items():
+                        if k in valid_cols:
+                            update_parts.append(f"{k} = %s")
+                            if k == "financial_viability" and v is not None:
+                                v_clean = "Yes" if "yes" in str(v).lower() else "No"
+                                update_params.append(v_clean)
+                            elif k == "business_status" and v is not None:
+                                update_params.append(str(v).lower())
+                            else:
+                                update_params.append(str(v) if v is not None else None)
+                                
                     if update_parts:
                         query = f"UPDATE mudra_user_data SET {', '.join(update_parts)}, updated_at = NOW() WHERE user_id = %s"
                         update_params.append(session_id)
                         cur.execute(query, tuple(update_params))
-                        logger.info("Updated mudra_user_data evaluations", session_id=session_id)
+                        logger.info("Updated mudra_user_data evaluations dynamically", session_id=session_id)
 
                 # Update user_data.data JSON
                 cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))

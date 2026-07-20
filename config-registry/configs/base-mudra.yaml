@@ -59,7 +59,7 @@ interview_graph:
       targets: []
       edges:
         - condition: "always"
-          next: "DOC_WORKPLACE_VIDEO"
+          next: "DOC_SELFIE"
 
     Q_STATUS:
       type: "voice-qa"
@@ -348,10 +348,84 @@ db_mapping:
   needs_machine: needs_machine
   machine_name: machine_name
   machine_purpose: machine_purpose
-  machine_supplier: machine_supplier
-  machine_cost: machine_cost
-  number_of_family_members: number_of_family_members
-  marital_status: marital_status
-  number_of_kids: number_of_kids
   education_level: education_level
   co_borrower: co_borrower
+
+# ─── Dynamic Post-processing Pipelines ───
+post_processing_pipelines:
+  credit_worthiness:
+    trigger: "on_complete"
+    type: "llm_evaluation"
+    model: "gemini-2.5-flash"
+    input_fields:
+      - "applicant_name"
+      - "business_type"
+      - "monthly_revenue"
+      - "monthly_profit"
+      - "last_year_monthly_revenue"
+      - "persons_involved"
+      - "number_of_paid_employees"
+      - "current_wages"
+      - "inventory_amount"
+      - "debtors_amount"
+      - "creditors_amount"
+      - "proposed_monthly_revenue"
+      - "proposed_number_of_people"
+      - "proposed_wages"
+      - "needs_machine"
+      - "machine_name"
+      - "machine_purpose"
+      - "machine_supplier"
+      - "machine_cost"
+      - "number_of_family_members"
+      - "marital_status"
+      - "number_of_kids"
+      - "education_level"
+      - "co_borrower"
+      - "experience_in_line_of_activity"
+      - "net_sales_present_year"
+      - "net_sales_next_year"
+      - "net_sales_past_year_1"
+      - "net_sales_past_year_2"
+      - "net_profit_present_year"
+      - "net_profit_next_year"
+      - "net_profit_past_year_1"
+      - "net_profit_past_year_2"
+      - "inventory"
+      - "debtors"
+      - "creditors"
+      - "promoters_contribution_in_working_capital"
+      - "limits"
+      - "cash_credit_amount"
+      - "term_loan_promoter_contribution"
+      - "term_loan_required"
+      - "total_loan_required_amount"
+    system_instruction: "You are a credit underwriting analyst evaluating Mudra loan applications for rural India. Respond ONLY in valid JSON. Do not add any extra text."
+    prompt_template: |
+      Assess the borrower's creditworthiness only based on the extracted conversation and financial rules calculation data provided.
+      Do NOT assume, infer, or ask any information that is not explicitly present in the data.
+      
+      EVALUATION RULES (MANDATORY):
+      1. Machinery purchase is OPTIONAL.
+      2. Evaluate projected or expected sales AFTER the loan.
+      3. Identify inconsistencies or contradictions in the borrower's answers (numbers, timelines, intent).
+      4. Accept term loan only, working capital only, or combination.
+      5. Do NOT penalize the borrower for lack of explanations, missing documentation, or rounded figures.
+      
+      SCORING GUIDELINES:
+      • Score must be between 0 and 10.
+      • Use the anchors: 9–10 (consistent, reasonable), 6–8 (minor gaps, fixable), 3–5 (multiple gaps), 0–2 (highly inconsistent).
+      
+      INPUT DATA:
+      {input_data}
+      
+      OUTPUT FORMAT:
+      Respond ONLY in valid JSON.
+      
+      {{
+        "reason": "5 concise bullet-style points highlighting strengths and gaps in English",
+        "creditworthiness_score": "X/10"
+      }}
+    output_mapping:
+      creditworthiness_score: "credit_worthiness"
+      reason: "credit_reason"
