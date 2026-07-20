@@ -227,13 +227,7 @@ interview_graph:
         - condition: "always"
           next: "DOC_BANK_STATEMENT"
 
-    DOC_BANK_STATEMENT:
-      type: "capture"
-      document_id: "bank_statement"
-      text_template: "कृपया अपने पिछले 6 महीने के बैंक स्टेटमेंट की फोटो या पीडीएफ अपलोड करें।"
-      edges:
-        - condition: "always"
-          next: "DOC_WORKPLACE_VIDEO"
+
 
     DOC_WORKPLACE_VIDEO:
       type: "video_capture"
