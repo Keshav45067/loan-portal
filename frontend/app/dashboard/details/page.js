@@ -343,7 +343,7 @@ export default function DetailsPage() {
       <div className="layout-grid">
         
         {/* Left Section: tabs for organized fields */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div className="left-section">
           
           {/* Custom Tabs Navigation */}
           <div className="tabs-container">
@@ -429,7 +429,7 @@ export default function DetailsPage() {
         </div>
 
         {/* Right Section: Underwriting & Decisions + Documents */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+        <div className="right-section">
           
           {/* AI Underwriting Decisions Panel */}
           <div style={{ 
@@ -741,9 +741,25 @@ export default function DetailsPage() {
           width: 100%;
           margin: 0 auto;
           padding: 32px;
-          display: grid;
-          grid-template-columns: 1.25fr 0.75fr;
+          display: flex;
+          flex-wrap: wrap;
           gap: 32px;
+          box-sizing: border-box;
+        }
+        .left-section {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+          flex: 1.25;
+          min-width: 320px;
+          box-sizing: border-box;
+        }
+        .right-section {
+          display: flex;
+          flex-direction: column;
+          gap: 32px;
+          flex: 0.75;
+          min-width: 300px;
           box-sizing: border-box;
         }
         .tabs-container {
@@ -769,12 +785,18 @@ export default function DetailsPage() {
             gap: 12px;
           }
           .layout-grid {
-            grid-template-columns: 1fr;
             padding: 16px;
             gap: 24px;
           }
+          .left-section, .right-section {
+            flex: 1 1 100%;
+            width: 100%;
+          }
         }
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
+          .tabs-container {
+            flex-wrap: wrap;
+          }
           .details-grid {
             grid-template-columns: 1fr;
             gap: 16px;
