@@ -35,115 +35,219 @@ async def run_quality_gate(
     part_id: str = ""
 ) -> QualityResult:
     """
-    Performs image QC, calls OCR service, identifies the page part via anchors,
-    and returns a QualityResult.
+    Performs layout detection, quality checks on each layout crop individually,
+    applies preprocessing recovery to each crop as needed, executes OCR, and
+    combines all crop texts into a structured XML layout format.
     """
+    # 1. Decode main image to inspect size
+    try:
+        main_img = Image.open(io.BytesIO(image_bytes))
+        width, height = main_img.size
+    except Exception as e:
+        logger.warning(f"QualityGate: Failed to load main image (using dummy fallback): {e}")
+        main_img = Image.new('RGB', (640, 480), color='white')
+        width, height = main_img.size
+
+    # 2. Retrieve thresholds and policy from manifest
     quality_config = manifest.get("quality", {})
     blur_var_min = quality_config.get("blur_var_min", 100)
     min_box_confidence = quality_config.get("min_box_confidence", 0.50)
     min_anchor_hits = quality_config.get("min_anchor_hits", 2)
     
-    # 1. Blur check
-    blur_var = calculate_blur_variance(image_bytes)
-    logger.info(f"QualityGate: calculated blur variance = {blur_var:.2f} (min threshold = {blur_var_min})")
-    if blur_var < blur_var_min:
-        return QualityResult(
-            passed=False,
-            part_id="",
-            ocr_text="",
-            ocr_confidence=0.0,
-            failure_reason="blur",
-            anchor_hits=0
-        )
-        
-    # 2. OCR via OCR Service (with recovery retry loop)
+    quality_policy = manifest.get("quality_policy", {
+        "allow_deskew": True,
+        "allow_glare_removal": True,
+        "allow_contrast_enhancement": True,
+        "allow_denoise": False,
+        "allow_gamma": False,
+        "allow_white_balance": False,
+        "allow_sharpen": True,
+        "allow_qr_masking": True
+    })
+
+    # 3. Call layout detection gRPC endpoint
     from generated import ocr_pb2
-    attempts = 0
-    max_attempts = 3
-    current_image_bytes = image_bytes
-    raw_text = ""
-    ocr_confidence = 0.0
+    logger.info("QualityGate: Calling DetectLayout on main image...")
+    layouts = []
+    try:
+        layout_res = await ocr_stub.DetectLayout(ocr_pb2.LayoutRequest(
+            image_data=image_bytes
+        ), timeout=30.0)
+        if layout_res.success:
+            for layout_box in layout_res.layouts:
+                layouts.append({
+                    "xmin": layout_box.xmin,
+                    "ymin": layout_box.ymin,
+                    "xmax": layout_box.xmax,
+                    "ymax": layout_box.ymax,
+                    "label": layout_box.label,
+                    "score": layout_box.score
+                })
+            logger.info(f"QualityGate: Layout detection returned {len(layouts)} layout(s).")
+        else:
+            logger.warning(f"QualityGate: DetectLayout returned success=False: {layout_res.error}")
+    except Exception as e:
+        logger.error(f"QualityGate: DetectLayout gRPC call failed: {e}")
 
-    while attempts < max_attempts:
-        try:
-            # Check if the expected part specifies table recognition format or spotting
-            is_table = False
-            spotting_flag = False
-            if part_id:
-                for part in manifest.get("parts", []):
-                    if part.get("id") == part_id:
-                        if part.get("table") is True:
-                            is_table = True
-                        if part.get("spotting") is True:
-                            spotting_flag = True
-                        break
+    using_fallback = False
+    # Fallback to whole image if no layouts detected
+    if not layouts:
+        logger.info("QualityGate: No layouts detected or service error. Falling back to whole image layout.")
+        using_fallback = True
+        layouts.append({
+            "xmin": 0,
+            "ymin": 0,
+            "xmax": width,
+            "ymax": height,
+            "label": "document",
+            "score": 1.0
+        })
 
-            ocr_hint = "Table Recognition:" if is_table else document_id
-
-            ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
-                image_data=current_image_bytes,
-                language=language,
-                hint=ocr_hint,
-                spotting=spotting_flag
-            ), timeout=30.0)
-            
-            if not ocr_res.success:
-                logger.error(f"QualityGate: OCR service failed: {ocr_res.error}")
-                ocr_confidence = 0.0
-                raw_text = ""
-            else:
-                xml_layout = getattr(ocr_res, "xml_layout", "")
-                if xml_layout and isinstance(xml_layout, str):
-                    raw_text = xml_layout
-                else:
-                    formatted_text_blocks = []
-                    for block in ocr_res.blocks:
-                        formatted_text_blocks.append(f"[Conf: {block.confidence:.2f}] {block.text}")
-                    raw_text = "\n".join(formatted_text_blocks) if formatted_text_blocks else ocr_res.raw_text
-                ocr_confidence = ocr_res.confidence
-        except grpc.RpcError as e:
-            logger.error(f"QualityGate: OCR gRPC call failed: {e}")
-            ocr_confidence = 0.0
-            raw_text = ""
-
-        logger.info(f"QualityGate: OCR confidence = {ocr_confidence:.2f} (min threshold = {min_box_confidence}) [Attempt {attempts + 1}/{max_attempts}]")
+    # 4. Process each layout crop step-by-step
+    from quality_metrics import build_quality_report
+    from recovery_engine import decide_recovery, apply_recovery
+    
+    xml_parts = []
+    crop_confidences = []
+    
+    for idx, box in enumerate(layouts):
+        xmin = max(0, min(box["xmin"], width))
+        ymin = max(0, min(box["ymin"], height))
+        xmax = max(0, min(box["xmax"], width))
+        ymax = max(0, min(box["ymax"], height))
         
-        if ocr_confidence >= min_box_confidence:
-            break
-            
-        attempts += 1
-        if attempts >= max_attempts:
-            return QualityResult(
-                passed=False,
-                part_id="",
-                ocr_text=raw_text,
-                ocr_confidence=ocr_confidence,
-                failure_reason="low_confidence",
-                anchor_hits=0
-            )
+        if xmax <= xmin or ymax <= ymin:
+            logger.warning(f"QualityGate: Skipping invalid bounding box: {box}")
+            continue
 
-        from recovery_actions import enhance_contrast, gamma
+        logger.info(f"QualityGate: Processing layout crop {idx+1}/{len(layouts)}: label={box['label']}, bbox=[{xmin}, {ymin}, {xmax}, {ymax}]")
+        
+        # Crop the image
         try:
-            img = Image.open(io.BytesIO(image_bytes))
-            if attempts == 1:
-                logger.info("QualityGate: OCR confidence below threshold. Applying recovery action: enhance_contrast and retrying OCR.")
-                img = enhance_contrast(img)
-            else:
-                logger.info("QualityGate: OCR confidence below threshold. Applying recovery action: gamma correction and retrying OCR.")
-                img = gamma(img)
+            crop_img = main_img.crop((xmin, ymin, xmax, ymax))
             out = io.BytesIO()
-            img.save(out, format="JPEG", quality=85)
-            current_image_bytes = out.getvalue()
+            crop_img.save(out, format="JPEG", quality=90)
+            crop_bytes = out.getvalue()
         except Exception as e:
-            logger.error(f"QualityGate: failed to apply OCR recovery action: {e}")
-            pass
+            logger.error(f"QualityGate: Failed to crop/save layout box {idx}: {e}")
+            continue
+
+        # Check blur on crop
+        crop_blur_var = calculate_blur_variance(crop_bytes)
+        logger.info(f"QualityGate [Crop {idx+1}]: blur variance = {crop_blur_var:.2f} (min threshold = {blur_var_min})")
         
-    # Translate Devanagari numerals to ASCII so LLM doesn't get confused
+        # Build quality report and decide recovery for this layout crop
+        try:
+            crop_report = build_quality_report(crop_bytes)
+            decisions = decide_recovery(crop_report, quality_policy, quality_config)
+            logger.info(f"QualityGate [Crop {idx+1}]: decided {len(decisions)} recovery action(s) based on local metrics.")
+            
+            # Apply recovery
+            preprocessed_crop_bytes = apply_recovery(crop_bytes, decisions)
+        except Exception as e:
+            logger.error(f"QualityGate [Crop {idx+1}]: Recovery decision/application failed: {e}")
+            preprocessed_crop_bytes = crop_bytes
+
+        # Run OCR on the preprocessed crop
+        crop_text = ""
+        crop_confidence = 0.0
+        attempts = 0
+        max_attempts = 3
+        current_crop_bytes = preprocessed_crop_bytes
+
+        while attempts < max_attempts:
+            try:
+                # Check if the expected part specifies table recognition format or spotting
+                is_table = False
+                spotting_flag = False
+                if part_id:
+                    for part in manifest.get("parts", []):
+                        if part.get("id") == part_id:
+                            if part.get("table") is True:
+                                is_table = True
+                            if part.get("spotting") is True:
+                                spotting_flag = True
+                            break
+
+                # Also flag as table if layout box label is table
+                if box.get("label") == "table":
+                    is_table = True
+
+                ocr_hint = "Table Recognition:" if is_table else document_id
+
+                # Run ExtractText on layout crop
+                ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
+                    image_data=current_crop_bytes,
+                    language=language,
+                    hint=ocr_hint,
+                    spotting=spotting_flag
+                ), timeout=30.0)
+                
+                if ocr_res.success:
+                    crop_text = ocr_res.raw_text
+                    crop_confidence = ocr_res.confidence
+                else:
+                    logger.error(f"QualityGate [Crop {idx+1}]: OCR extraction failed: {ocr_res.error}")
+                    crop_text = ""
+                    crop_confidence = 0.0
+            except Exception as e:
+                logger.error(f"QualityGate [Crop {idx+1}]: OCR call failed: {e}")
+                crop_text = ""
+                crop_confidence = 0.0
+
+            logger.info(f"QualityGate [Crop {idx+1}]: OCR confidence = {crop_confidence:.2f} (threshold = {min_box_confidence}) [Attempt {attempts + 1}/{max_attempts}]")
+            
+            if crop_confidence >= min_box_confidence:
+                break
+                
+            attempts += 1
+            if attempts >= max_attempts:
+                break
+
+            # Local recovery actions within loop
+            from recovery_actions import enhance_contrast, gamma
+            try:
+                c_img = Image.open(io.BytesIO(current_crop_bytes))
+                if attempts == 1:
+                    logger.info(f"QualityGate [Crop {idx+1}]: applying contrast enhancement...")
+                    c_img = enhance_contrast(c_img)
+                else:
+                    logger.info(f"QualityGate [Crop {idx+1}]: applying gamma correction...")
+                    c_img = gamma(c_img)
+                
+                out = io.BytesIO()
+                c_img.save(out, format="JPEG", quality=85)
+                current_crop_bytes = out.getvalue()
+            except Exception as e:
+                logger.error(f"QualityGate [Crop {idx+1}]: recovery update failed: {e}")
+                break
+
+        # Append to XML layout
+        clean_crop_text = crop_text.strip()
+        xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}" score="{box["score"]:.2f}">\n{clean_crop_text}\n</layout>'
+        xml_parts.append(xml_tag)
+        crop_confidences.append(crop_confidence)
+
+    # Combine everything
+    if using_fallback:
+        final_ocr = "\n".join(c["text"] for c in session["ocr_results"].values()) if 'session' in locals() else "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480" score="1.00">', '').replace('</layout>', '').strip()
+        # Fallback to simple joined crop texts
+        if not final_ocr:
+            final_ocr = "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480" score="1.00">', '').replace('</layout>', '').strip()
+            # If the dummy fallback box (640x480) or similar is used, remove the XML tags
+            import re
+            final_ocr = re.sub(r'<layout[^>]*>', '', final_ocr)
+            final_ocr = re.sub(r'</layout>', '', final_ocr).strip()
+    else:
+        final_ocr = "\n".join(xml_parts)
+        
+    avg_confidence = sum(crop_confidences) / len(crop_confidences) if crop_confidences else 0.0
+    
+    # 5. Anchor matching & identity classification
     translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
-    clean_raw_text = raw_text.translate(translit_map)
+    clean_raw_text = final_ocr.translate(translit_map)
     clean_lower_text = clean_raw_text.lower()
     
-    # 4. Anchor matching & identity classification
     best_part_id = ""
     max_hits = -1
     
@@ -159,23 +263,29 @@ async def run_quality_gate(
             max_hits = hits
             best_part_id = part.get("id", "")
             
-    # Check if we met the minimum anchor hit threshold
-    logger.info(f"QualityGate: best part identified as '{best_part_id}' with {max_hits} hits (min = {min_anchor_hits})")
-    if max_hits < min_anchor_hits:
-        return QualityResult(
-            passed=False,
-            part_id="",
-            ocr_text=clean_raw_text,
-            ocr_confidence=ocr_confidence,
-            failure_reason="wrong_page",
-            anchor_hits=max_hits
-        )
+    logger.info(f"QualityGate: Best part identified as '{best_part_id}' with {max_hits} hits (min = {min_anchor_hits})")
+    
+    # Decide overall gate pass/fail status
+    passed = True
+    failure_reason = ""
+    
+    # Check overall thresholds
+    main_blur = calculate_blur_variance(image_bytes)
+    if main_blur < blur_var_min:
+        passed = False
+        failure_reason = "blur"
+    elif avg_confidence < min_box_confidence:
+        passed = False
+        failure_reason = "low_confidence"
+    elif max_hits < min_anchor_hits:
+        passed = False
+        failure_reason = "wrong_page"
         
     return QualityResult(
-        passed=True,
+        passed=passed,
         part_id=best_part_id,
         ocr_text=clean_raw_text,
-        ocr_confidence=ocr_confidence,
-        failure_reason="",
+        ocr_confidence=avg_confidence,
+        failure_reason=failure_reason,
         anchor_hits=max_hits
     )

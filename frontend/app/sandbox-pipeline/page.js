@@ -88,6 +88,7 @@ export default function SandboxPipelinePage() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionId, setSessionId] = useState('');
   
   const fileInputRef = useRef(null);
 
@@ -141,6 +142,7 @@ export default function SandboxPipelinePage() {
         logs: data.logs || []
       }]);
       setDecisions(data.decisions);
+      setSessionId(data.session_id || '');
       setCurrentStepIndex(0);
       setIsInitialized(true);
     } catch (err) {
@@ -175,7 +177,8 @@ export default function SandboxPipelinePage() {
           manifest_json: manifestStr,
           page_id: pageId,
           language: language,
-          is_final_step: isFinal
+          is_final_step: isFinal,
+          session_id: sessionId
         })
       });
 

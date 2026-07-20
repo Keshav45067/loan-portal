@@ -5,9 +5,9 @@ package chayan.ocr;
 option go_package = "github.com/ChayanAI/services/proto/ocr";
 
 // OCR Service — extracts raw text from document images.
-// Contract-only stub — implementation deferred.
 service OCRService {
   rpc ExtractText (OCRRequest) returns (OCRResponse);
+  rpc DetectLayout (LayoutRequest) returns (LayoutResponse);
 }
 
 message OCRRequest {
@@ -30,3 +30,23 @@ message OCRResponse {
   repeated TextBlock blocks = 5;  // Detailed per-box text and confidence
   string xml_layout = 6;          // Layout reconstructed into XML tags
 }
+
+message LayoutRequest {
+  bytes image_data = 1;
+}
+
+message LayoutBox {
+  int32 xmin = 1;
+  int32 ymin = 2;
+  int32 xmax = 3;
+  int32 ymax = 4;
+  string label = 5;
+  float score = 6;
+}
+
+message LayoutResponse {
+  bool success = 1;
+  string error = 2;
+  repeated LayoutBox layouts = 3;
+}
+
