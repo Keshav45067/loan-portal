@@ -30,13 +30,15 @@ class ConfigService:
         self._schemes: Dict[str, dict] = {}
 
     async def load_configs(self):
-        """Load all YAML config files from CONFIG_DIR into memory and Redis."""
+        """Load all YAML config files from CONFIG_DIR, resolve inheritance, and cache."""
+        import copy
         config_dir = os.path.abspath(CONFIG_DIR)
         if not os.path.isdir(config_dir):
             logger.warning(f"Config directory not found: {config_dir}")
             return
 
-        loaded = 0
+        raw_configs = {}
+        # Step 1: Load all raw files
         for filename in os.listdir(config_dir):
             if not filename.endswith((".yaml", ".yml")):
                 continue
@@ -50,19 +52,77 @@ class ConfigService:
                 if not scheme_id:
                     logger.warning(f"Skipping {filename}: no scheme_id")
                     continue
-
-                self._schemes[scheme_id] = config
-                # Cache in Redis
-                await self._cache.set_scheme_config(scheme_id, config)
-
-                node_count = len(config.get("interview_graph", {}).get("nodes", {}))
-                logger.info(f"Loaded scheme: {scheme_id}",
-                            scheme_id=scheme_id,
-                            details={"file": filename, "nodes": node_count})
-                loaded += 1
-
+                raw_configs[scheme_id] = config
             except Exception as e:
                 logger.error(f"Failed to load {filename}: {e}", error=str(e))
+
+        # Helper to merge nested dictionaries
+        def deep_merge(dict1, dict2):
+            result = copy.deepcopy(dict1)
+            for key, val in dict2.items():
+                if isinstance(val, dict) and key in result and isinstance(result[key], dict):
+                    result[key] = deep_merge(result[key], val)
+                else:
+                    result[key] = copy.deepcopy(val)
+            return result
+
+        # Helper to resolve inheritance recursively
+        def resolve_inheritance(scheme_id, raw_configs, resolved=None, resolving=None):
+            if resolved is None:
+                resolved = {}
+            if resolving is None:
+                resolving = set()
+
+            if scheme_id in resolved:
+                return resolved[scheme_id]
+            if scheme_id in resolving:
+                raise ValueError(f"Circular inheritance detected for scheme: {scheme_id}")
+
+            resolving.add(scheme_id)
+            config = raw_configs.get(scheme_id)
+            if not config:
+                raise ValueError(f"Parent scheme not found: {scheme_id}")
+
+            parent_id = config.get("extends")
+            if parent_id:
+                # Recursively resolve parent
+                parent_config = resolve_inheritance(parent_id, raw_configs, resolved, resolving)
+                # Deep merge parent with current child config
+                merged = deep_merge(parent_config, config)
+                
+                # Special handling for nodes delete check
+                if "interview_graph" in merged and "nodes" in merged["interview_graph"]:
+                    # Clean up deleted nodes
+                    nodes = merged["interview_graph"]["nodes"]
+                    for node_key in list(nodes.keys()):
+                        if nodes[node_key] and nodes[node_key].get("delete") is True:
+                            del nodes[node_key]
+                merged.pop("extends", None)
+                resolved[scheme_id] = merged
+            else:
+                resolved[scheme_id] = copy.deepcopy(config)
+
+            resolving.remove(scheme_id)
+            return resolved[scheme_id]
+
+        # Step 2: Resolve and register configs
+        resolved_configs = {}
+        loaded = 0
+        for scheme_id in raw_configs:
+            try:
+                resolved_config = resolve_inheritance(scheme_id, raw_configs, resolved_configs)
+                self._schemes[scheme_id] = resolved_config
+                
+                # Cache in Redis
+                await self._cache.set_scheme_config(scheme_id, resolved_config)
+
+                node_count = len(resolved_config.get("interview_graph", {}).get("nodes", {}))
+                logger.info(f"Loaded and resolved scheme: {scheme_id}",
+                            scheme_id=scheme_id,
+                            details={"nodes": node_count})
+                loaded += 1
+            except Exception as e:
+                logger.error(f"Failed to resolve scheme {scheme_id}: {e}", error=str(e))
 
         logger.info(f"Config Registry loaded {loaded} schemes",
                     details={"total": loaded, "schemes": list(self._schemes.keys())})

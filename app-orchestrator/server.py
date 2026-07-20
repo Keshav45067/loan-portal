@@ -108,6 +108,224 @@ def get_db_cursor(db_pool):
             db_pool.putconn(conn, close=is_broken)
 
 
+
+# Helper to resolve scheme config using inheritance
+def load_resolved_scheme_config(scheme_id: str) -> dict:
+    import copy
+    import yaml
+    config_dir = "/Users/keshavgarg/Documents/augmen/services/config-registry/configs"
+    
+    # Load all raw configurations
+    raw_configs = {}
+    if not os.path.exists(config_dir):
+        logger.warning(f"Config dir not found: {config_dir}")
+        return {}
+
+    for filename in os.listdir(config_dir):
+        if not filename.endswith((".yaml", ".yml")):
+            continue
+        filepath = os.path.join(config_dir, filename)
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                cfg = yaml.safe_load(f)
+            s_id = cfg.get("scheme_id")
+            if s_id:
+                raw_configs[s_id] = cfg
+        except Exception:
+            pass
+
+    def deep_merge(dict1, dict2):
+        res = copy.deepcopy(dict1)
+        for k, v in dict2.items():
+            if isinstance(v, dict) and k in res and isinstance(res[k], dict):
+                res[k] = deep_merge(res[k], v)
+            else:
+                res[k] = copy.deepcopy(v)
+        return res
+
+    def resolve(s_id, resolved=None, resolving=None):
+        if resolved is None:
+            resolved = {}
+        if resolving is None:
+            resolving = set()
+        if s_id in resolved:
+            return resolved[s_id]
+        if s_id in resolving:
+            raise ValueError(f"Circular inheritance: {s_id}")
+        resolving.add(s_id)
+        cfg = raw_configs.get(s_id)
+        if not cfg:
+            raise ValueError(f"Scheme not found: {s_id}")
+        parent_id = cfg.get("extends")
+        if parent_id:
+            parent_cfg = resolve(parent_id, resolved, resolving)
+            merged = deep_merge(parent_cfg, cfg)
+            merged.pop("extends", None)
+            resolved[s_id] = merged
+        else:
+            resolved[s_id] = copy.deepcopy(cfg)
+        resolving.remove(s_id)
+        return resolved[s_id]
+
+    try:
+        return resolve(scheme_id)
+    except Exception as e:
+        logger.error(f"Error resolving scheme config inheritance for {scheme_id}: {e}")
+        return {}
+
+
+async def run_post_processing_evaluations(session_id: str, db_pool):
+    """Run background LLM credit evaluations using scheme configuration pipelines."""
+    logger.info("Starting background post-processing evaluations", session_id=session_id)
+    try:
+        # 1. Fetch user_data row
+        user_data_json = {}
+        with get_db_cursor(db_pool) as cur:
+            cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
+            row = cur.fetchone()
+            if not row:
+                logger.error(f"Post-processing failed: Session {session_id} not found in user_data")
+                return
+            user_data_json = row[0] or {}
+
+        scheme_id = user_data_json.get("scheme_id")
+        if not scheme_id:
+            logger.warning(f"No scheme_id found for session {session_id}")
+            return
+
+        # 2. Load resolved scheme config
+        config = load_resolved_scheme_config(scheme_id)
+        if not config:
+            logger.warning(f"Could not load resolved configuration for scheme {scheme_id}")
+            return
+
+        pipelines = config.get("post_processing_pipelines", {})
+        if not pipelines:
+            logger.info(f"No post-processing pipelines configured for scheme {scheme_id}")
+            return
+
+        db_mapping = config.get("db_mapping", {})
+
+        # Fetch valid columns in mudra_user_data
+        valid_cols = set()
+        try:
+            with get_db_cursor(db_pool) as cur:
+                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'mudra_user_data'")
+                valid_cols = {r[0] for r in cur.fetchall()}
+        except Exception as e:
+            logger.warning(f"Could not read columns from mudra_user_data: {e}")
+
+        # 3. Process each pipeline
+        evaluation_results = {}
+        for pipeline_name, pipeline_cfg in pipelines.items():
+            trigger = pipeline_cfg.get("trigger", "on_complete")
+            if trigger != "on_complete":
+                continue
+
+            input_fields = pipeline_cfg.get("input_fields", [])
+            prompt_template = pipeline_cfg.get("prompt_template", "")
+            system_instruction = pipeline_cfg.get("system_instruction", "")
+            model_name = pipeline_cfg.get("model", "gemini-2.5-flash")
+            output_mapping = pipeline_cfg.get("output_mapping", {})
+
+            # Gather dynamic input fields
+            input_lines = []
+            with get_db_cursor(db_pool) as cur:
+                for key in input_fields:
+                    val = user_data_json.get(key)
+                    # Safe fallback to mudra_user_data column
+                    if (val is None or val == "") and valid_cols:
+                        col = db_mapping.get(key, key)
+                        if col in valid_cols:
+                            try:
+                                cur.execute(f"SELECT {col} FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                                res_row = cur.fetchone()
+                                if res_row:
+                                    val = res_row[0]
+                            except Exception:
+                                pass
+                    if val is None:
+                        val = "Not provided"
+                    input_lines.append(f"{key}: {val}")
+            
+            input_data_str = "\n".join(input_lines)
+            prompt = prompt_template.replace("{input_data}", input_data_str)
+
+            # Call LLM Service
+            try:
+                from generated import llm_pb2, llm_pb2_grpc
+                async with grpc.aio.insecure_channel("localhost:50054") as channel:
+                    stub = llm_pb2_grpc.LanguageModelStub(channel)
+                    logger.info(f"Invoking LLM for pipeline {pipeline_name}", session_id=session_id)
+                    response = await stub.Extract(
+                        llm_pb2.ExtractRequest(
+                            prompt=prompt,
+                            model=model_name,
+                            temperature=0.0,
+                            system_instruction=system_instruction
+                        )
+                    )
+                    if not response.success:
+                        raise Exception(response.error)
+                    
+                    # Parse JSON text
+                    logger.info(f"LLM extraction success for {pipeline_name}", response_json=response.json_text)
+                    result_json = json.loads(response.json_text)
+                    for src_field, target_db_field in output_mapping.items():
+                        evaluation_results[target_db_field] = result_json.get(src_field)
+
+            except Exception as llm_err:
+                logger.error(f"LLM call failed for pipeline {pipeline_name}: {llm_err}")
+
+        # 4. Save results to Database
+        if evaluation_results:
+            logger.info("Saving evaluation results to DB", results=evaluation_results)
+            
+            business_status = evaluation_results.get("business_status")
+            business_status_explanation = evaluation_results.get("business_status_explanation")
+            financial_viability = evaluation_results.get("financial_viability")
+
+            with get_db_cursor(db_pool) as cur:
+                # Update mudra_user_data
+                cur.execute("SELECT id FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                if cur.fetchone():
+                    update_parts = []
+                    update_params = []
+                    if business_status is not None:
+                        update_parts.append("business_status = %s")
+                        update_params.append(business_status.lower())
+                    if business_status_explanation is not None:
+                        update_parts.append("business_status_explanation = %s")
+                        update_params.append(business_status_explanation)
+                    if financial_viability is not None:
+                        # Clean to standard "Yes"/"No"
+                        fv_clean = "Yes" if "yes" in str(financial_viability).lower() else "No"
+                        update_parts.append("financial_viability = %s")
+                        update_params.append(fv_clean)
+                    
+                    if update_parts:
+                        query = f"UPDATE mudra_user_data SET {', '.join(update_parts)}, updated_at = NOW() WHERE user_id = %s"
+                        update_params.append(session_id)
+                        cur.execute(query, tuple(update_params))
+                        logger.info("Updated mudra_user_data evaluations", session_id=session_id)
+
+                # Update user_data.data JSON
+                cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
+                row = cur.fetchone()
+                if row:
+                    u_data = row[0] or {}
+                    for k, v in evaluation_results.items():
+                        u_data[k] = v
+                    cur.execute(
+                        "UPDATE user_data SET data = %s::json WHERE id = %s",
+                        (json.dumps(u_data, ensure_ascii=False), session_id)
+                    )
+                    logger.info("Updated user_data JSON evaluations", session_id=session_id)
+
+    except Exception as eval_err:
+        logger.error(f"Error running post-processing evaluations: {eval_err}", error=traceback.format_exc())
+
+
 class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
     """gRPC servicer implementing the ApplicationOrchestrator service."""
 
@@ -576,6 +794,10 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     )
                     conn.commit()
                     logger.info(f"Upserted {len(fields)} fields to user_data", req_id=req_id)
+                    
+                    # Trigger evaluations if onboarding_finished is True or trigger_evaluations is True
+                    if existing_data.get("onboarding_finished") is True or fields.get("trigger_evaluations") is True:
+                        asyncio.create_task(run_post_processing_evaluations(session_id, self._db_pool))
                 except Exception as e:
                     conn.rollback()
                     raise
@@ -708,6 +930,60 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("SaveDocument", req_id=req_id, session_id=request.session_id, doc_type=request.doc_type)
         try:
             raw_doc_type = request.doc_type.upper()
+            if "WORKPLACE_VIDEO" in raw_doc_type or "WORKPLACE" in raw_doc_type:
+                # Handle workplace geo-tagged video
+                latitude = None
+                longitude = None
+                address = None
+                doc_name = "workplace_video.webm"
+                try:
+                    import json
+                    parsed = json.loads(request.name)
+                    if isinstance(parsed, dict):
+                        doc_name = parsed.get("name", doc_name)
+                        latitude = parsed.get("latitude")
+                        longitude = parsed.get("longitude")
+                        address = parsed.get("address")
+                except Exception:
+                    doc_name = request.name or doc_name
+
+                with get_db_cursor(self._db_pool) as cur:
+                    # Ensure table exists
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS geo_tagged_videos (
+                            id SERIAL PRIMARY KEY,
+                            user_id UUID UNIQUE NOT NULL,
+                            gcs_path VARCHAR(255) NOT NULL,
+                            latitude NUMERIC,
+                            longitude NUMERIC,
+                            address TEXT,
+                            recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+                    
+                    # Upsert into geo_tagged_videos
+                    cur.execute("""
+                        INSERT INTO geo_tagged_videos (user_id, gcs_path, latitude, longitude, address, recorded_at)
+                        VALUES (%s, %s, %s, %s, %s, NOW())
+                        ON CONFLICT (user_id) DO UPDATE SET
+                            gcs_path = EXCLUDED.gcs_path,
+                            latitude = EXCLUDED.latitude,
+                            longitude = EXCLUDED.longitude,
+                            address = EXCLUDED.address,
+                            recorded_at = EXCLUDED.recorded_at,
+                            created_at = CURRENT_TIMESTAMP;
+                    """, (request.session_id, request.key, latitude, longitude, address))
+
+                    # Insert mapping in docs_test as well
+                    doc_id = str(uuid.uuid4())
+                    cur.execute(
+                        """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, NOW(), NOW())""",
+                        (doc_id, request.key, request.session_id, doc_name)
+                    )
+                return pb2.SaveDocResponse(success=True)
+
             if "AADHAAR_FRONT" in raw_doc_type or "AADHAR_FRONT" in raw_doc_type:
                 db_doc_type = "AADHAR_FRONT"
             elif "AADHAAR_BACK" in raw_doc_type or "AADHAR_BACK" in raw_doc_type:

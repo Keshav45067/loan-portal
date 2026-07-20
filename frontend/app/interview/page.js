@@ -255,7 +255,17 @@ const DOCUMENT_METADATA = {
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
   'office_id': { label: 'Office ID', icon: '🪪', facingMode: 'environment', tips: ['Office ID should be clear'] },
   'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] },
-  'correspondence_proof': { label: 'Correspondence Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] }
+  'correspondence_proof': { label: 'Correspondence Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] },
+  'workplace_video': { 
+    label: 'Workplace Video', 
+    icon: '📹', 
+    facingMode: 'environment', 
+    tips: [
+      'Show your business board, stock, and workspace', 
+      'Hold the camera steady', 
+      'Follow the spoken instructions'
+    ] 
+  }
 };
 
 export default function InterviewPage() {
@@ -269,7 +279,7 @@ export default function InterviewPage() {
 
   // Flow State (Driven by backend)
   const [isStarted, setIsStarted] = useState(false);
-  const [nodeType, setNodeType] = useState('voice-qa'); // 'voice-qa' or 'capture'
+  const [nodeType, setNodeType] = useState('voice-qa'); // 'voice-qa' or 'capture' or 'video_capture'
   const [documentId, setDocumentId] = useState('selfie');
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
@@ -294,6 +304,16 @@ export default function InterviewPage() {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const [activeFacingMode, setActiveFacingMode] = useState('environment');
+
+  // Live Video Recording State & Refs
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [recordingTimeRemaining, setRecordingTimeRemaining] = useState(30);
+  const [currentInstructionText, setCurrentInstructionText] = useState('');
+  const mediaRecorderRef = useRef(null);
+  const videoChunksRef = useRef([]);
+  const recordingIntervalRef = useRef(null);
+  const capturedLatitudeRef = useRef(null);
+  const capturedLongitudeRef = useRef(null);
 
   // Canvas visualizer refs
   const visualizerCanvasRef = useRef(null);
@@ -509,7 +529,7 @@ export default function InterviewPage() {
     startCamera(newMode);
   };
 
-  const uploadFileDirectly = async (file) => {
+  const uploadFileDirectly = async (file, lat = null, lon = null) => {
     if (!file) return;
     const previewUrl = URL.createObjectURL(file);
     setDocs(prev => ({ ...prev, [documentId]: { file, url: previewUrl, name: file.name } }));
@@ -528,6 +548,8 @@ export default function InterviewPage() {
       formData.append('document_type', documentId);
       formData.append('scheme_id', schemeId);
       formData.append('session_id', sessionId);
+      if (lat !== null && lat !== undefined) formData.append('latitude', String(lat));
+      if (lon !== null && lon !== undefined) formData.append('longitude', String(lon));
 
       const res = await fetch(`${API_BASE_URL}/api/documents/extract`, {
         method: 'POST',
@@ -582,8 +604,130 @@ export default function InterviewPage() {
     }
   };
 
+  // Video Recording Logic
+  const startVideoRecording = async () => {
+    try {
+      videoChunksRef.current = [];
+      setRecordingTimeRemaining(30);
+
+      // Start geolocation tracking
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            capturedLatitudeRef.current = pos.coords.latitude;
+            capturedLongitudeRef.current = pos.coords.longitude;
+            console.log(`[video capture] geolocation success: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+          },
+          (err) => {
+            console.warn('[video capture] geolocation failed:', err.message);
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      }
+
+      // Check if current stream already has audio. If not, request camera with audio.
+      let stream = streamRef.current;
+      const hasAudio = stream && stream.getAudioTracks().length > 0;
+      if (!hasAudio) {
+        // Request fresh audio+video stream for recording
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: activeFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error(e));
+        }
+      }
+
+      // Setup MediaRecorder
+      const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+      let recorder;
+      try {
+        recorder = new MediaRecorder(stream, options);
+      } catch (e) {
+        console.warn('VP8/Opus not supported, trying default browser settings');
+        recorder = new MediaRecorder(stream);
+      }
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          videoChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const videoBlob = new Blob(videoChunksRef.current, { type: 'video/webm' });
+        const file = new File([videoBlob], `workplace_video_${Date.now()}.webm`, { type: 'video/webm' });
+        await uploadFileDirectly(file, capturedLatitudeRef.current, capturedLongitudeRef.current);
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start(1000); // chunk data every 1s
+      setIsRecordingVideo(true);
+
+      // Timed Vocal Instructions
+      const videoInstructions = [
+        { offset: 0, text: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।" },
+        { offset: 10, text: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।" },
+        { offset: 20, text: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।" }
+      ];
+
+      let secondsElapsed = 0;
+      const speakInstruction = (text) => {
+        setCurrentInstructionText(text);
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = 'hi-IN';
+          window.speechSynthesis.speak(utterance);
+        }
+      };
+
+      speakInstruction(videoInstructions[0].text);
+
+      recordingIntervalRef.current = setInterval(() => {
+        secondsElapsed += 1;
+        const remaining = 30 - secondsElapsed;
+        setRecordingTimeRemaining(remaining);
+
+        const inst = videoInstructions.find(item => item.offset === secondsElapsed);
+        if (inst) {
+          speakInstruction(inst.text);
+        }
+
+        if (remaining <= 0) {
+          stopVideoRecording();
+        }
+      }, 1000);
+
+    } catch (err) {
+      console.error('Failed to start video recording:', err);
+      setErrors(prev => ({ ...prev, [documentId]: `Failed to access camera/audio: ${err.message}` }));
+    }
+  };
+
+  const stopVideoRecording = () => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingVideo(false);
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const stopVideoRecordingManual = () => {
+    stopVideoRecording();
+  };
+
   useEffect(() => {
-    if (isStarted && nodeType === 'capture' && !docs[documentId]) {
+    if (isStarted && (nodeType === 'capture' || nodeType === 'video_capture') && !docs[documentId]) {
       const meta = DOCUMENT_METADATA[documentId] || {};
       const facing = meta.facingMode || activeFacingMode;
       startCamera(facing);
@@ -715,6 +859,197 @@ export default function InterviewPage() {
             ⏹️ Cancel Onboarding
           </button>
         </div>
+      </div>
+    );
+  };
+
+  // Render Video Capture UI
+  const renderVideoUI = () => {
+    const meta = DOCUMENT_METADATA[documentId] || { label: 'Workplace Video', icon: '📹' };
+    const docData = docs[documentId];
+
+    return (
+      <div className={styles.detailCard}>
+        <div className={styles.cardHeader}>
+          <div className={styles.cardIconLarge}>📹</div>
+          <div style={{ flex: 1 }}>
+            <h3 className={styles.cardTitle}>Record {meta.label}</h3>
+            <p className={styles.cardDesc}>Show your workplace for verification</p>
+          </div>
+        </div>
+
+        <div className={styles.videoContainer}>
+          {/* 1. Live Video Stream */}
+          {!docData && (
+            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={styles.videoElement}
+              />
+              
+              {/* Dynamic Instructions Overlay during recording */}
+              {isRecordingVideo && (
+                <div style={{
+                  position: 'absolute',
+                  top: '16px',
+                  left: '16px',
+                  right: '16px',
+                  backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                  color: '#38bdf8',
+                  padding: '12px 16px',
+                  borderRadius: '12px',
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  zIndex: 30
+                }}>
+                  📢 {currentInstructionText}
+                </div>
+              )}
+
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '16px',
+                zIndex: 20
+              }}>
+                <button 
+                  onClick={handleFlipCamera}
+                  disabled={isRecordingVideo}
+                  style={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+                    color: 'white',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: '50%',
+                    width: '48px',
+                    height: '48px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: isRecordingVideo ? 'not-allowed' : 'pointer',
+                    opacity: isRecordingVideo ? 0.5 : 1,
+                    fontSize: '1.25rem',
+                    backdropFilter: 'blur(8px)'
+                  }}
+                  title="Flip Camera"
+                >
+                  🔄
+                </button>
+                
+                {!isRecordingVideo ? (
+                  <button 
+                    onClick={startVideoRecording}
+                    style={{
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '99px',
+                      padding: '0 24px',
+                      height: '48px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    🔴 Start Recording
+                  </button>
+                ) : (
+                  <button 
+                    onClick={stopVideoRecordingManual}
+                    style={{
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '99px',
+                      padding: '0 24px',
+                      height: '48px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                    }}
+                  >
+                    ⏹ Stop ({recordingTimeRemaining}s)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Captured Preview Video */}
+          {docData && (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <video 
+                src={docData.url} 
+                controls
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+              <div style={{
+                position: 'absolute',
+                bottom: '16px',
+                left: 0,
+                right: 0,
+                display: 'flex',
+                justifyContent: 'center',
+                zIndex: 20
+              }}>
+                <button 
+                  onClick={() => {
+                    setDocs(prev => {
+                      const copy = { ...prev };
+                      delete copy[documentId];
+                      return copy;
+                    });
+                  }}
+                  style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.85)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '99px',
+                    padding: '8px 20px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                  }}
+                >
+                  Retake
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 3. Uploading Animation Overlay */}
+          {verifying && (
+            <div className={styles.scanningOverlay}>
+              <div className={styles.miniSpinner} />
+              <p style={{ marginTop: '12px', fontWeight: 600, color: '#fff' }}>
+                Uploading workplace video & geo-tagging details...
+              </p>
+            </div>
+          )}
+        </div>
+
+        {errors[documentId] && (
+          <div style={{ 
+            color: '#ef4444', 
+            fontSize: '0.9rem', 
+            marginTop: '8px',
+            backgroundColor: 'rgba(239, 68, 68, 0.05)',
+            padding: '12px',
+            borderRadius: '6px',
+            border: '1px solid rgba(239, 68, 68, 0.15)'
+          }}>
+            ❌ {errors[documentId]}
+          </div>
+        )}
       </div>
     );
   };
@@ -1094,7 +1429,7 @@ export default function InterviewPage() {
           </div>
         ) : (
           <div style={{ gridColumn: 'span 2', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-            {nodeType === 'voice-qa' ? renderVoiceUI() : renderCameraUI()}
+            {nodeType === 'voice-qa' ? renderVoiceUI() : (nodeType === 'video_capture' ? renderVideoUI() : renderCameraUI())}
           </div>
         )}
       </main>

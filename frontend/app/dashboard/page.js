@@ -11,6 +11,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [sessionId, setSessionId] = useState('');
   const [applicantName, setApplicantName] = useState('');
+  const [selectedScheme, setSelectedScheme] = useState('sbi-account-opening');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('scheme_id');
+    if (saved) setSelectedScheme(saved);
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -64,6 +70,7 @@ export default function DashboardPage() {
         body: JSON.stringify({
           session_id: sessionId,
           fields: {
+            scheme_id: selectedScheme,
             onboarding_finished: false
           }
         })
@@ -176,6 +183,60 @@ export default function DashboardPage() {
           <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', maxWidth: '580px', margin: '0 auto 56px' }}>
             Select a project engine below. Both pipelines are fully metadata-configured, generating fields and validation constraints dynamically from database registry configurations.
           </p>
+
+          {/* Scheme Selection Card */}
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.02)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '20px',
+            padding: '24px',
+            marginBottom: '40px',
+            textAlign: 'left',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)'
+          }}>
+            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#fff', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              ⚙️ Choose Active Scheme Configuration
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '16px' }}>
+              Select the active scheme to load the corresponding QA graph, OCR extraction rules, and post-processing pipelines.
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {[
+                { id: 'sbi-account-opening', name: 'SBI Savings Onboarding', icon: '🏦' },
+                { id: 'mudra-grocery', name: 'Mudra Loan - Grocery (Kirana)', icon: '🛒' },
+                { id: 'mudra-tailor', name: 'Mudra Loan - Tailor Shop', icon: '🪡' }
+              ].map(scheme => (
+                <button
+                  key={scheme.id}
+                  onClick={() => {
+                    setSelectedScheme(scheme.id);
+                    localStorage.setItem('scheme_id', scheme.id);
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '16px',
+                    borderRadius: '12px',
+                    border: selectedScheme === scheme.id ? '1.5px solid #3b82f6' : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: selectedScheme === scheme.id ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    color: selectedScheme === scheme.id ? '#fff' : '#94a3b8',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: selectedScheme === scheme.id ? '0 0 15px rgba(59, 130, 246, 0.15)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '1.25rem' }}>{scheme.icon}</span>
+                  {scheme.name}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Cards Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '24px', width: '100%', textAlign: 'left' }}>

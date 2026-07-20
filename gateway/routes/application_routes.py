@@ -212,3 +212,30 @@ async def save_metadata(body: dict, request: Request, auth: dict = Depends(requi
         logger.error(f"Save metadata failed: {e}", req_id=req_id)
         return {"success": False, "error": str(e)}
 
+
+@router.post("/trigger-evaluations")
+async def trigger_evaluations(body: dict, request: Request):
+    """Trigger background evaluations for a completed session."""
+    req_id = request.state.req_id
+    session_id = body.get("session_id")
+    logger.info("Trigger background evaluations request", req_id=req_id, session_id=session_id)
+    if not session_id:
+        return {"success": False, "error": "session_id is required"}
+    try:
+        from grpc_clients.generated import app_orchestrator_pb2
+        stub = request.app.state.orchestrator_stub
+        import json
+        await stub.UpsertExtractedData(
+            app_orchestrator_pb2.UpsertDataRequest(
+                application_id=session_id,
+                source="manual",
+                json_fields=json.dumps({"trigger_evaluations": True})
+            ),
+            metadata=[("x-request-id", req_id)]
+        )
+        return {"success": True}
+    except Exception as e:
+        logger.error(f"Trigger evaluations failed: {e}", req_id=req_id)
+        return {"success": False, "error": str(e)}
+
+

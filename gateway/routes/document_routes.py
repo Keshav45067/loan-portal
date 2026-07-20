@@ -87,6 +87,8 @@ async def extract_document(
     document_type: str = Form(...),
     scheme_id: str = Form(""),
     session_id: str = Form(""),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
     auth: dict = Depends(require_auth),
 ):
     """
@@ -103,6 +105,71 @@ async def extract_document(
                  details={"file_size": len(image_bytes)})
 
     try:
+        import json
+        gcs_key = ""
+        orch_stub = request.app.state.orchestrator_stub
+
+        if document_type == "workplace_video":
+            # Video bypass - directly upload to GCS and update DB metadata
+            try:
+                from services.gcs_service import upload_image_to_gcs
+                content_type = file.content_type or "video/webm"
+                gcs_key = upload_image_to_gcs(
+                    image_bytes=image_bytes,
+                    content_type=content_type,
+                    session_id=session_id,
+                    document_type=document_type,
+                    filename=file.filename
+                )
+                logger.info(f"Uploaded workplace video to GCS: {gcs_key}", req_id=req_id)
+            except Exception as write_err:
+                logger.error(f"Failed to upload workplace video to GCS: {write_err}", req_id=req_id)
+                return ExtractResponse(success=False, error=f"Upload to GCS failed: {str(write_err)}")
+
+            try:
+                from grpc_clients.generated import app_orchestrator_pb2
+                # Upsert metadata fields
+                await orch_stub.UpsertExtractedData(
+                    app_orchestrator_pb2.UpsertDataRequest(
+                        application_id=session_id,
+                        source=document_type,
+                        json_fields=json.dumps({
+                            "workplace_video_gcs_key": gcs_key,
+                            "latitude": latitude,
+                            "longitude": longitude
+                        }, ensure_ascii=False)
+                    ),
+                    metadata=[("x-request-id", req_id)]
+                )
+                
+                # Save mapping to docs_test with JSON GPS metadata in name
+                name_metadata = json.dumps({
+                    "name": file.filename,
+                    "latitude": latitude,
+                    "longitude": longitude
+                }, ensure_ascii=False)
+
+                await orch_stub.SaveDocument(
+                    app_orchestrator_pb2.SaveDocRequest(
+                        session_id=session_id,
+                        doc_type=document_type,
+                        key=gcs_key,
+                        name=name_metadata
+                    ),
+                    metadata=[("x-request-id", req_id)]
+                )
+                logger.info("Workplace video record saved to DB successfully", req_id=req_id)
+            except Exception as db_err:
+                logger.error(f"Failed to save video metadata: {db_err}", req_id=req_id)
+                return ExtractResponse(success=False, error=f"Save metadata to DB failed: {str(db_err)}")
+
+            return ExtractResponse(
+                success=True,
+                json_data={"gcs_key": gcs_key},
+                gcs_path=gcs_key,
+                error=""
+            )
+
         stub = request.app.state.doc_intel_stub
         response = await stub.ExtractDocument(
             doc_intelligence_pb2.ExtractDocRequest(
@@ -114,7 +181,6 @@ async def extract_document(
             metadata=[("x-request-id", req_id)]
         )
 
-        import json
         json_fields = {}
         if response.json_data:
             try:
@@ -122,7 +188,6 @@ async def extract_document(
             except Exception:
                 pass
 
-        gcs_key = ""
         if response.success:
             try:
                 from services.gcs_service import upload_image_to_gcs
@@ -141,7 +206,6 @@ async def extract_document(
         if response.success and response.json_data:
             try:
                 from grpc_clients.generated import app_orchestrator_pb2
-                orch_stub = request.app.state.orchestrator_stub
                 await orch_stub.UpsertExtractedData(
                     app_orchestrator_pb2.UpsertDataRequest(
                         application_id=session_id,

@@ -14,55 +14,66 @@ export default function DetailsPage() {
   const [extractedData, setExtractedData] = useState({});
   const [documents, setDocuments] = useState([]);
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const sessionId = localStorage.getItem('session_id');
-        if (!token || !sessionId) {
-          router.push('/');
-          return;
-        }
-
-        const res = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await res.json();
-        
-        if (data.status === 'ERROR' || data.status === 'NOT_FOUND') {
-          router.push('/dashboard');
-          return;
-        }
-
-        setAppData(data);
-        setExtractedData(data.extracted_data || {});
-        
-        // Parse documents directly using the signed URL in doc.key
-        const docsWithUrls = (data.documents || []).map((doc) => {
-          let docType = doc.doc_type || '';
-          if (!docType && doc.key && doc.key.includes('/')) {
-            const parts = doc.key.split('/');
-            if (parts.length >= 3) {
-              docType = parts[2];
-            }
-          }
-          return {
-            ...doc,
-            doc_type: docType,
-            preview_url: doc.key // Already proxy-signed by the gateway
-          };
-        });
-        setDocuments(docsWithUrls);
-      } catch (err) {
-        console.error('Failed to fetch details:', err);
-        router.push('/dashboard');
-      } finally {
-        setLoading(false);
+  const fetchDetails = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const sessionId = localStorage.getItem('session_id');
+      if (!token || !sessionId) {
+        router.push('/');
+        return;
       }
-    };
 
+      const res = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      
+      if (data.status === 'ERROR' || data.status === 'NOT_FOUND') {
+        router.push('/dashboard');
+        return;
+      }
+
+      setAppData(data);
+      setExtractedData(data.extracted_data || {});
+      
+      // Parse documents directly using the signed URL in doc.key
+      const docsWithUrls = (data.documents || []).map((doc) => {
+        let docType = doc.doc_type || '';
+        if (!docType && doc.key && doc.key.includes('/')) {
+          const parts = doc.key.split('/');
+          if (parts.length >= 3) {
+            docType = parts[2];
+          }
+        }
+        return {
+          ...doc,
+          doc_type: docType,
+          preview_url: doc.key // Already proxy-signed by the gateway
+        };
+      });
+      setDocuments(docsWithUrls);
+    } catch (err) {
+      console.error('Failed to fetch details:', err);
+      router.push('/dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchDetails();
   }, [router]);
+
+  useEffect(() => {
+    if (!appData) return;
+    const bizStatus = extractedData.business_status;
+    const finStatus = extractedData.financial_viability;
+    const isPending = !bizStatus || bizStatus === 'Not Available' || !finStatus || finStatus === 'Not Available';
+    if (isPending) {
+      const interval = setInterval(fetchDetails, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [appData, extractedData.business_status, extractedData.financial_viability]);
 
   if (loading) {
     return (
@@ -218,6 +229,96 @@ export default function DetailsPage() {
 
         {/* Right Side: Uploaded Documents */}
         <div>
+          {/* Real-time Underwriting Status Panel */}
+          <div style={{ 
+            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.7) 100%)', 
+            border: '1px solid rgba(255, 255, 255, 0.08)', 
+            borderRadius: '18px', 
+            padding: '24px',
+            marginBottom: '30px',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            backdropFilter: 'blur(12px)'
+          }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '20px', color: '#a7b4fc', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🛡️ AI Underwriting Decisions
+            </h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Business Viability */}
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#e2e8f0' }}>Business Viability</span>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: 700, 
+                    color: !extractedData.business_status || extractedData.business_status === 'Not Available' ? '#fbbf24' : '#10b981', 
+                    backgroundColor: !extractedData.business_status || extractedData.business_status === 'Not Available' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                    padding: '4px 10px', 
+                    borderRadius: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    {!extractedData.business_status || extractedData.business_status === 'Not Available' ? 'Processing' : 'Completed'}
+                  </span>
+                </div>
+                {extractedData.business_status && extractedData.business_status !== 'Not Available' ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                      <span style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Status:</span>
+                      <strong style={{ 
+                        fontSize: '0.875rem', 
+                        color: extractedData.business_status.toLowerCase() === 'legitimate' ? '#10b981' : '#ef4444',
+                        textTransform: 'uppercase'
+                      }}>
+                        {extractedData.business_status}
+                      </strong>
+                    </div>
+                    {extractedData.business_status_explanation && extractedData.business_status_explanation !== 'Not Available' && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '0.8125rem', color: '#94a3b8', lineHeight: '1.4' }}>
+                        {extractedData.business_status_explanation}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Evaluating business legitimacy...</span>
+                )}
+              </div>
+
+              {/* Financial Viability */}
+              <div style={{ padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#e2e8f0' }}>Credit Discipline</span>
+                  <span style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: 700, 
+                    color: !extractedData.financial_viability || extractedData.financial_viability === 'Not Available' ? '#fbbf24' : '#10b981', 
+                    backgroundColor: !extractedData.financial_viability || extractedData.financial_viability === 'Not Available' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)', 
+                    padding: '4px 10px', 
+                    borderRadius: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em'
+                  }}>
+                    {!extractedData.financial_viability || extractedData.financial_viability === 'Not Available' ? 'Processing' : 'Completed'}
+                  </span>
+                </div>
+                {extractedData.financial_viability && extractedData.financial_viability !== 'Not Available' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                    <span style={{ fontSize: '0.8125rem', color: '#94a3b8' }}>Financially Viable:</span>
+                    <strong style={{ 
+                      fontSize: '0.875rem', 
+                      color: extractedData.financial_viability.toLowerCase() === 'yes' ? '#10b981' : '#ef4444',
+                      textTransform: 'uppercase'
+                    }}>
+                      {extractedData.financial_viability}
+                    </strong>
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Assessing borrower credit history...</span>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '18px', padding: '24px', position: 'sticky', top: '100px' }}>
             <h3 style={{ fontSize: '1.15rem', fontWeight: 600, marginBottom: '24px', color: '#a7b4fc' }}>
               📄 Uploaded Documents ({documents.length})
