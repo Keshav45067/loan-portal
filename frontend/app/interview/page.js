@@ -374,6 +374,20 @@ export default function InterviewPage() {
 
   const startSession = async () => {
     setErrors(prev => ({ ...prev, global: null, warning: null }));
+
+    // Check location permission if this is a Mudra scheme
+    const isMudra = schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
+    if (isMudra) {
+      const locationGranted = await checkLocationPermission();
+      if (!locationGranted) {
+        // Stop execution, show the location permission warning/retry panel in renderVideoUI
+        setLocationPermissionState('denied');
+        setNodeType('video_capture');
+        setIsStarted(true);
+        return;
+      }
+    }
+
     setIsStarted(true);
     setQaState('connecting');
 
@@ -976,9 +990,14 @@ export default function InterviewPage() {
                   onClick={async () => {
                     const granted = await checkLocationPermission();
                     if (granted) {
-                      const meta = DOCUMENT_METADATA[documentId] || {};
-                      const facing = meta.facingMode || activeFacingMode;
-                      startCamera(facing);
+                      if (!voiceSessionRef.current) {
+                        setNodeType('voice-qa');
+                        startSession();
+                      } else {
+                        const meta = DOCUMENT_METADATA[documentId] || {};
+                        const facing = meta.facingMode || activeFacingMode;
+                        startCamera(facing);
+                      }
                     }
                   }}
                   style={{
@@ -1481,10 +1500,16 @@ export default function InterviewPage() {
             </div>
 
             <h2 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              Digital Bank Account Onboarding
+              {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' 
+                ? "Mudra Loan Onboarding & Underwriting" 
+                : "Digital Bank Account Onboarding"
+              }
             </h2>
             <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', maxWidth: '480px' }}>
-              Our AI Assistant will guide you through the savings account opening process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form.
+              {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
+                ? "Our AI Underwriter will guide you through the Mudra Loan application process. You will be asked to verify documents, answer a few questions, and record a geotagged video of your workplace."
+                : "Our AI Assistant will guide you through the savings account opening process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form."
+              }
             </p>
 
             {/* Language Selection Card */}

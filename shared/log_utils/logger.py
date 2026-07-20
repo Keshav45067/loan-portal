@@ -125,9 +125,13 @@ class ServiceLogger:
         if "req_id" not in kwargs:
             kwargs["req_id"] = get_req_id()
 
+        # Extract standard logging arguments
+        exc_info = kwargs.pop("exc_info", None)
+        stack_info = kwargs.pop("stack_info", False)
+
         # Create log record with extra fields
         extra = {k: v for k, v in kwargs.items()}
-        self._logger.log(level, message, extra=extra)
+        self._logger.log(level, message, exc_info=exc_info, stack_info=stack_info, extra=extra)
 
     def info(self, message: str, **kwargs):
         self._log(logging.INFO, message, **kwargs)

@@ -295,7 +295,7 @@ export class VoiceSessionManager {
         if (this._disconnected) return;
 
         if (e.data instanceof ArrayBuffer) {
-          if (this.isProcessing) {
+          if (this.isProcessing && !this._inCaptureMode) {
             console.warn('[voiceHelper] Discarding late-arriving audio chunk of interrupted turn');
             return;
           }
@@ -594,6 +594,9 @@ export class VoiceSessionManager {
   }
 
   sendControlSignal(action) {
+    if (action && action.startsWith('capture_speak:')) {
+      this.isProcessing = false;
+    }
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ signal: action }));
     }

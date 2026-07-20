@@ -113,6 +113,10 @@ def get_db_cursor(db_pool):
 def load_resolved_scheme_config(scheme_id: str) -> dict:
     import copy
     import yaml
+    
+    if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b':
+        scheme_id = 'base-mudra'
+        
     config_dir = "/Users/keshavgarg/Documents/augmen/services/config-registry/configs"
     
     # Load all raw configurations
@@ -202,7 +206,12 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             return
 
         # Check if the scheme is mudra
-        is_mudra_scheme = "mudra" in str(scheme_id).lower()
+        is_mudra_scheme = (
+            "mudra" in str(scheme_id).lower() or 
+            scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' or
+            (config and "mudra" in str(config.get("scheme_id", "")).lower()) or
+            (config and "mudra" in str(config.get("display_name", "")).lower())
+        )
 
         # Fetch valid columns in mudra_user_data
         valid_cols = set()
@@ -270,7 +279,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             # Map all_fields keys to DB columns
             for k, v in all_fields.items():
                 db_col = db_mapping.get(k, k)
-                if db_col in valid_cols and db_col not in seen_cols:
+                if db_col in valid_cols and db_col not in seen_cols and db_col not in ("created_at", "updated_at", "id"):
                     if v is not None and v != "":
                         columns.append(db_col)
                         values.append(str(v))
@@ -915,6 +924,69 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 # Ensure phone is in data
                 if phone and "phone" not in data:
                     data["phone"] = phone
+
+                # On-the-fly derived fields calculation for Mudra schemes if they are missing
+                scheme_id = data.get("scheme_id", "")
+                is_mudra_scheme = (
+                    "mudra" in str(scheme_id).lower() or 
+                    scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
+                )
+                if is_mudra_scheme and "net_sales_present_year" not in data:
+                    logger.info("Mudra derived fields missing in GetExtractedData. Calculating on the fly...", session_id=session_id)
+                    from calculations import calculate_derived_fields
+                    try:
+                        # Gather current data
+                        all_fields = {}
+                        all_fields.update(data)
+                        if phone:
+                            all_fields["phone"] = phone
+                            all_fields["mobile_number"] = phone
+                        
+                        # Read current mudra_user_data row if exists
+                        cur.execute("SELECT * FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                        m_row = cur.fetchone()
+                        if m_row:
+                            col_names = [desc[0] for desc in cur.description]
+                            for name, val in zip(col_names, m_row):
+                                if val is not None and val != "":
+                                    all_fields[name] = val
+                        
+                        # Load config db mapping
+                        config = load_resolved_scheme_config(scheme_id)
+                        db_mapping = config.get("db_mapping", {}) if config else {}
+                        mapped_fields = {}
+                        for k, v in all_fields.items():
+                            mapped_k = db_mapping.get(k, k)
+                            mapped_fields[mapped_k] = v
+                        all_fields.update(mapped_fields)
+                        
+                        if "applicant_name" not in all_fields:
+                            all_fields["applicant_name"] = all_fields.get("name") or all_fields.get("full_name") or "Applicant"
+                        if "business_type" not in all_fields:
+                            all_fields["business_type"] = all_fields.get("type_of_business") or "other"
+                            
+                        derived = calculate_derived_fields(all_fields)
+                        all_fields.update(derived)
+                        
+                        # Update local data
+                        for k, v in all_fields.items():
+                            data[k] = v
+                            
+                        # Save back to database JSON
+                        cur.execute(
+                            "UPDATE user_data SET data = %s::json WHERE id = %s",
+                            (json.dumps(data, ensure_ascii=False), session_id)
+                        )
+                        logger.info("Successfully updated missing derived fields on the fly in GetExtractedData", session_id=session_id)
+                    except Exception as calc_otf_err:
+                        logger.error(f"Failed to calculate derived fields on the fly: {calc_otf_err}")
+
+                # Trigger background evaluations if onboarding is finished but credit evaluation is missing/pending
+                if data.get("onboarding_finished") is True:
+                    cw = data.get("credit_worthiness")
+                    if not cw or cw in ["Calculating...", "Not Available"]:
+                        logger.info("Triggering background post-processing evaluations on demand from GetExtractedData", session_id=session_id)
+                        asyncio.create_task(run_post_processing_evaluations(session_id, self._db_pool))
 
                 return pb2.ExtractedData(
                     application_id=request.application_id,

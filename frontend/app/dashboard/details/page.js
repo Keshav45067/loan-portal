@@ -14,6 +14,8 @@ export default function DetailsPage() {
   const [extractedData, setExtractedData] = useState({});
   const [documents, setDocuments] = useState([]);
   const [activeTab, setActiveTab] = useState('applicant');
+  const [recalculating, setRecalculating] = useState(false);
+  const [showMap, setShowMap] = useState({});
 
   const fetchDetails = async () => {
     try {
@@ -57,6 +59,35 @@ export default function DetailsPage() {
       router.push('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const triggerRecalculation = async () => {
+    try {
+      setRecalculating(true);
+      const token = localStorage.getItem('token');
+      const sessionId = localStorage.getItem('session_id');
+      if (!token || !sessionId) return;
+      
+      const res = await fetch(`${API_BASE_URL}/api/applications/trigger-evaluations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchDetails();
+      } else {
+        alert('Failed to trigger recalculation: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error triggering recalculation');
+    } finally {
+      setRecalculating(false);
     }
   };
 
@@ -132,7 +163,7 @@ export default function DetailsPage() {
   };
 
   const formatCurrency = (val) => {
-    if (!val || val === 'Not Available' || val === 'no person involved') return val;
+    if (!val || val === 'Not Available' || val === 'no person involved' || val === 'NA') return val;
     const num = parseFloat(val);
     if (isNaN(num)) return val;
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
@@ -255,6 +286,10 @@ export default function DetailsPage() {
     return '#ef4444'; // Red
   };
 
+  const toggleMapVisibility = (docId) => {
+    setShowMap(prev => ({ ...prev, [docId]: !prev[docId] }));
+  };
+
   return (
     <div style={{ background: '#03050c', color: '#fff', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       
@@ -282,10 +317,15 @@ export default function DetailsPage() {
           <div style={{ fontSize: '0.75rem', color: '#818cf8', background: 'rgba(99, 102, 241, 0.08)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(99, 102, 241, 0.15)', fontWeight: 600 }}>
             ID: {appData?.application_id || 'Pending'}
           </div>
-          {isCreditPending && (
+          {isCreditPending ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.08)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>
               <span style={{ width: '8px', height: '8px', background: '#f59e0b', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
               Recalculating...
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.08)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.15)', fontWeight: 600 }}>
+              <span style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%', display: 'inline-block' }}></span>
+              Synced
             </div>
           )}
         </div>
@@ -349,7 +389,9 @@ export default function DetailsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
               {categories[activeTab].data.map((item, idx) => {
-                const isCalculating = isCreditPending && item.derived;
+                // IMPORTANT: Calculate skeleton loading ONLY if the credit is pending AND the value is not available/calculated yet!
+                const isCalculating = isCreditPending && item.derived && (!item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === '');
+                
                 return (
                   <div key={idx} style={{ 
                     padding: '16px', 
@@ -394,9 +436,33 @@ export default function DetailsPage() {
             boxShadow: '0 12px 48px 0 rgba(0, 0, 0, 0.4)',
             backdropFilter: 'blur(30px)'
           }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 750, marginBottom: '24px', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              🛡️ AI Underwriting Panel
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 750, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                🛡️ AI Underwriting Panel
+              </h3>
+              
+              <button 
+                onClick={triggerRecalculation}
+                disabled={recalculating}
+                style={{
+                  background: recalculating ? 'rgba(255,255,255,0.05)' : 'rgba(99, 102, 241, 0.1)',
+                  border: '1px solid rgba(99, 102, 241, 0.25)',
+                  color: '#a5b4fc',
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: recalculating ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <span>🔄</span>
+                <span>{recalculating ? 'Processing...' : 'Recalculate'}</span>
+              </button>
+            </div>
 
             {isCreditPending ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
@@ -475,24 +541,6 @@ export default function DetailsPage() {
                     {creditReason}
                   </div>
                 </div>
-
-                {/* Business Status Check */}
-                <div style={{ padding: '16px', background: 'rgba(255,255,255,0.01)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#94a3b8' }}>Business Legitimacy</span>
-                    <strong style={{ 
-                      fontSize: '0.8125rem', 
-                      color: getVal(['business_status']).toLowerCase() === 'legitimate' ? '#10b981' : '#ef4444'
-                    }}>
-                      {getVal(['business_status']).toUpperCase()}
-                    </strong>
-                  </div>
-                  {getVal(['business_status_explanation']) !== 'Not Available' && (
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', lineHeight: '1.4' }}>
-                      {getVal(['business_status_explanation'])}
-                    </p>
-                  )}
-                </div>
               </div>
             )}
           </div>
@@ -519,14 +567,21 @@ export default function DetailsPage() {
                   let displayName = doc.name;
                   let latitude = null;
                   let longitude = null;
+                  let recordedAt = null;
+                  let addressVal = null;
+                  
                   try {
                     const parsed = JSON.parse(doc.name);
                     displayName = parsed.name || doc.name;
                     latitude = parsed.latitude;
                     longitude = parsed.longitude;
+                    recordedAt = parsed.timestamp || parsed.recorded_at;
+                    addressVal = parsed.address;
                   } catch (e) {
                     // Fallback to original string
                   }
+
+                  const mapId = doc.id || idx;
 
                   return (
                     <div key={idx} style={{ 
@@ -583,21 +638,75 @@ export default function DetailsPage() {
                         )}
                       </div>
 
-                      {/* Display Location Badge if Geotagged */}
+                      {/* Display Location details and time if Geotagged */}
                       {latitude !== null && longitude !== null && (
-                        <div style={{ 
-                          fontSize: '0.75rem', 
-                          color: '#34d399', 
-                          background: 'rgba(52, 211, 153, 0.08)',
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(52, 211, 153, 0.15)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          fontWeight: 600
-                        }}>
-                          📍 Geotagged: Lat {parseFloat(latitude).toFixed(6)}, Lng {parseFloat(longitude).toFixed(6)}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#34d399', 
+                            background: 'rgba(52, 211, 153, 0.08)',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(52, 211, 153, 0.15)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            fontWeight: 500
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>📍 Geotagged Workplace GPS</span>
+                              <button 
+                                onClick={() => toggleMapVisibility(mapId)}
+                                style={{
+                                  background: 'rgba(52, 211, 153, 0.15)',
+                                  border: 'none',
+                                  color: '#34d399',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.675rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                {showMap[mapId] ? '🙈 Hide Map' : '🗺️ View Map'}
+                              </button>
+                            </div>
+                            <div style={{ fontWeight: 650, color: '#e2e8f0', marginTop: '2px' }}>
+                              Lat: {parseFloat(latitude).toFixed(6)}, Lng: {parseFloat(longitude).toFixed(6)}
+                            </div>
+                            {recordedAt && (
+                              <div style={{ fontSize: '0.675rem', color: '#8b9bb4' }}>
+                                Recorded At: {new Date(recordedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+                              </div>
+                            )}
+                            {addressVal && (
+                              <div style={{ fontSize: '0.675rem', color: '#8b9bb4', marginTop: '2px', lineHeight: '1.4' }}>
+                                Address: {addressVal}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* OpenStreetMap Interactive Embedded Map */}
+                          {showMap[mapId] && (
+                            <div style={{ 
+                              width: '100%', 
+                              height: '200px', 
+                              borderRadius: '10px', 
+                              overflow: 'hidden', 
+                              border: '1px solid rgba(52, 211, 153, 0.25)' 
+                            }}>
+                              <iframe 
+                                width="100%" 
+                                height="100%" 
+                                frameBorder="0" 
+                                scrolling="no" 
+                                marginHeight="0" 
+                                marginWidth="0" 
+                                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(longitude) - 0.005}%2C${parseFloat(latitude) - 0.005}%2C${parseFloat(longitude) + 0.005}%2C${parseFloat(latitude) + 0.005}&layer=mapnik&marker=${parseFloat(latitude)}%2C${parseFloat(longitude)}`}
+                                style={{ border: 0 }}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -618,6 +727,10 @@ export default function DetailsPage() {
         @keyframes shimmer {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       `}</style>
     </div>
