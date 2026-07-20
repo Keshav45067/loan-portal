@@ -253,8 +253,35 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
         all_fields.update(mapped_fields)
 
         # Re-populate/fallback field names
-        if "applicant_name" not in all_fields:
-            all_fields["applicant_name"] = all_fields.get("name") or all_fields.get("full_name") or all_fields.get("holder", {}).get("full_name") or "Applicant"
+        applicant_name_val = all_fields.get("applicant_name")
+        if not applicant_name_val or applicant_name_val == "Applicant":
+            def get_nested(d, keys):
+                for k in keys:
+                    if isinstance(d, dict):
+                        d = d.get(k)
+                    elif isinstance(d, str):
+                        try:
+                            d = json.loads(d).get(k)
+                        except:
+                            return None
+                    else:
+                        return None
+                return d
+            
+            aadhaar_name = get_nested(all_fields, ["aadhaar_front", "holder", "full_name"])
+            pan_name = get_nested(all_fields, ["pan", "holder", "full_name"])
+            holder_name = get_nested(all_fields, ["holder", "full_name"])
+            
+            resolved_name = (
+                holder_name or
+                aadhaar_name or
+                pan_name or
+                all_fields.get("name") or
+                all_fields.get("full_name") or
+                "Applicant"
+            )
+            all_fields["applicant_name"] = resolved_name
+
         if "business_type" not in all_fields:
             all_fields["business_type"] = all_fields.get("type_of_business") or "other"
 
@@ -960,8 +987,35 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             mapped_fields[mapped_k] = v
                         all_fields.update(mapped_fields)
                         
-                        if "applicant_name" not in all_fields:
-                            all_fields["applicant_name"] = all_fields.get("name") or all_fields.get("full_name") or "Applicant"
+                        applicant_name_val = all_fields.get("applicant_name")
+                        if not applicant_name_val or applicant_name_val == "Applicant":
+                            def get_nested(d, keys):
+                                for k in keys:
+                                    if isinstance(d, dict):
+                                        d = d.get(k)
+                                    elif isinstance(d, str):
+                                        try:
+                                            d = json.loads(d).get(k)
+                                        except:
+                                            return None
+                                    else:
+                                        return None
+                                return d
+                            
+                            aadhaar_name = get_nested(all_fields, ["aadhaar_front", "holder", "full_name"])
+                            pan_name = get_nested(all_fields, ["pan", "holder", "full_name"])
+                            holder_name = get_nested(all_fields, ["holder", "full_name"])
+                            
+                            resolved_name = (
+                                holder_name or
+                                aadhaar_name or
+                                pan_name or
+                                all_fields.get("name") or
+                                all_fields.get("full_name") or
+                                "Applicant"
+                            )
+                            all_fields["applicant_name"] = resolved_name
+
                         if "business_type" not in all_fields:
                             all_fields["business_type"] = all_fields.get("type_of_business") or "other"
                             

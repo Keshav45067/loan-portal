@@ -51,6 +51,72 @@ interview_graph:
       text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
       edges:
         - condition: "always"
+          next: "Q_NAME_CONFIRMATION"
+
+    Q_NAME_CONFIRMATION:
+      type: "voice-qa"
+      text_template: "कृपया बताएं, क्या मेरी बात {applicant_name} से हो रही है?"
+      targets: [name_confirmation]
+      edges:
+        - condition: "always"
+          next: "Q_BUSINESS_PURPOSE"
+
+    Q_BUSINESS_PURPOSE:
+      type: "voice-qa"
+      text_template: "बढ़िया, और आप किस व्यवसाय के लिए मुद्रा लोन चाहते हैं?"
+      targets: [business_purpose]
+      edges:
+        - condition: "always"
+          next: "Q_IS_MARRIED"
+
+    Q_IS_MARRIED:
+      type: "voice-qa"
+      text_template: "ठीक है। क्या आप विवाहित हैं?"
+      targets: [is_married]
+      edges:
+        - condition: "always"
+          next: "DOC_PAN"
+
+    DOC_PAN:
+      type: "capture"
+      document_id: "pan"
+      text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
+      edges:
+        - condition: "is_married == 'Yes'"
+          next: "DOC_SPOUSE_PAN"
+        - condition: "always"
+          next: "DOC_UDYAM"
+
+    DOC_SPOUSE_PAN:
+      type: "capture"
+      document_id: "spouse_pan"
+      text_template: "कृपया अपने पति या पत्नी के पैन कार्ड की फोटो लें।"
+      edges:
+        - condition: "always"
+          next: "DOC_UDYAM"
+
+    DOC_UDYAM:
+      type: "capture"
+      document_id: "udyam"
+      text_template: "कृपया अपने उद्यम प्रमाणपत्र की फोटो लें।"
+      edges:
+        - condition: "always"
+          next: "DOC_VOTER_FRONT"
+
+    DOC_VOTER_FRONT:
+      type: "capture"
+      document_id: "voter_front"
+      text_template: "कृपया अपने वोटर आईडी कार्ड के आगे वाले हिस्से की फोटो लें।"
+      edges:
+        - condition: "always"
+          next: "DOC_VOTER_BACK"
+
+    DOC_VOTER_BACK:
+      type: "capture"
+      document_id: "voter_back"
+      text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      edges:
+        - condition: "always"
           next: "Q_STATUS"
 
     START:
@@ -183,7 +249,7 @@ interview_graph:
         - condition: "routing_decision == 'YES'"
           next: "Q_MACHINE_DETAILS"
         - condition: "always"
-          next: "Q_FAMILY"
+          next: "Q_PREVIOUS_LOAN"
 
     Q_MACHINE_DETAILS:
       type: "voice-qa"
@@ -191,9 +257,23 @@ interview_graph:
       targets: [machine_purpose, machine_supplier, machine_cost]
       edges:
         - condition: "always"
+          next: "Q_PREVIOUS_LOAN"
+
+    Q_PREVIOUS_LOAN:
+      type: "voice-qa"
+      text_template: "क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो नहीं हुई? मतलब कर्ज लिया और किस्त ना दी या देर से दी हो?"
+      targets: [previous_loan_detail, previous_loan_default_flag, default_reason]
+      edges:
+        - condition: "always"
+          next: "Q_CURRENT_EMI"
+
+    Q_CURRENT_EMI:
+      type: "voice-qa"
+      text_template: "अभी कोई और कर्ज या किस्त चल रही है क्या? कितनी किस्त है, किस बैंक से है और कितना बचा है?"
+      targets: [current_emi_value, current_emi_lender, current_emi_outstanding]
+      edges:
+        - condition: "always"
           next: "Q_FAMILY"
-
-
 
     Q_FAMILY:
       type: "voice-qa"
@@ -215,14 +295,6 @@ interview_graph:
       type: "voice-qa"
       text_template: "यह काम आप खुद चलाते हैं, या घर का कोई और भी देखता है?"
       targets: [co_borrower]
-      edges:
-        - condition: "always"
-          next: "DOC_PAN"
-
-    DOC_PAN:
-      type: "capture"
-      document_id: "pan"
-      text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
       edges:
         - condition: "always"
           next: "DOC_WORKPLACE_VIDEO"
@@ -247,6 +319,9 @@ interview_graph:
 # ─── Context Map (for LLM prompt optimization) ───
 context_map:
   START: []
+  Q_NAME_CONFIRMATION: []
+  Q_BUSINESS_PURPOSE: []
+  Q_IS_MARRIED: []
   Q_STATUS: []
   Q_MONTHLY_REV: []
   Q_MONTHLY_PROFIT: [Q_MONTHLY_REV]
@@ -262,12 +337,17 @@ context_map:
   Q_PROPOSED_WAGES: [Q_PROPOSED_HIRING]
   Q_NEED_MACHINES: []
   Q_MACHINE_DETAILS: [Q_NEED_MACHINES]
+  Q_PREVIOUS_LOAN: []
+  Q_CURRENT_EMI: []
   Q_FAMILY: []
   Q_EDUCATION: []
   Q_COBORROWER: [Q_FAMILY, Q_PERSONS_INVOLVED]
 
 # ─── Field Extraction Instructions ───
 field_instructions:
+  name_confirmation: "INFER as 'Yes' or 'No' or correct name if provided."
+  business_purpose: "INFER the business name or type of business activity in English."
+  is_married: "INFER as 'Yes' or 'No' based on marital status."
   monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar' or 'thousand', multiply by 1000."
   monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. Must be less than monthly_revenue."
   last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
@@ -285,6 +365,12 @@ field_instructions:
   machine_purpose: "INFER the purpose in ENGLISH. Be precise and concise."
   machine_supplier: "INFER the supplier name in ENGLISH. If 'local dukaan se' -> 'Local Market'."
   machine_cost: "Extract as integer in rupees. NO commas, NO decimal. Cost of the machine. If no machine, value is 0."
+  previous_loan_detail: "INFER previous loan details in ENGLISH. If none, 'None'."
+  previous_loan_default_flag: "INFER if they defaulted or had late payments as 'Yes' or 'No'."
+  default_reason: "INFER the reason for default in ENGLISH."
+  current_emi_value: "Extract active monthly EMIs amount as integer."
+  current_emi_lender: "INFER current lender name in ENGLISH."
+  current_emi_outstanding: "Extract outstanding loan amount as integer."
   number_of_family_members: "INFER count as integer."
   marital_status: "INFER as Married, Unmarried, Widow, or Widower."
   number_of_kids: "INFER count as integer."
@@ -319,6 +405,8 @@ documents_required:
     required: true
   - type: pan
     required: true
+  - type: spouse_pan
+    required: false
   - type: voter_front
     required: false
   - type: udyam
@@ -350,6 +438,14 @@ db_mapping:
   machine_purpose: machine_purpose
   education_level: education_level
   co_borrower: co_borrower
+  previous_loan_detail: existing_loan
+  previous_loan_default_flag: previous_loan_default
+  default_reason: default_reason
+  current_emi_value: existing_loan_emi
+  current_emi_lender: existing_loan_lender
+  current_emi_outstanding: existing_loan_outstanding
+  business_purpose: proposed_business_activity
+  is_married: is_married
 
 # ─── Dynamic Post-processing Pipelines ───
 post_processing_pipelines:

@@ -97,6 +97,9 @@ export default function DetailsPage() {
 
   useEffect(() => {
     if (!appData) return;
+    const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
+    if (!isMudra) return;
+
     const score = extractedData.credit_worthiness;
     const isPending = !score || score === 'Not Available' || score === 'Calculating...';
     if (isPending) {
@@ -144,6 +147,18 @@ export default function DetailsPage() {
     return fallback;
   };
 
+  const getApplicantName = () => {
+    const val = getVal(['applicant_name']);
+    if (val && val !== 'Applicant' && val !== 'Not Available' && val !== 'NA' && val !== '') {
+      return val;
+    }
+    const holderName = getVal(['holder.full_name', 'name', 'full_name']);
+    if (holderName && holderName !== 'Not Available') {
+      return holderName;
+    }
+    return val || 'Applicant';
+  };
+
   const getFullAddress = () => {
     const addr = extractedData.address;
     if (!addr || typeof addr !== 'object') {
@@ -175,7 +190,7 @@ export default function DetailsPage() {
       title: 'Applicant Profile',
       icon: '👤',
       data: [
-        { label: 'Full Name', value: getVal(['applicant_name', 'name', 'full_name', 'holder.full_name']) },
+        { label: 'Full Name', value: getApplicantName() },
         { label: 'Date of Birth', value: getVal(['date_of_birth', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
         { label: 'Gender', value: getVal(['gender', 'holder.gender']) },
         { label: 'Mobile Number', value: appData?.phone || getVal(['phone', 'mobile_number']) },
@@ -216,9 +231,12 @@ export default function DetailsPage() {
         { label: 'Declared Monthly Profit', value: formatCurrency(getVal(['monthly_profit'])) },
         { label: 'Current Employees / Persons Involved', value: getVal(['number_of_persons_involved_currently', 'persons_involved']) },
         { label: 'Current Annual Wages', value: formatCurrency(getVal(['current_total_wages', 'current_wages'])) },
-        { label: 'Existing Active Loans', value: getVal(['existing_loan']) },
-        { label: 'Existing Monthly EMI', value: formatCurrency(getVal(['existing_loan_emi'])) },
-        { label: 'Existing Loan Lender', value: getVal(['existing_loan_lender']) }
+        { label: 'Existing Active Loans', value: getVal(['existing_loan', 'previous_loan_detail']) },
+        { label: 'Existing Monthly EMI', value: formatCurrency(getVal(['existing_loan_emi', 'current_emi_value'])) },
+        { label: 'Existing Loan Lender', value: getVal(['existing_loan_lender', 'current_emi_lender']) },
+        { label: 'Outstanding Loan Amount', value: formatCurrency(getVal(['existing_loan_outstanding', 'current_emi_outstanding'])) },
+        { label: 'Previous Loan Default Status', value: getVal(['previous_loan_default', 'previous_loan_default_flag']) },
+        { label: 'Default Reason (if defaulted)', value: getVal(['default_reason']) }
       ]
     },
     working_capital: {
@@ -270,7 +288,8 @@ export default function DetailsPage() {
 
   const scoreStr = getVal(['credit_worthiness']);
   const creditReason = getVal(['credit_reason', 'credit_reason_explanation']);
-  const isCreditPending = !scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...';
+  const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
+  const isCreditPending = isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...');
 
   // Get raw numeric score out of X/10 format
   let rawScore = 0;
@@ -294,18 +313,7 @@ export default function DetailsPage() {
     <div style={{ background: '#03050c', color: '#fff', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       
       {/* Dynamic Navigation Bar */}
-      <nav style={{ 
-        padding: '16px 32px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)', 
-        background: 'rgba(5, 7, 18, 0.8)', 
-        backdropFilter: 'blur(20px)', 
-        position: 'sticky', 
-        top: 0, 
-        zIndex: 10 
-      }}>
+      <nav className="nav-bar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <Link href="/dashboard" style={{ textDecoration: 'none', color: '#6366f1', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.875rem', fontWeight: 500 }}>
             <span>← Underwriting Hub</span>
@@ -332,22 +340,13 @@ export default function DetailsPage() {
       </nav>
 
       {/* Main Glassmorphic Grid */}
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '32px', display: 'grid', gridTemplateColumns: '1.25fr 0.75fr', gap: '32px' }}>
+      <div className="layout-grid">
         
         {/* Left Section: tabs for organized fields */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           {/* Custom Tabs Navigation */}
-          <div style={{ 
-            display: 'flex', 
-            background: 'rgba(255, 255, 255, 0.02)', 
-            border: '1px solid rgba(255, 255, 255, 0.04)', 
-            borderRadius: '16px', 
-            padding: '6px', 
-            gap: '8px', 
-            overflowX: 'auto',
-            whiteSpace: 'nowrap'
-          }}>
+          <div className="tabs-container">
             {Object.entries(categories).map(([key, cat]) => (
               <button 
                 key={key} 
@@ -387,7 +386,7 @@ export default function DetailsPage() {
               <span>{categories[activeTab].title}</span>
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+            <div className="details-grid">
               {categories[activeTab].data.map((item, idx) => {
                 // IMPORTANT: Calculate skeleton loading ONLY if the credit is pending AND the value is not available/calculated yet!
                 const isCalculating = isCreditPending && item.derived && (!item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === '');
@@ -720,6 +719,60 @@ export default function DetailsPage() {
       </div>
 
       <style jsx global>{`
+        .nav-bar {
+          padding: 16px 32px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(5, 7, 18, 0.8);
+          backdrop-filter: blur(20px);
+          position: sticky;
+          top: 0;
+          z-index: 10;
+        }
+        .layout-grid {
+          max-width: 1600px;
+          margin: 0 auto;
+          padding: 32px;
+          display: grid;
+          grid-template-columns: 1.25fr 0.75fr;
+          gap: 32px;
+        }
+        .tabs-container {
+          display: flex;
+          background: rgba(255, 255, 255, 0.02);
+          border: 1px solid rgba(255, 255, 255, 0.04);
+          border-radius: 16px;
+          padding: 6px;
+          gap: 8px;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+        .details-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 24px;
+        }
+        @media (max-width: 1024px) {
+          .nav-bar {
+            padding: 16px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+          }
+          .layout-grid {
+            grid-template-columns: 1fr;
+            padding: 16px;
+            gap: 24px;
+          }
+        }
+        @media (max-width: 640px) {
+          .details-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.4; }

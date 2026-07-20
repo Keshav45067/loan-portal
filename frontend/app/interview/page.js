@@ -250,6 +250,8 @@ const DOCUMENT_METADATA = {
   'aadhaar_back': { label: 'Aadhaar (Back)', icon: '🪪', facingMode: 'environment', tips: ['QR code should be clear'] },
   'pan': { label: 'PAN Card', icon: '💳', facingMode: 'environment', tips: ['Full PAN card should be in frame'] },
   'spouse_pan': { label: 'Spouse PAN', icon: '💳', facingMode: 'environment', tips: ['Keep spouse\'s PAN card ready'] },
+  'voter_front': { label: 'Voter ID (Front)', icon: '🪪', facingMode: 'environment', tips: ['Card must be clear and fully visible'] },
+  'voter_back': { label: 'Voter ID (Back)', icon: '🪪', facingMode: 'environment', tips: ['Back address details must be readable'] },
   'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
   'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
