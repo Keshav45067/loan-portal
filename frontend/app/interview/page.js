@@ -298,7 +298,7 @@ export default function InterviewPage() {
   const [verified, setVerified] = useState({});
   const [verifying, setVerifying] = useState(false);
   const [errors, setErrors] = useState({});
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState('hi');
 
   // Live Camera Refs & State
   const fileInputRef = useRef(null);
@@ -1514,52 +1514,7 @@ export default function InterviewPage() {
               }
             </p>
 
-            {/* Language Selection Card */}
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: '1px solid rgba(255, 255, 255, 0.06)',
-              borderRadius: '20px',
-              padding: '24px',
-              width: '100%',
-              maxWidth: '480px',
-              textAlign: 'center',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-              marginTop: '8px'
-            }}>
-              <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Select Voice Language
-              </span>
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                {[
-                  { code: 'hi', label: 'Hindi' },
-                  { code: 'en', label: 'English' },
-                  { code: 'te', label: 'Telugu' }
-                ].map(lang => (
-                  <button
-                    key={lang.code}
-                    onClick={() => setSelectedLanguage(lang.code)}
-                    style={{
-                      flex: 1,
-                      padding: '12px 16px',
-                      borderRadius: '12px',
-                      border: selectedLanguage === lang.code ? '1.5px solid #4a78ff' : '1px solid rgba(255, 255, 255, 0.08)',
-                      background: selectedLanguage === lang.code ? 'rgba(74, 120, 255, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                      color: selectedLanguage === lang.code ? '#fff' : '#94a3b8',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      boxShadow: selectedLanguage === lang.code ? '0 0 15px rgba(74, 120, 255, 0.2)' : 'none'
-                    }}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+
 
             <button 
               onClick={startSession}

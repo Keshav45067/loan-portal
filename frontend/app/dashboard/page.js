@@ -63,7 +63,7 @@ export default function DashboardPage() {
           <style jsx global>{`
             @keyframes spin { to { transform: rotate(360deg); } }
           `}</style>
-          <h2 style={{ fontSize: '1rem', fontWeight: 500, color: '#94a3b8' }}>Workspace लोड हो रहा है...</h2>
+          <h2 style={{ fontSize: '1rem', fontWeight: 500, color: '#94a3b8' }}>Loading...</h2>
         </div>
       </div>
     );
@@ -131,7 +131,7 @@ export default function DashboardPage() {
           🛒
         </div>
 
-        {/* Hindi Title */}
+        {/* Title */}
         <h1 style={{ 
           fontSize: '2.25rem', 
           fontWeight: 800, 
@@ -139,10 +139,10 @@ export default function DashboardPage() {
           marginBottom: '16px',
           color: '#fff'
         }}>
-          माइक्रो लोन
+          Micro Loan
         </h1>
 
-        {/* Hindi Subtitle */}
+        {/* Subtitle */}
         <p style={{ 
           color: '#94a3b8', 
           fontSize: '1rem', 
@@ -150,12 +150,12 @@ export default function DashboardPage() {
           marginBottom: '40px',
           padding: '0 16px'
         }}>
-          मुद्रा किराना (Kirana) लोन के लिए अपना डिजिटल आवेदन शुरू करें।
+          Apply for a small business micro loan — quick, simple, and fully digital.
         </p>
 
         {/* Start Button */}
         <button onClick={handleStartVoice} className="start-btn">
-          आवेदन शुरू करें ➔
+          Start Application ➔
         </button>
 
       </div>
