@@ -289,7 +289,13 @@ export default function DetailsPage() {
   const scoreStr = getVal(['credit_worthiness']);
   const creditReason = getVal(['credit_reason', 'credit_reason_explanation']);
   const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
-  const isCreditPending = isMudra && (recalculating || scoreStr === 'Calculating...');
+  const isCreditPending = isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...' || recalculating);
+
+  const getStatusText = () => {
+    if (recalculating || scoreStr === 'Calculating...') return 'Recalculating...';
+    if (!scoreStr || scoreStr === 'Not Available') return 'Pending Score';
+    return 'Synced';
+  };
 
   // Get raw numeric score out of X/10 format
   let rawScore = 0;
@@ -328,7 +334,7 @@ export default function DetailsPage() {
           {isCreditPending ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.08)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(245, 158, 11, 0.15)', fontWeight: 600 }}>
               <span style={{ width: '8px', height: '8px', background: '#f59e0b', borderRadius: '50%', display: 'inline-block', animation: 'pulse 1.5s infinite' }}></span>
-              Recalculating...
+              {getStatusText()}
             </div>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.08)', padding: '6px 12px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.15)', fontWeight: 600 }}>
@@ -542,7 +548,29 @@ export default function DetailsPage() {
                     border: '1px solid rgba(255,255,255,0.02)',
                     whiteSpace: 'pre-line' 
                   }}>
-                    {creditReason}
+                    {Array.isArray(creditReason) ? (
+                      <ul style={{ margin: 0, paddingLeft: '20px', listStyleType: 'disc' }}>
+                        {creditReason.map((r, i) => <li key={i} style={{ marginBottom: '8px' }}>{r}</li>)}
+                      </ul>
+                    ) : (
+                      typeof creditReason === 'string' && creditReason.startsWith('[') ? (
+                        (() => {
+                          try {
+                            const parsed = JSON.parse(creditReason);
+                            if (Array.isArray(parsed)) {
+                              return (
+                                <ul style={{ margin: 0, paddingLeft: '20px', listStyleType: 'disc' }}>
+                                  {parsed.map((r, i) => <li key={i} style={{ marginBottom: '8px' }}>{r}</li>)}
+                                </ul>
+                              );
+                            }
+                          } catch(e) {}
+                          return creditReason;
+                        })()
+                      ) : (
+                        creditReason
+                      )
+                    )}
                   </div>
                 </div>
               </div>
