@@ -183,6 +183,7 @@ export class VoiceSessionManager {
     this._inCaptureMode = false; // True when in document capture mode (suppress VAD)
     this.pendingComplete = null;
     this._waitingForCaptureTransition = false; // Flag to defer capture node advancement until success audio plays
+    this.isFirstQuestion = true; // Tracks if this is the very first question of the session
   }
 
   async connect() {
@@ -506,10 +507,13 @@ export class VoiceSessionManager {
           this.playNextAudioChunk(false);
         };
 
-        // Add 50ms hardware wake-up padding ONLY for the very first chunk of a turn
+        // Add hardware wake-up padding ONLY for the very first chunk of a turn (300ms for first question, 50ms otherwise)
         try {
           if (isFirstOfTurn) {
-            const scheduledDelay = 50; // ms
+            const scheduledDelay = this.isFirstQuestion ? 300 : 50; // ms
+            if (this.isFirstQuestion) {
+              this.isFirstQuestion = false;
+            }
             if (this.tSpeechEnd) {
               const playbackStart = performance.now() + scheduledDelay;
               console.log(
@@ -519,7 +523,7 @@ export class VoiceSessionManager {
                 `[LATENCY] Browser buffering overhead (queue delay + decode): ${(performance.now() - (chunk.receivedAt || performance.now())).toFixed(1)} ms`
               );
             }
-            source.start(this.audioContext.currentTime + 0.05);
+            source.start(this.audioContext.currentTime + (scheduledDelay / 1000));
           } else {
             source.start(0);
           }
