@@ -231,7 +231,8 @@ export class VoiceSessionManager {
         onSpeechEnd: () => {
           if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.isProcessing || this._inCaptureMode) return;
 
-          console.log(`[VoiceSessionManager] Speech ended`);
+          this.tSpeechEnd = performance.now();
+          console.log(`[LATENCY] Speech ended (VAD speech_end). Timestamp: ${this.tSpeechEnd.toFixed(1)} ms`);
           this.ws?.send(JSON.stringify({ signal: 'speech_end' }));
           this.isProcessing = true;
           this.onStateChange('processing');
@@ -294,9 +295,15 @@ export class VoiceSessionManager {
             console.warn('[voiceHelper] Discarding late-arriving audio chunk of interrupted turn');
             return;
           }
-          const isFirst = !this.isPlayingAudio;
+          const isFirst = !this.isPlayingAudio && this.audioQueue.length === 0;
+          if (isFirst && this.tSpeechEnd) {
+            const tFirstChunkReceived = performance.now();
+            console.log(
+              `[LATENCY] First audio chunk received: ${(tFirstChunkReceived - this.tSpeechEnd).toFixed(1)} ms after speech_end`
+            );
+          }
           // Pair binary audio chunk (WAV) with pending text and push to queue
-          this.audioQueue.push({ buffer: e.data, text: this.pendingText });
+          this.audioQueue.push({ buffer: e.data, text: this.pendingText, receivedAt: performance.now() });
           this.pendingText = '';
           this.playNextAudioChunk(isFirst);
         } else {
@@ -445,6 +452,12 @@ export class VoiceSessionManager {
     }
 
     const chunk = this.audioQueue.shift();
+    if (isFirstOfTurn && this.tSpeechEnd) {
+      const tQueued = performance.now();
+      console.log(
+        `[LATENCY] First chunk queued for playback: ${(tQueued - this.tSpeechEnd).toFixed(1)} ms after speech_end`
+      );
+    }
     this.isPlayingAudio = true;
     this.onStateChange('speaking');
 
@@ -491,6 +504,16 @@ export class VoiceSessionManager {
         // Add 300ms hardware wake-up padding ONLY for the very first chunk of a turn
         try {
           if (isFirstOfTurn) {
+            const scheduledDelay = 300; // ms
+            if (this.tSpeechEnd) {
+              const playbackStart = performance.now() + scheduledDelay;
+              console.log(
+                `[LATENCY] Playback actually started: ${(playbackStart - this.tSpeechEnd).toFixed(1)} ms after speech_end (includes ${scheduledDelay}ms wake-up padding)`
+              );
+              console.log(
+                `[LATENCY] Browser buffering overhead (queue delay + decode): ${(performance.now() - (chunk.receivedAt || performance.now())).toFixed(1)} ms`
+              );
+            }
             source.start(this.audioContext.currentTime + 0.3);
           } else {
             source.start(0);
