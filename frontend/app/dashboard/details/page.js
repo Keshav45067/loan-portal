@@ -289,7 +289,7 @@ export default function DetailsPage() {
   const scoreStr = getVal(['credit_worthiness']);
   const creditReason = getVal(['credit_reason', 'credit_reason_explanation']);
   const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
-  const isCreditPending = isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...');
+  const isCreditPending = isMudra && (recalculating || scoreStr === 'Calculating...');
 
   // Get raw numeric score out of X/10 format
   let rawScore = 0;
@@ -391,6 +391,11 @@ export default function DetailsPage() {
                 // IMPORTANT: Calculate skeleton loading ONLY if the credit is pending AND the value is not available/calculated yet!
                 const isCalculating = isCreditPending && item.derived && (!item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === '');
                 
+                const isNotPresent = !item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === 'Not Provided' || item.value === '';
+                if (!isCalculating && isNotPresent) {
+                  return null;
+                }
+
                 return (
                   <div key={idx} style={{ 
                     padding: '16px', 
@@ -733,11 +738,13 @@ export default function DetailsPage() {
         }
         .layout-grid {
           max-width: 1600px;
+          width: 100%;
           margin: 0 auto;
           padding: 32px;
           display: grid;
           grid-template-columns: 1.25fr 0.75fr;
           gap: 32px;
+          box-sizing: border-box;
         }
         .tabs-container {
           display: flex;
@@ -754,7 +761,7 @@ export default function DetailsPage() {
           grid-template-columns: 1fr 1fr;
           gap: 24px;
         }
-        @media (max-width: 1024px) {
+        @media (max-width: 1200px) {
           .nav-bar {
             padding: 16px;
             flex-direction: column;

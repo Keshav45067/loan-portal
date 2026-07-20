@@ -238,7 +238,16 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 if row:
                     col_names = [desc[0] for desc in cur.description]
                     for name, val in zip(col_names, row):
+                        if name in ("id", "user_id", "created_at", "updated_at"):
+                            continue
                         if val is not None and val != "":
+                            # Prevent database zero/null values from clobbering valid voice/GCS values
+                            is_db_zero = str(val).strip() in ("0", "0.0", "None", "Null")
+                            voice_val = all_fields.get(name)
+                            is_voice_valid = voice_val is not None and str(voice_val).strip() not in ("0", "0.0", "Not Available", "NA", "")
+                            
+                            if is_db_zero and is_voice_valid:
+                                continue
                             all_fields[name] = val
         except Exception as e:
             logger.warning(f"Could not read from mudra_user_data: {e}")
@@ -267,14 +276,22 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                     else:
                         return None
                 return d
+
+            # Extract AADHAAR_FRONT from extractions namespace first
+            extractions = all_fields.get("extractions", {})
+            if isinstance(extractions, str):
+                try: extractions = json.loads(extractions)
+                except: extractions = {}
             
-            aadhaar_name = get_nested(all_fields, ["aadhaar_front", "holder", "full_name"])
-            pan_name = get_nested(all_fields, ["pan", "holder", "full_name"])
+            aadhaar_ext = extractions.get("AADHAAR_FRONT") or extractions.get("AADHAR_FRONT") or {}
+            aadhaar_name = get_nested(aadhaar_ext, ["holder", "full_name"])
+            
             holder_name = get_nested(all_fields, ["holder", "full_name"])
+            pan_name = get_nested(extractions.get("PAN") or {}, ["holder", "full_name"])
             
             resolved_name = (
-                holder_name or
                 aadhaar_name or
+                holder_name or
                 pan_name or
                 all_fields.get("name") or
                 all_fields.get("full_name") or
@@ -862,6 +879,12 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         cur.execute("DELETE FROM docs_test WHERE user_id = %s", (session_id,))
                         logger.info(f"Reset application state and deleted documents from docs_test for session {session_id}", req_id=req_id)
                     else:
+                        # Save a copy under document-specific key to prevent clobbering
+                        if request.source and request.source not in ("manual", "workflow"):
+                            if "extractions" not in existing_data:
+                                existing_data["extractions"] = {}
+                            existing_data["extractions"][request.source] = fields
+
                         # Update main user fields inside JSON data
                         user_fields = {
                             "applicant_name": fields.get("name") or fields.get("applicant_name") or fields.get("name_of_the_applicant") or fields.get("corrected_name"),
@@ -870,6 +893,11 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         }
                         for k, v in user_fields.items():
                             if v is not None:
+                                if k == "applicant_name":
+                                    is_aadhaar_source = "AADHAAR" in str(request.source).upper() or "AADHAR" in str(request.source).upper()
+                                    if not is_aadhaar_source and request.source not in ("manual", "workflow"):
+                                        if existing_data.get("applicant_name") and existing_data.get("applicant_name") != "Applicant":
+                                            continue
                                 existing_data[k] = v
 
                         # Merge new fields
@@ -880,6 +908,12 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                                 else:
                                     existing_data[k] = bool(v)
                             elif v is not None and v != "":
+                                # Prevent non-Aadhaar documents from clobbering main Aadhaar holder/address keys
+                                is_aadhaar_source = "AADHAAR" in str(request.source).upper() or "AADHAR" in str(request.source).upper()
+                                if k in ("holder", "address") and not is_aadhaar_source and request.source not in ("manual", "workflow"):
+                                    if k in existing_data and existing_data[k]:
+                                        continue
+
                                 if isinstance(v, dict):
                                     if k not in existing_data or not isinstance(existing_data[k], dict):
                                         existing_data[k] = {}
@@ -958,8 +992,8 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     "mudra" in str(scheme_id).lower() or 
                     scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 )
-                if is_mudra_scheme and "net_sales_present_year" not in data:
-                    logger.info("Mudra derived fields missing in GetExtractedData. Calculating on the fly...", session_id=session_id)
+                if is_mudra_scheme:
+                    logger.info("Mudra derived fields calculation in GetExtractedData. Calculating on the fly...", session_id=session_id)
                     from calculations import calculate_derived_fields
                     try:
                         # Gather current data
@@ -975,7 +1009,16 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         if m_row:
                             col_names = [desc[0] for desc in cur.description]
                             for name, val in zip(col_names, m_row):
+                                if name in ("id", "user_id", "created_at", "updated_at"):
+                                    continue
                                 if val is not None and val != "":
+                                    # Prevent database zero/null values from clobbering valid voice/GCS values
+                                    is_db_zero = str(val).strip() in ("0", "0.0", "None", "Null")
+                                    voice_val = all_fields.get(name)
+                                    is_voice_valid = voice_val is not None and str(voice_val).strip() not in ("0", "0.0", "Not Available", "NA", "")
+                                    
+                                    if is_db_zero and is_voice_valid:
+                                        continue
                                     all_fields[name] = val
                         
                         # Load config db mapping
@@ -1002,13 +1045,21 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                                         return None
                                 return d
                             
-                            aadhaar_name = get_nested(all_fields, ["aadhaar_front", "holder", "full_name"])
-                            pan_name = get_nested(all_fields, ["pan", "holder", "full_name"])
+                            # Extract AADHAAR_FRONT from extractions namespace first
+                            extractions = all_fields.get("extractions", {})
+                            if isinstance(extractions, str):
+                                try: extractions = json.loads(extractions)
+                                except: extractions = {}
+                            
+                            aadhaar_ext = extractions.get("AADHAAR_FRONT") or extractions.get("AADHAR_FRONT") or {}
+                            aadhaar_name = get_nested(aadhaar_ext, ["holder", "full_name"])
+                            
                             holder_name = get_nested(all_fields, ["holder", "full_name"])
+                            pan_name = get_nested(extractions.get("PAN") or {}, ["holder", "full_name"])
                             
                             resolved_name = (
-                                holder_name or
                                 aadhaar_name or
+                                holder_name or
                                 pan_name or
                                 all_fields.get("name") or
                                 all_fields.get("full_name") or
