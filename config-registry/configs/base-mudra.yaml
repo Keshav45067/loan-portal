@@ -25,6 +25,13 @@ stt:
     engine: "google"
     language_code: "en-US"
 
+# ─── Inactivity / Silence Nudge Configuration ───
+inactivity_defaults:
+  enabled: true
+  default_timeout_seconds: 7.0
+  max_nudges_per_node: 2
+  decay_multiplier: 1.4
+
 # ─── Base Interview Graph ───
 interview_graph:
   start_node_id: "START"
@@ -65,6 +72,9 @@ interview_graph:
       type: "voice-qa"
       text_template: "बढ़िया, और आप किस व्यवसाय के लिए मुद्रा लोन चाहते हैं?"
       targets: [business_purpose]
+      inactivity_policy:
+        timeout_seconds: 6.0
+        nudge_guideline: "Ask if they need help describing their business activity."
       edges:
         - condition: "always"
           next: "Q_IS_MARRIED"
@@ -73,6 +83,8 @@ interview_graph:
       type: "voice-qa"
       text_template: "ठीक है। क्या आप विवाहित हैं?"
       targets: [is_married]
+      inactivity_policy:
+        timeout_seconds: 5.0
       edges:
         - condition: "always"
           next: "DOC_PAN"

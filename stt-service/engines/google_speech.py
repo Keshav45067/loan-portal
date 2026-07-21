@@ -60,7 +60,7 @@ class GoogleSpeechEngine(BaseSTTEngine):
             sample_rate_hertz=sample_rate,
             language_code=lang_code,
             enable_automatic_punctuation=True,
-            model="latest_short",
+            model="default",
         )
 
         audio = speech.RecognitionAudio(content=audio_data)
@@ -112,7 +112,7 @@ class GoogleSpeechEngine(BaseSTTEngine):
                 sample_rate_hertz=sample_rate,
                 language_code=lang_code,
                 enable_automatic_punctuation=True,
-                model="latest_short",
+                model="default",
             ),
             interim_results=True,
         )

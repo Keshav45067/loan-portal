@@ -476,20 +476,30 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("SendOtp", req_id=req_id, details={"phone": request.phone[-4:]})
 
         try:
+            # Normalize phone to 10 digits
+            phone_clean = "".join(filter(str.isdigit, str(request.phone)))[-10:]
+            if not phone_clean:
+                phone_clean = str(request.phone).strip()
+
             # Generate 4-digit OTP
             otp = str(random.randint(1000, 9999))
             
             with get_db_cursor(self._db_pool) as cur:
-                # Save to DB (Upsert)
+                # Delete any previous/old OTP for this phone number to immediately invalidate old OTPs upon resend
+                cur.execute(
+                    "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s",
+                    (phone_clean, f"+91{phone_clean}", request.phone)
+                )
+                # Save new OTP to DB (Upsert)
                 cur.execute(
                     """INSERT INTO otp_verifications (phone, otp, expires_at, created_at)
                        VALUES (%s, %s, NOW() + INTERVAL '5 minutes', NOW())
                        ON CONFLICT (phone) 
                        DO UPDATE SET otp = %s, expires_at = NOW() + INTERVAL '5 minutes', created_at = NOW()""",
-                    (request.phone, otp, otp)
+                    (phone_clean, otp, otp)
                 )
 
-            logger.info(f"Generated OTP for {request.phone}: {otp}", req_id=req_id)
+            logger.info(f"Generated OTP for {phone_clean}: {otp}", req_id=req_id)
 
             # Try to send SMS via 2factor.in if API key is in environment
             api_key = os.getenv("TWO_FACTOR_API_KEY")
@@ -500,7 +510,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     payload = urllib.parse.urlencode({
                         "module": "TRANS_SMS",
                         "apikey": api_key,
-                        "to": request.phone,
+                        "to": phone_clean,
                         "from": "PWINVT",
                         "templatename": "Mudra OTP",
                         "var1": otp
@@ -524,18 +534,18 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         logger.error(f"2Factor API error response: {res_data}", req_id=req_id)
                         
                     # Fallback on any failure
-                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {request.phone}. OTP: {otp}", req_id=req_id)
-                    print(f"\n=============================\n OTP for {request.phone}: {otp}\n=============================\n", flush=True)
+                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {phone_clean}. OTP: {otp}", req_id=req_id)
+                    print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
                     return pb2.SendOtpResponse(success=True)
                     
                 except Exception as sms_err:
                     logger.error(f"Could not send SMS via 2Factor (Timeout/Error): {sms_err}", req_id=req_id)
-                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {request.phone}. OTP: {otp}", req_id=req_id)
-                    print(f"\n=============================\n OTP for {request.phone}: {otp}\n=============================\n", flush=True)
+                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {phone_clean}. OTP: {otp}", req_id=req_id)
+                    print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
                     return pb2.SendOtpResponse(success=True)
             else:
-                logger.warning(f"[SMS CONFIG MISSING] Mocking SMS for {request.phone}. OTP: {otp}", req_id=req_id)
-                print(f"\n=============================\n OTP for {request.phone}: {otp}\n=============================\n", flush=True)
+                logger.warning(f"[SMS CONFIG MISSING] Mocking SMS for {phone_clean}. OTP: {otp}", req_id=req_id)
+                print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
                 return pb2.SendOtpResponse(success=True)
         except Exception as e:
             logger.error(f"SendOtp failed: {e}", req_id=req_id, error=traceback.format_exc())
@@ -546,18 +556,28 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("VerifyOtp", req_id=req_id, details={"phone": request.phone[-4:]})
 
         try:
+            phone_clean = "".join(filter(str.isdigit, str(request.phone)))[-10:]
+            if not phone_clean:
+                phone_clean = str(request.phone).strip()
+
             with get_db_cursor(self._db_pool) as cur:
                 # 1. Verify OTP
                 cur.execute(
-                    "SELECT * FROM otp_verifications WHERE phone = %s AND otp = %s AND expires_at > NOW()",
-                    (request.phone, request.otp)
+                    """SELECT * FROM otp_verifications 
+                       WHERE (phone = %s OR phone = %s OR phone = %s) 
+                         AND otp = %s 
+                         AND expires_at > NOW()""",
+                    (phone_clean, f"+91{phone_clean}", request.phone, request.otp)
                 )
                 otp_row = cur.fetchone()
                 if not otp_row:
                     return pb2.VerifyOtpResponse(success=False, error="Invalid or expired OTP")
 
-                # Delete OTP
-                cur.execute("DELETE FROM otp_verifications WHERE phone = %s", (request.phone,))
+                # Delete OTP immediately upon verification
+                cur.execute(
+                    "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s",
+                    (phone_clean, f"+91{phone_clean}", request.phone)
+                )
 
                 # 2. Get or create session
                 SBI_BANK_SCHEME_ID = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'

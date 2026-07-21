@@ -164,6 +164,7 @@ class ConfigService:
             "start_node_id": graph_data.get("start_node_id", "START"),
             "nodes": graph_data.get("nodes", {}),
             "context_map": context_map,
+            "inactivity_defaults": config.get("inactivity_defaults", {}),
         }
 
         # Cache

@@ -49,11 +49,11 @@ export class AudioProcessor {
       this.vadInstance = await window.vad.MicVAD.new({
         workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js",
         modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx",
-        positiveSpeechThreshold: 0.80,
-        negativeSpeechThreshold: 0.40,
-        minSpeechFrames: 5,
-        preSpeechPadFrames: 6,
-        redemptionFrames: 4,
+        positiveSpeechThreshold: 0.75,
+        negativeSpeechThreshold: 0.35,
+        minSpeechFrames: 3,
+        preSpeechPadFrames: 10,
+        redemptionFrames: 6,
 
         onSpeechStart: () => {
           console.log('[VAD] Speech started');

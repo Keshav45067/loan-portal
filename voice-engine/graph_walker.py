@@ -43,6 +43,8 @@ class GraphWalker:
         self._name = applicant_name or ("आप" if language == "hi" else "you" if language == "en" else "మీరు")
         self._language = language
 
+        self._inactivity_defaults: Dict[str, any] = graph_data.get("inactivity_defaults", {})
+
         # State
         self._current_node_id: Optional[str] = None
         self._extracted_data: Dict[str, any] = {}
@@ -50,6 +52,39 @@ class GraphWalker:
         self._history_objects: Dict[str, dict] = {}  # {node_id: {original_question, targets, user_answer, follow_ups}}
         self._step_number: int = 0
         self._completed: bool = False
+
+    # ─── Inactivity Policy ───
+
+    def get_inactivity_policy(self, node_id: str = None) -> dict:
+        """
+        Get resolved inactivity policy for a node.
+        Nudges are STRICTLY applicable ONLY for nodes of type 'voice-qa'.
+        Merges scheme-level inactivity_defaults with node-level inactivity_policy.
+        """
+        target_id = node_id or self._current_node_id
+        if not target_id:
+            return {"enabled": False}
+
+        node = self._nodes.get(target_id, {})
+        # Guard: Nudges apply ONLY for voice-qa nodes
+        if node.get("type") != "voice-qa":
+            return {"enabled": False}
+
+        scheme_defaults = self._inactivity_defaults or {}
+        if scheme_defaults.get("enabled") is False:
+            return {"enabled": False}
+
+        node_policy = node.get("inactivity_policy", {})
+        if node_policy.get("enabled") is False:
+            return {"enabled": False}
+
+        return {
+            "enabled": True,
+            "timeout_seconds": float(node_policy.get("timeout_seconds") or scheme_defaults.get("default_timeout_seconds", 7.0)),
+            "max_nudges": int(node_policy.get("max_nudges") or scheme_defaults.get("max_nudges_per_node", 2)),
+            "decay_multiplier": float(node_policy.get("decay_multiplier") or scheme_defaults.get("decay_multiplier", 1.4)),
+            "nudge_guideline": str(node_policy.get("nudge_guideline", "")),
+        }
 
     # ─── Properties ───
 
