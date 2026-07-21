@@ -573,6 +573,7 @@ export class VoiceSessionManager {
 
     if (this.isRecording) {
       this.onStateChange('listening');
+      this.ws?.send(JSON.stringify({ signal: 'playback_complete' }));
       if (this.audioProcessor && this.audioProcessor.isSpeaking) {
         console.log('[VoiceSessionManager] User is already speaking! Firing delayed speech_start');
         this.ws?.send(JSON.stringify({ signal: 'speech_start' }));

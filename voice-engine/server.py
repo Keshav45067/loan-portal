@@ -299,7 +299,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         yield pb2.VoiceOutput(
                             status=pb2.StatusUpdate(status="listening")
                         )
-                        arm_inactivity_timer(first_node["node_id"])
 
                 # ─── Audio Chunk ───
                 elif input_type == "audio_chunk":
@@ -361,8 +360,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     total_turn_ms = (_time.perf_counter() - t_turn_start) * 1000
                     logger.info(f"⏱ TOTAL TURN (from text_input): {total_turn_ms:.0f}ms",
                                  session_id=session_id, req_id=req_id)
-                    if session and session.walker:
-                        arm_inactivity_timer(session.walker.current_node_id)
 
                 # ─── Control Signal ───
                 elif input_type == "control":
@@ -474,6 +471,11 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         async for output in session.process_capture_speak(text):
                             yield output
 
+                    elif signal_type == "playback_complete":
+                        logger.info("Playback complete received from client; arming inactivity timer", session_id=session_id)
+                        if session and session.walker:
+                            arm_inactivity_timer(session.walker.current_node_id)
+
                     elif signal_type == "speech_end":
                         # User stopped speaking — run the streaming 2-call pipeline
                         import time as _time
@@ -494,8 +496,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
                         # ─── Guard: Discard short audio (e.g. noise or coughs) ───
                         audio_data = session.get_audio_buffer()
-                        if not audio_data or len(audio_data) < 6400: # < 200ms of audio (16khz 16-bit)
-                            logger.info("Discarding speech_end because audio buffer is too short (<200ms)", session_id=session_id)
+                        if not audio_data or len(audio_data) < 2560: # < 80ms of audio (16khz 16-bit)
+                            logger.info("Discarding speech_end because audio buffer is too short (<80ms)", session_id=session_id)
                             if progressive_stt is not None:
                                 progressive_stt.reset()
                                 progressive_stt = None
@@ -536,7 +538,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                          session_id=session_id, req_id=req_id)
                             if not transcribed:
                                 audio_backup = session.get_audio_buffer()
-                                if audio_backup and len(audio_backup) >= 3200:
+                                if audio_backup and len(audio_backup) >= 1600:
                                     logger.info("Progressive STT returned empty text; attempting fallback transcription on session audio buffer", session_id=session_id)
                                     try:
                                         transcribed = await self._transcribe(audio_backup, session)
@@ -569,8 +571,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             yield pb2.VoiceOutput(
                                 status=pb2.StatusUpdate(status="listening")
                             )
-                            if session and session.walker:
-                                arm_inactivity_timer(session.walker.current_node_id)
                             continue
 
                         # (Removed user transcription yield to keep screen clean as requested)
@@ -589,9 +589,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         total_turn_ms = (_time.perf_counter() - t_turn_start) * 1000
                         logger.info(f"⏱ TOTAL TURN: {total_turn_ms:.0f}ms",
                                      session_id=session_id, req_id=req_id)
-
-                        if session and session.walker:
-                            arm_inactivity_timer(session.walker.current_node_id)
 
         except grpc.aio.AioRpcError as e:
             logger.warning(f"gRPC error in session: {e.code()}",
