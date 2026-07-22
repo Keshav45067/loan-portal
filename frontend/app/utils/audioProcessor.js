@@ -71,15 +71,13 @@ export class AudioProcessor {
       console.log('Initializing @ricky0123/vad-web MicVAD (v5 model)...');
       this.vadInstance = await window.vad.MicVAD.new({
         baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
-        onnxWASMPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
-        workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js",
-        modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx",
+        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
         model: "v5",
         positiveSpeechThreshold: 0.45, // Fast low threshold for soft/quiet monosyllabic onset
         negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
-        minSpeechFrames: 1,           // 32ms verification — triggers on 1st frame to catch natural 100ms "haa"
-        preSpeechPadFrames: 20,        // ~640ms pre-speech audio buffer padding (provides acoustic context for STT)
-        redemptionFrames: 12,          // ~384ms post-speech audio buffer padding
+        minSpeechMs: 32,              // 32ms verification — triggers on 1st frame to catch natural 100ms "haa"
+        preSpeechPadMs: 800,           // 800ms pre-speech audio buffer padding (provides acoustic context for STT)
+        redemptionMs: 400,             // 400ms hangover silence before speech_end
         additionalAudioConstraints: {
           echoCancellation: true,
           noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it

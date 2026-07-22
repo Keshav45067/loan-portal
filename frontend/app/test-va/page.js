@@ -537,15 +537,13 @@ export default function TestVoiceAssistantPage() {
 
         vadRef.current = await window.vad.MicVAD.new({
           baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
-          onnxWASMPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
-          workletURL: VAD_WORKLET_URL,
-          modelURL: VAD_MODEL_URL,
+          onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
           model: "v5",
           positiveSpeechThreshold: 0.45,
           negativeSpeechThreshold: 0.35,
-          minSpeechFrames: 1,
-          preSpeechPadFrames: 20,
-          redemptionFrames: 12,
+          minSpeechMs: 32,
+          preSpeechPadMs: 800,
+          redemptionMs: 400,
           additionalAudioConstraints: {
             echoCancellation: true,
             noiseSuppression: false,
