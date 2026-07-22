@@ -119,7 +119,7 @@ export async function loadVADScripts() {
   }
 
   const vadLoaded = await loadWithRetry(
-    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js",
+    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/bundle.min.js",
     "vad-script",
     "vad"
   );

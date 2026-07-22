@@ -68,18 +68,19 @@ export class AudioProcessor {
         window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
       }
 
-      console.log('Initializing @ricky0123/vad-web MicVAD...');
+      console.log('Initializing @ricky0123/vad-web MicVAD (v5 model)...');
       this.vadInstance = await window.vad.MicVAD.new({
-        workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js",
-        modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx",
-        positiveSpeechThreshold: 0.60, // Tuned activation threshold
-        negativeSpeechThreshold: 0.20, // Low hangover de-activation threshold
+        workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js",
+        modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx",
+        model: "v5",
+        positiveSpeechThreshold: 0.50, // Tuned for Silero v5 fast activation
+        negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
         minSpeechFrames: 2,           // 64ms verification to catch fast "Haa" while ignoring transient pops
-        preSpeechPadFrames: 12,        // ~384ms pre-speech audio buffer padding
-        redemptionFrames: 6,           // ~192ms hangover silence before speech_end
+        preSpeechPadFrames: 10,        // ~320ms pre-speech audio buffer padding
+        redemptionFrames: 8,           // ~256ms hangover silence before speech_end
         additionalAudioConstraints: {
           echoCancellation: true,
-          noiseSuppression: true,
+          noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it
           autoGainControl: true,       // Auto Gain Control amplifies soft "Haa" into VAD range
         },
 
