@@ -230,9 +230,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                 voice_input = item
                 input_type = voice_input.WhichOneof("input")
 
-                if input_type in ("audio_chunk", "text_input", "control"):
-                    cancel_timer_task_only()
-
                 # ─── Session Start ───
                 if input_type == "session_start":
                     start = voice_input.session_start
