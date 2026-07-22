@@ -73,11 +73,11 @@ export class AudioProcessor {
         baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
         onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
         model: "v5",
-        positiveSpeechThreshold: 0.45, // Fast low threshold for soft/quiet monosyllabic onset
+        positiveSpeechThreshold: 0.60, // Tuned for Silero V5: cleanly triggers on human speech ("haa"/"no") without triggering on ambient noise
         negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
-        minSpeechMs: 32,              // 32ms verification — triggers on 1st frame to catch natural 100ms "haa"
-        preSpeechPadMs: 800,           // 800ms pre-speech audio buffer padding (provides acoustic context for STT)
-        redemptionMs: 400,             // 400ms hangover silence before speech_end
+        minSpeechMs: 64,              // 64ms verification (2 frames) to catch short words while ignoring single clicks
+        preSpeechPadMs: 400,           // 400ms pre-speech audio buffer padding
+        redemptionMs: 250,             // 250ms hangover silence before triggering speech_end
         additionalAudioConstraints: {
           echoCancellation: true,
           noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it
