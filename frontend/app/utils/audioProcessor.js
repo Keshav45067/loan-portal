@@ -65,19 +65,18 @@ export class AudioProcessor {
 
       // Set ONNX WASM paths early (before MicVAD.new tries to use them)
       if (window.ort && window.ort.env) {
-        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
+        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
       }
 
-      console.log('Initializing @ricky0123/vad-web MicVAD (v5 model)...');
+      console.log('Initializing @ricky0123/vad-web MicVAD...');
       this.vadInstance = await window.vad.MicVAD.new({
-        baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
-        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
-        model: "v5",
-        positiveSpeechThreshold: 0.60, // Tuned for Silero V5: cleanly triggers on human speech ("haa"/"no") without triggering on ambient noise
-        negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
-        minSpeechMs: 64,              // 64ms verification (2 frames) to catch short words while ignoring single clicks
-        preSpeechPadMs: 400,           // 400ms pre-speech audio buffer padding
-        redemptionMs: 250,             // 250ms hangover silence before triggering speech_end
+        workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js",
+        modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx",
+        positiveSpeechThreshold: 0.50, // Sensitive activation threshold for short words ("haa"/"no")
+        negativeSpeechThreshold: 0.25, // Hangover de-activation threshold
+        minSpeechFrames: 2,           // 64ms verification to catch fast short speech while ignoring clicks
+        preSpeechPadFrames: 14,        // ~448ms pre-speech audio buffer padding
+        redemptionFrames: 8,           // ~256ms hangover silence before speech_end
         additionalAudioConstraints: {
           echoCancellation: true,
           noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it

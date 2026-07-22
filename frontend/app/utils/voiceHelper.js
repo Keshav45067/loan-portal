@@ -108,7 +108,7 @@ export async function loadVADScripts() {
   }
 
   const ortLoaded = await loadWithRetry(
-    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.js",
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js",
     "ort-script",
     "ort"
   );
@@ -119,7 +119,7 @@ export async function loadVADScripts() {
   }
 
   const vadLoaded = await loadWithRetry(
-    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/bundle.min.js",
+    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js",
     "vad-script",
     "vad"
   );
@@ -200,7 +200,7 @@ export class VoiceSessionManager {
 
       // Set ONNX WASM paths early (before MicVAD.new tries to use them)
       if (window.ort && window.ort.env) {
-        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/";
+        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
       }
 
       // Deep validation of VAD availability
