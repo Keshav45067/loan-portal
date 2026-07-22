@@ -73,11 +73,11 @@ export class AudioProcessor {
         workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js",
         modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx",
         model: "v5",
-        positiveSpeechThreshold: 0.50, // Tuned for Silero v5 fast activation
+        positiveSpeechThreshold: 0.45, // Fast low threshold for soft/quiet monosyllabic onset
         negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
-        minSpeechFrames: 2,           // 64ms verification to catch fast "Haa" while ignoring transient pops
-        preSpeechPadFrames: 10,        // ~320ms pre-speech audio buffer padding
-        redemptionFrames: 8,           // ~256ms hangover silence before speech_end
+        minSpeechFrames: 1,           // 32ms verification — triggers on 1st frame to catch natural 100ms "haa"
+        preSpeechPadFrames: 20,        // ~640ms pre-speech audio buffer padding (provides acoustic context for STT)
+        redemptionFrames: 12,          // ~384ms post-speech audio buffer padding
         additionalAudioConstraints: {
           echoCancellation: true,
           noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it

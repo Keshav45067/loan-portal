@@ -63,15 +63,15 @@ class GoogleSpeechEngine(BaseSTTEngine):
         # - Long Audio (>= 2.5s): Use default model + mild phrase boost (4.0) without extra padding
         if duration_sec < 2.5:
             model_name = "latest_short" if lang_code in ("hi-IN", "en-IN", "en-US") else "default"
-            boost_val = 15.0
-            pad_bytes = b"\x00" * 4800  # 150ms of quiet zero silence
+            boost_val = 20.0
+            pad_bytes = b"\x00" * 25600  # 800ms of quiet zero silence for acoustic decoder context window
             padded_audio_data = pad_bytes + audio_data + pad_bytes
         else:
             model_name = "default"
             boost_val = 4.0
             padded_audio_data = audio_data
 
-        phrases = ["हाँ", "जी", "हां", "नहीं", "ठीक है", "सही", "yes", "no", "okay"]
+        phrases = ["हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही", "yes", "yeah", "ha", "haa", "haan", "ji", "no", "okay"]
         speech_context = speech.SpeechContext(phrases=phrases, boost=boost_val)
 
         recognition_config = speech.RecognitionConfig(
