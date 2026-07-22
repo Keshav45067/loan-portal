@@ -30,6 +30,29 @@ export class AudioProcessor {
     this.bufferSize = 512;
     this._chunkBuffer = [];
     this._preSpeechBuffer = [];
+
+    // 85Hz IIR High-Pass Filter state (removes low-frequency room rumble & AC hum)
+    this._hpfPrevX = 0;
+    this._hpfPrevY = 0;
+  }
+
+  /**
+   * Apply a 1st-order IIR High-Pass Filter (cut-off ~85Hz at 16kHz sample rate)
+   * Formula: y[n] = alpha * (y[n-1] + x[n] - x[n-1])
+   * @param {Float32Array} frame
+   * @returns {Float32Array}
+   */
+  _applyHighPassFilter(frame) {
+    const filtered = new Float32Array(frame.length);
+    const alpha = 0.9677; // 85Hz cut-off at 16kHz
+    for (let i = 0; i < frame.length; i++) {
+      const x = frame[i];
+      const y = alpha * (this._hpfPrevY + x - this._hpfPrevX);
+      this._hpfPrevX = x;
+      this._hpfPrevY = y;
+      filtered[i] = y;
+    }
+    return filtered;
   }
 
   /**
@@ -49,11 +72,16 @@ export class AudioProcessor {
       this.vadInstance = await window.vad.MicVAD.new({
         workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js",
         modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx",
-        positiveSpeechThreshold: 0.50,
-        negativeSpeechThreshold: 0.25,
-        minSpeechFrames: 1,
-        preSpeechPadFrames: 12,
-        redemptionFrames: 6,
+        positiveSpeechThreshold: 0.60, // Tuned activation threshold
+        negativeSpeechThreshold: 0.20, // Low hangover de-activation threshold
+        minSpeechFrames: 2,           // 64ms verification to catch fast "Haa" while ignoring transient pops
+        preSpeechPadFrames: 12,        // ~384ms pre-speech audio buffer padding
+        redemptionFrames: 6,           // ~192ms hangover silence before speech_end
+        additionalAudioConstraints: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,       // Auto Gain Control amplifies soft "Haa" into VAD range
+        },
 
         onSpeechStart: () => {
           console.log('[VAD] Speech started');
@@ -79,17 +107,20 @@ export class AudioProcessor {
         onFrameProcessed: (probabilities, frame) => {
           if (!this.isRecording) return;
           
-          // Estimate volume from the frame
+          // Apply 85Hz High-Pass Filter to remove low-frequency room rumble
+          const cleanFrame = this._applyHighPassFilter(frame);
+
+          // Estimate volume from the filtered frame
           let sum = 0;
-          for (let i = 0; i < frame.length; i++) {
-            sum += Math.abs(frame[i]);
+          for (let i = 0; i < cleanFrame.length; i++) {
+            sum += Math.abs(cleanFrame[i]);
           }
-          const avgVolume = sum / frame.length;
+          const avgVolume = sum / cleanFrame.length;
           this.onVolumeLevel(Math.min(1, avgVolume * 5));
 
           // If speaking, accumulate frames and send chunks
           if (this._isSpeaking) {
-            const pcmData = this._float32ToInt16(frame);
+            const pcmData = this._float32ToInt16(cleanFrame);
             this._chunkBuffer.push(...pcmData);
 
             while (this._chunkBuffer.length >= this.bufferSize * 2) { // 2 bytes per sample
@@ -100,11 +131,11 @@ export class AudioProcessor {
             }
           } else {
             // Keep a pre-roll buffer of the last ~300ms
-            const pcmData = this._float32ToInt16(frame);
+            const pcmData = this._float32ToInt16(cleanFrame);
             this._preSpeechBuffer.push(...pcmData);
             
             // Keep max 40 frames worth of samples (~1.2 seconds)
-            const maxPreSpeechSamples = frame.length * 40;
+            const maxPreSpeechSamples = cleanFrame.length * 40;
             if (this._preSpeechBuffer.length > maxPreSpeechSamples) {
               this._preSpeechBuffer.splice(0, this._preSpeechBuffer.length - maxPreSpeechSamples);
             }

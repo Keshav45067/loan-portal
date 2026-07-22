@@ -397,7 +397,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             continue
                         # ─── Preserve pre-speech padding (~300ms = 9600 bytes) & clear older noise ───
                         existing_audio = session.get_audio_buffer()
-                        pre_roll_bytes = min(len(existing_audio), 9600)  # max ~300ms safety buffer
+                        pre_roll_bytes = min(len(existing_audio), 16000)  # max ~500ms safety buffer
                         pre_roll_audio = existing_audio[-pre_roll_bytes:] if pre_roll_bytes > 0 else b""
                         session.clear_audio_buffer()
                         if pre_roll_audio:

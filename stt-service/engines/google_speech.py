@@ -55,15 +55,35 @@ class GoogleSpeechEngine(BaseSTTEngine):
         req_id = get_req_id()
         lang_code = self._get_language_code(language)
 
+        # Calculate audio duration (16kHz 16-bit PCM = 32,000 bytes/sec)
+        duration_sec = len(audio_data) / (sample_rate * 2)
+
+        # Dynamic Adaptation Strategy:
+        # - Short Audio (< 2.5s): Use latest_short + targeted phrase boost (15.0) + boundary zero-padding
+        # - Long Audio (>= 2.5s): Use default model + mild phrase boost (4.0) without extra padding
+        if duration_sec < 2.5:
+            model_name = "latest_short" if lang_code in ("hi-IN", "en-IN", "en-US") else "default"
+            boost_val = 15.0
+            pad_bytes = b"\x00" * 4800  # 150ms of quiet zero silence
+            padded_audio_data = pad_bytes + audio_data + pad_bytes
+        else:
+            model_name = "default"
+            boost_val = 4.0
+            padded_audio_data = audio_data
+
+        phrases = ["हाँ", "जी", "हां", "नहीं", "ठीक है", "सही", "yes", "no", "okay"]
+        speech_context = speech.SpeechContext(phrases=phrases, boost=boost_val)
+
         recognition_config = speech.RecognitionConfig(
             encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
             sample_rate_hertz=sample_rate,
             language_code=lang_code,
             enable_automatic_punctuation=True,
-            model="default",
+            model=model_name,
+            speech_contexts=[speech_context],
         )
 
-        audio = speech.RecognitionAudio(content=audio_data)
+        audio = speech.RecognitionAudio(content=padded_audio_data)
 
         with LatencyTracker() as t:
             # Run synchronous API call in thread pool
