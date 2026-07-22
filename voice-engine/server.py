@@ -421,6 +421,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 req_id=session.req_id,
                                 sample_rate=16000,
                             )
+                            if pre_roll_audio:
+                                progressive_stt.add_audio(pre_roll_audio)
                         else:
                             # Create a fresh ProgressiveSTT for this speech segment
                             from session import ProgressiveSTT

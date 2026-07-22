@@ -126,13 +126,19 @@ class GoogleSpeechEngine(BaseSTTEngine):
         req_id = get_req_id()
         lang_code = self._get_language_code(language)
 
+        phrases = ["हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही", "yes", "yeah", "ha", "haa", "haan", "ji", "no", "okay"]
+        speech_context = speech.SpeechContext(phrases=phrases, boost=20.0)
+
+        model_name = "latest_short" if lang_code in ("hi-IN", "en-IN", "en-US") else "default"
+
         streaming_config = speech.StreamingRecognitionConfig(
             config=speech.RecognitionConfig(
                 encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
                 sample_rate_hertz=sample_rate,
                 language_code=lang_code,
                 enable_automatic_punctuation=True,
-                model="default",
+                model=model_name,
+                speech_contexts=[speech_context],
             ),
             interim_results=True,
         )

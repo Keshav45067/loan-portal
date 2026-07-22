@@ -90,6 +90,7 @@ export class AudioProcessor {
           this._preSpeechBuffer = [];
           if (this.isRecording) {
             this.onSpeechStart();
+            this._flushChunkBuffer();
           }
         },
 
@@ -148,6 +149,15 @@ export class AudioProcessor {
     } catch (error) {
       console.error('AudioProcessor (vad-web) initialization failed:', error);
       return false;
+    }
+  }
+
+  _flushChunkBuffer() {
+    while (this._chunkBuffer.length >= this.bufferSize * 2) {
+      const chunk = new Uint8Array(
+        this._chunkBuffer.splice(0, this.bufferSize * 2)
+      );
+      this.onAudioChunk(chunk.buffer);
     }
   }
 
