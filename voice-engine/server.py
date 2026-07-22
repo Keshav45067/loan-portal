@@ -118,6 +118,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
         nudge_count_map = {}  # {node_id: int}
         inactivity_timer_task = None
         timer_deadline = None  # Live timestamp when current nudge window expires
+        timer_generation = 0   # Monotonic counter — each arm() increments; stale events are discarded
 
         def cancel_timer_task_only():
             nonlocal inactivity_timer_task
@@ -126,12 +127,13 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
             inactivity_timer_task = None
 
         def clear_inactivity_timer():
-            nonlocal timer_deadline
+            nonlocal timer_deadline, timer_generation
             cancel_timer_task_only()
             timer_deadline = None
+            timer_generation += 1  # Invalidate any in-flight events
 
         def arm_inactivity_timer(current_node_id, fresh=True):
-            nonlocal inactivity_timer_task, timer_deadline
+            nonlocal inactivity_timer_task, timer_deadline, timer_generation
             import time as _time
             cancel_timer_task_only()
             if not session or not session.walker or session.walker.is_completed:
@@ -156,15 +158,18 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
             else:
                 delay = max(0.3, timer_deadline - now)
 
-            async def _timer_worker(target_id, timeout_sec):
+            timer_generation += 1
+            gen = timer_generation
+
+            async def _timer_worker(target_id, timeout_sec, generation):
                 try:
                     await asyncio.sleep(timeout_sec)
-                    await input_queue.put({"type": "inactivity_timeout", "node_id": target_id})
+                    await input_queue.put({"type": "inactivity_timeout", "node_id": target_id, "gen": generation})
                 except asyncio.CancelledError:
                     pass
 
-            logger.info(f"Armed inactivity timer for node '{current_node_id}' ({delay:.1f}s remaining, nudge #{nudge_count + 1})")
-            inactivity_timer_task = asyncio.create_task(_timer_worker(current_node_id, delay))
+            logger.info(f"Armed inactivity timer for node '{current_node_id}' ({delay:.1f}s remaining, nudge #{nudge_count + 1}, gen={gen})")
+            inactivity_timer_task = asyncio.create_task(_timer_worker(current_node_id, delay, gen))
 
         try:
             while True:
@@ -176,6 +181,12 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
                 # ─── Inactivity Timeout Event ───
                 if isinstance(item, dict) and item.get("type") == "inactivity_timeout":
+                    # Discard stale timeout events from previous timer generations
+                    event_gen = item.get("gen", -1)
+                    if event_gen != timer_generation:
+                        logger.info(f"Discarding stale inactivity_timeout (event gen={event_gen}, current gen={timer_generation})")
+                        continue
+
                     target_node_id = item.get("node_id")
                     if not session or not session.walker or session.walker.is_completed:
                         continue
@@ -489,6 +500,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             arm_inactivity_timer(session.walker.current_node_id, fresh=True)
 
                     elif signal_type == "speech_end":
+                        # Cancel any running timer task to prevent expiry during STT processing
+                        cancel_timer_task_only()
                         # User stopped speaking — run the streaming 2-call pipeline
                         import time as _time
                         t_turn_start = _time.perf_counter()
