@@ -65,13 +65,13 @@ export class AudioProcessor {
 
       // Set ONNX WASM paths early (before MicVAD.new tries to use them)
       if (window.ort && window.ort.env) {
-        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
+        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/";
       }
 
       console.log('Initializing @ricky0123/vad-web MicVAD (v5 model)...');
       this.vadInstance = await window.vad.MicVAD.new({
         baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
-        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
+        onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.0/dist/",
         model: "v5",
         positiveSpeechThreshold: 0.45, // Fast low threshold for soft/quiet monosyllabic onset
         negativeSpeechThreshold: 0.35, // Hangover de-activation threshold
