@@ -65,11 +65,13 @@ export class AudioProcessor {
 
       // Set ONNX WASM paths early (before MicVAD.new tries to use them)
       if (window.ort && window.ort.env) {
-        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
+        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
       }
 
       console.log('Initializing @ricky0123/vad-web MicVAD (v5 model)...');
       this.vadInstance = await window.vad.MicVAD.new({
+        baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/",
+        onnxWASMPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/",
         workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js",
         modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx",
         model: "v5",
