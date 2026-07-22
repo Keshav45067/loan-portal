@@ -224,7 +224,9 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
                     arm_inactivity_timer(target_node_id)
-                        # ─── VoiceInput Message ───
+                    continue
+
+                # ─── VoiceInput Message ───
                 voice_input = item
                 input_type = voice_input.WhichOneof("input")
 
