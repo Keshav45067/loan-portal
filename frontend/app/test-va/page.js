@@ -23,11 +23,11 @@ const TARGET_SAMPLE_RATE = 16000;
 const BUFFER_SIZE = 512;
 
 // ─── CDN Resources (same as Hindi repo) ───
-const ORT_CDN = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js";
+const ORT_CDN = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/ort.js";
 const VAD_CDN = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/bundle.min.js";
 const VAD_WORKLET_URL = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/vad.worklet.bundle.min.js";
 const VAD_MODEL_URL = "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/silero_vad_v5.onnx";
-const ORT_WASM_PATH = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
+const ORT_WASM_PATH = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.19.2/dist/";
 
 // ─── Float32 → Int16 PCM (from Hindi audio-processor.js) ───
 function float32ToInt16(float32Array) {
