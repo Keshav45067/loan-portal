@@ -28,7 +28,7 @@ stt:
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
   enabled: true
-  default_timeout_seconds: 7.0
+  default_timeout_seconds: 3.0
   max_nudges_per_node: 2
   decay_multiplier: 1.4
 
@@ -73,7 +73,7 @@ interview_graph:
       text_template: "बढ़िया, और आप किस व्यवसाय के लिए मुद्रा लोन चाहते हैं?"
       targets: [business_purpose]
       inactivity_policy:
-        timeout_seconds: 6.0
+        timeout_seconds: 3.0
         nudge_guideline: "Ask if they need help describing their business activity."
       edges:
         - condition: "always"
@@ -84,7 +84,7 @@ interview_graph:
       text_template: "ठीक है। क्या आप विवाहित हैं?"
       targets: [is_married]
       inactivity_policy:
-        timeout_seconds: 5.0
+        timeout_seconds: 3.0
       edges:
         - condition: "always"
           next: "DOC_PAN"

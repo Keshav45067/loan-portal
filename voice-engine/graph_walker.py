@@ -80,7 +80,7 @@ class GraphWalker:
 
         return {
             "enabled": True,
-            "timeout_seconds": float(node_policy.get("timeout_seconds") or scheme_defaults.get("default_timeout_seconds", 7.0)),
+            "timeout_seconds": float(node_policy.get("timeout_seconds") or scheme_defaults.get("default_timeout_seconds", 3.0)),
             "max_nudges": int(node_policy.get("max_nudges") or scheme_defaults.get("max_nudges_per_node", 2)),
             "decay_multiplier": float(node_policy.get("decay_multiplier") or scheme_defaults.get("decay_multiplier", 1.4)),
             "nudge_guideline": str(node_policy.get("nudge_guideline", "")),

@@ -117,15 +117,28 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
         nudge_count_map = {}  # {node_id: int}
         inactivity_timer_task = None
+        timer_deadline = None  # Timestamp when timer is set to expire
+        timer_remaining_sec = None  # Saved remaining seconds when interrupted by noise
 
         def cancel_inactivity_timer():
-            nonlocal inactivity_timer_task
+            nonlocal inactivity_timer_task, timer_deadline
             if inactivity_timer_task and not inactivity_timer_task.done():
                 inactivity_timer_task.cancel()
             inactivity_timer_task = None
+            timer_deadline = None
 
-        def arm_inactivity_timer(current_node_id):
-            nonlocal inactivity_timer_task
+        def pause_inactivity_timer():
+            """Called when user speech / noise starts. Calculates and saves remaining time."""
+            nonlocal inactivity_timer_task, timer_deadline, timer_remaining_sec
+            import time as _time
+            if timer_deadline is not None:
+                rem = timer_deadline - _time.time()
+                timer_remaining_sec = max(0.5, rem)
+            cancel_inactivity_timer()
+
+        def arm_inactivity_timer(current_node_id, custom_delay=None):
+            nonlocal inactivity_timer_task, timer_deadline, timer_remaining_sec
+            import time as _time
             cancel_inactivity_timer()
             if not session or not session.walker or session.walker.is_completed:
                 return
@@ -140,9 +153,15 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
             if nudge_count >= max_nudges:
                 return
 
-            base_timeout = policy.get("timeout_seconds", 7.0)
-            decay = policy.get("decay_multiplier", 1.4)
-            delay = base_timeout * (decay ** nudge_count)
+            if custom_delay is not None:
+                delay = float(custom_delay)
+            else:
+                base_timeout = policy.get("timeout_seconds", 7.0)
+                decay = policy.get("decay_multiplier", 1.4)
+                delay = base_timeout * (decay ** nudge_count)
+
+            timer_remaining_sec = None
+            timer_deadline = _time.time() + delay
 
             async def _timer_worker(target_id, timeout_sec):
                 try:
@@ -153,6 +172,15 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
             logger.info(f"Armed inactivity timer for node '{current_node_id}' ({delay:.1f}s, nudge #{nudge_count + 1})")
             inactivity_timer_task = asyncio.create_task(_timer_worker(current_node_id, delay))
+
+        def resume_inactivity_timer(current_node_id):
+            """Called when STT returns empty text (noise/cough) or short audio is discarded."""
+            nonlocal timer_remaining_sec
+            if timer_remaining_sec is not None and timer_remaining_sec > 0:
+                logger.info(f"Resuming inactivity timer for node '{current_node_id}' with remaining {timer_remaining_sec:.1f}s")
+                arm_inactivity_timer(current_node_id, custom_delay=timer_remaining_sec)
+            else:
+                arm_inactivity_timer(current_node_id)
 
         try:
             while True:
@@ -217,9 +245,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                 # ─── VoiceInput Message ───
                 voice_input = item
                 input_type = voice_input.WhichOneof("input")
-
-                if input_type in ("audio_chunk", "text_input", "control"):
-                    cancel_inactivity_timer()
 
                 # ─── Session Start ───
                 if input_type == "session_start":
@@ -372,6 +397,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                  req_id=req_id, session_id=session_id)
 
                     if signal_type == "speech_start":
+                        pause_inactivity_timer()
                         # ─── Guard: Ignore speech if session is completed ───
                         if session and session.walker and session.walker.is_completed:
                             logger.info("Ignoring speech_start because session is completed", session_id=session_id)
@@ -473,6 +499,7 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
                     elif signal_type == "playback_complete":
                         logger.info("Playback complete received from client; arming inactivity timer", session_id=session_id)
+                        timer_remaining_sec = None
                         if session and session.walker:
                             arm_inactivity_timer(session.walker.current_node_id)
 
@@ -492,6 +519,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 progressive_stt = None
                                 progressive_task = None
                             session.clear_audio_buffer()
+                            if session and session.walker:
+                                resume_inactivity_timer(session.walker.current_node_id)
                             continue
 
                         # ─── Guard: Discard short audio (e.g. noise or coughs) ───
@@ -503,6 +532,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 progressive_stt = None
                                 progressive_task = None
                             session.clear_audio_buffer()
+                            if session and session.walker:
+                                resume_inactivity_timer(session.walker.current_node_id)
                             continue
 
                         logger.info("DEBUG: Before yield processing status", session_id=session_id)
@@ -557,6 +588,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 yield pb2.VoiceOutput(
                                     status=pb2.StatusUpdate(status="listening")
                                 )
+                                if session and session.walker:
+                                    resume_inactivity_timer(session.walker.current_node_id)
                                 continue
                             transcribed = await self._transcribe(audio_data, session)
                             stt_ms = (_time.perf_counter() - t_stt_start) * 1000
@@ -571,6 +604,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             yield pb2.VoiceOutput(
                                 status=pb2.StatusUpdate(status="listening")
                             )
+                            if session and session.walker:
+                                resume_inactivity_timer(session.walker.current_node_id)
                             continue
 
                         # (Removed user transcription yield to keep screen clean as requested)
