@@ -396,9 +396,10 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             # Call LLM Service
             try:
                 from generated import llm_pb2, llm_pb2_grpc
-                async with grpc.aio.insecure_channel("localhost:50054") as channel:
+                llm_addr = os.getenv("LLM_SERVICE_ADDR", "localhost:50054")
+                async with grpc.aio.insecure_channel(llm_addr) as channel:
                     stub = llm_pb2_grpc.LanguageModelStub(channel)
-                    logger.info(f"Invoking LLM for pipeline {pipeline_name}", session_id=session_id)
+                    logger.info(f"Invoking LLM for pipeline {pipeline_name} at {llm_addr}", session_id=session_id)
                     response = await stub.Extract(
                         llm_pb2.ExtractRequest(
                             prompt=prompt,
@@ -410,9 +411,21 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                     if not response.success:
                         raise Exception(response.error)
                     
-                    # Parse JSON text
+                    # Parse JSON text with robust markdown stripping
                     logger.info(f"LLM extraction success for {pipeline_name}", response_json=response.json_text)
-                    result_json = json.loads(response.json_text)
+                    raw_text = (response.json_text or "").strip()
+                    if "```" in raw_text:
+                        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
+                        if match:
+                            raw_text = match.group(1)
+                        else:
+                            raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                    if not raw_text.startswith("{"):
+                        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+                        if match:
+                            raw_text = match.group(0)
+
+                    result_json = json.loads(raw_text)
                     for src_field, target_db_field in output_mapping.items():
                         evaluation_results[target_db_field] = result_json.get(src_field)
 

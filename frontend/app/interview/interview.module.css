@@ -915,6 +915,25 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
+.reviewSectionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.sectionHeaderTitle {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #a5b4fc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 8px;
+  letter-spacing: -0.01em;
+}
+
 /* ─── Manual Filling Choice Prompt Card ─── */
 .promptCardContainer {
   background: var(--bg-card);
