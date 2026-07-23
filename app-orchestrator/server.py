@@ -117,8 +117,21 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
     if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b':
         scheme_id = 'base-mudra'
         
-    config_dir = "/Users/keshavgarg/Documents/augmen/services/config-registry/configs"
-    
+    config_dir = os.getenv(
+        "CONFIG_REGISTRY_PATH",
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config-registry", "configs"))
+    )
+    if not os.path.exists(config_dir):
+        alt_paths = [
+            os.path.abspath("config-registry/configs"),
+            os.path.abspath("services/config-registry/configs"),
+            "/var/www/augmen/testing-services/config-registry/configs"
+        ]
+        for alt in alt_paths:
+            if os.path.exists(alt):
+                config_dir = alt
+                break
+
     # Load all raw configurations
     raw_configs = {}
     if not os.path.exists(config_dir):
