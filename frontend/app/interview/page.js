@@ -421,6 +421,68 @@ export default function InterviewPage() {
     }
   };
 
+  const handleOpenManualFillingModal = async () => {
+    try {
+      const savedToken = localStorage.getItem('token') || token;
+      const savedSessionId = localStorage.getItem('session_id') || sessionId;
+      if (savedToken && savedSessionId) {
+        const res = await fetch(`${API_BASE_URL}/api/applications/${savedSessionId}`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const data = await res.json();
+        const extracted = data.extracted_data || {};
+
+        const fieldsMap = {};
+        const keysToExtract = [
+          'applicant_name', 'date_of_birth', 'gender', 'phone', 'email',
+          'marital_status', 'education_level', 'enterprise_name', 'business_type',
+          'existing_business_activity', 'registration_number_of_business',
+          'monthly_revenue', 'monthly_profit', 'saving_bank_account_number',
+          'bank_name', 'ifsc_code', 'approximate_cost', 'purpose'
+        ];
+
+        for (const key of keysToExtract) {
+          if (extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== '') {
+            fieldsMap[key] = typeof extracted[key] === 'object' ? JSON.stringify(extracted[key]) : String(extracted[key]);
+          } else {
+            fieldsMap[key] = ''; // Blank field for manual completion
+          }
+        }
+
+        if (extracted.address) {
+          if (typeof extracted.address === 'object') {
+            const addrParts = [
+              extracted.address.house, extracted.address.street,
+              extracted.address.locality, extracted.address.vtc,
+              extracted.address.district, extracted.address.state,
+              extracted.address.pincode
+            ].filter(Boolean);
+            fieldsMap['address'] = addrParts.join(', ') || '';
+          } else {
+            fieldsMap['address'] = String(extracted.address);
+          }
+        } else {
+          fieldsMap['address'] = '';
+        }
+
+        if (!fieldsMap['applicant_name']) fieldsMap['applicant_name'] = localStorage.getItem('applicant_name') || '';
+        if (!fieldsMap['phone']) fieldsMap['phone'] = data.phone || '';
+
+        setReviewFields(fieldsMap);
+        setShowReviewModal(true);
+        playReviewVoiceAnnouncement(selectedLanguage);
+      }
+    } catch (e) {
+      console.error('Failed to open manual filling table:', e);
+    }
+  };
+
+  const handleContinueWithVoiceAssistant = () => {
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current.sendTextInput("जारी रखें");
+    }
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedSessionId = localStorage.getItem('session_id');
@@ -1523,6 +1585,46 @@ export default function InterviewPage() {
     );
   };
 
+  const renderManualFillingPromptUI = () => {
+    return (
+      <div className={styles.promptCardContainer}>
+        <div className={styles.promptHeader}>
+          <div className={styles.promptIconLarge}>📝</div>
+          <h2 className={styles.promptTitle}>Choose How to Complete Your Application</h2>
+          <p className={styles.promptDesc}>
+            Voter ID documents verified successfully! You can either fill out the remaining details manually in a simple table, or continue speaking with our AI Voice Assistant.
+          </p>
+        </div>
+
+        <div className={styles.promptChoicesGrid}>
+          {/* Choice 1: Manual Filling */}
+          <div 
+            className={`${styles.choiceCard} ${styles.choiceCardManual}`}
+            onClick={handleOpenManualFillingModal}
+          >
+            <div className={styles.choiceIcon} style={{ color: '#22c968' }}>✍️</div>
+            <div className={styles.choiceTitle}>Fill Form Manually</div>
+            <div className={styles.choiceDesc}>
+              Open auto-filled form table with extracted details and complete remaining fields yourself.
+            </div>
+          </div>
+
+          {/* Choice 2: Continue Voice */}
+          <div 
+            className={styles.choiceCard}
+            onClick={handleContinueWithVoiceAssistant}
+          >
+            <div className={styles.choiceIcon} style={{ color: '#818cf8' }}>🎙️</div>
+            <div className={styles.choiceTitle}>Continue with AI Voice Assistant</div>
+            <div className={styles.choiceDesc}>
+              Keep speaking naturally with our AI assistant to complete questions step-by-step.
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       {/* ─── Header ─── */}
@@ -1660,7 +1762,10 @@ export default function InterviewPage() {
           </div>
         ) : (
           <div style={{ gridColumn: 'span 2', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-            {nodeType === 'voice-qa' ? renderVoiceUI() : (nodeType === 'video_capture' ? renderVideoUI() : renderCameraUI())}
+            {nodeType === 'manual_filling_prompt' 
+              ? renderManualFillingPromptUI() 
+              : (nodeType === 'voice-qa' ? renderVoiceUI() : (nodeType === 'video_capture' ? renderVideoUI() : renderCameraUI()))
+            }
           </div>
         )}
       </main>

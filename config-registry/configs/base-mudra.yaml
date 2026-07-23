@@ -129,6 +129,14 @@ interview_graph:
       text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
       edges:
         - condition: "always"
+          next: "PROMPT_MANUAL_FILLING"
+
+    PROMPT_MANUAL_FILLING:
+      type: "manual_filling_prompt"
+      text_template: "वोटर आईडी कार्ड की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
+      targets: []
+      edges:
+        - condition: "always"
           next: "Q_STATUS"
 
     START:

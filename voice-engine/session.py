@@ -641,7 +641,7 @@ class VoiceSession:
                 )
 
                 node_type = next_node.get("type", "voice-qa")
-                if node_type in ("capture", "video_capture"):
+                if node_type in ("capture", "video_capture", "manual_filling_prompt"):
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type=node_type,
@@ -866,7 +866,7 @@ class VoiceSession:
                 )
 
                 node_type = next_node.get("type", "voice-qa")
-                if node_type in ("capture", "video_capture"):
+                if node_type in ("capture", "video_capture", "manual_filling_prompt"):
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type=node_type,
