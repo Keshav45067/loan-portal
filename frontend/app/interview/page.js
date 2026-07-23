@@ -277,7 +277,7 @@ export default function InterviewPage() {
   const [token, setToken] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [applicationId, setApplicationId] = useState('');
-  const [schemeId, setSchemeId] = useState('sbi-account-opening');
+  const [schemeId, setSchemeId] = useState('mudra-grocery');
 
   // Flow State (Driven by backend)
   const [isStarted, setIsStarted] = useState(false);
@@ -595,7 +595,11 @@ export default function InterviewPage() {
     const savedToken = localStorage.getItem('token');
     const savedSessionId = localStorage.getItem('session_id');
     const savedApplicationId = localStorage.getItem('application_id');
-    const savedSchemeId = localStorage.getItem('scheme_id') || 'sbi-account-opening';
+    let savedSchemeId = localStorage.getItem('scheme_id');
+    if (!savedSchemeId || !savedSchemeId.includes('mudra') || savedSchemeId.includes('sbi')) {
+      savedSchemeId = 'mudra-grocery';
+      localStorage.setItem('scheme_id', 'mudra-grocery');
+    }
     if (!savedToken || !savedSessionId) {
       router.push('/');
     } else {
