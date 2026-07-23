@@ -323,6 +323,104 @@ export default function InterviewPage() {
   const visualizerCanvasRef = useRef(null);
   const visualizerInstanceRef = useRef(null);
 
+  // Post-Interview Review Modal State
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewFields, setReviewFields] = useState({});
+  const [isSavingReview, setIsSavingReview] = useState(false);
+  const [isSpeakingReviewAnnouncement, setIsSpeakingReviewAnnouncement] = useState(false);
+
+  const FRIENDLY_FIELD_LABELS = {
+    applicant_name: 'Full Name',
+    date_of_birth: 'Date of Birth',
+    gender: 'Gender',
+    phone: 'Mobile Number',
+    email: 'Email Address',
+    marital_status: 'Marital Status',
+    education_level: 'Qualification',
+    enterprise_name: 'Enterprise Name',
+    business_type: 'Business Type',
+    existing_business_activity: 'Business Activity',
+    registration_number_of_business: 'Udyam Number',
+    monthly_revenue: 'Monthly Revenue (₹)',
+    monthly_profit: 'Monthly Profit (₹)',
+    current_total_wages: 'Annual Wages (₹)',
+    saving_bank_account_number: 'Bank Account Number',
+    bank_name: 'Bank Name',
+    ifsc_code: 'IFSC Code',
+    approximate_cost: 'Machine/Equipment Cost (₹)',
+    purpose: 'Machine Purpose',
+    address: 'Residential Address'
+  };
+
+  const playReviewVoiceAnnouncement = (lang) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const text = lang === 'hi' 
+        ? "यह आपकी दर्ज की गई जानकारी है। कृपया जांच लें और पुष्टि करें।"
+        : "Here are your extracted details. Please review and confirm.";
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang === 'hi' ? 'hi-IN' : 'en-US';
+      utterance.rate = 0.95;
+      utterance.onstart = () => setIsSpeakingReviewAnnouncement(true);
+      utterance.onend = () => setIsSpeakingReviewAnnouncement(false);
+      utterance.onerror = () => setIsSpeakingReviewAnnouncement(false);
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn('Speech synthesis failed:', e);
+    }
+  };
+
+  const handleFieldChange = (key, value) => {
+    setReviewFields(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveAndConfirmReview = async () => {
+    setIsSavingReview(true);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    try {
+      const savedToken = localStorage.getItem('token') || token;
+      const savedSessionId = localStorage.getItem('session_id') || sessionId;
+
+      if (savedToken && savedSessionId) {
+        // 1. Save metadata & onboarding status to DB
+        await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${savedToken}`
+          },
+          body: JSON.stringify({
+            session_id: savedSessionId,
+            fields: {
+              ...reviewFields,
+              onboarding_finished: true,
+              completion_status: 'COMPLETED'
+            }
+          })
+        });
+
+        // 2. Trigger background post-processing calculations
+        await fetch(`${API_BASE_URL}/api/applications/trigger-evaluations`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${savedToken}`
+          },
+          body: JSON.stringify({ session_id: savedSessionId })
+        });
+      }
+    } catch (err) {
+      console.error('Error saving confirmed review details:', err);
+    } finally {
+      setIsSavingReview(false);
+      setShowReviewModal(false);
+      router.push('/dashboard/details');
+    }
+  };
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedSessionId = localStorage.getItem('session_id');
@@ -449,30 +547,64 @@ export default function InterviewPage() {
           if (docId) setDocumentId(docId);
         },
         onComplete: async () => {
-          console.log('[DEBUG Frontend] onComplete triggered, saving state and redirecting...');
+          console.log('[DEBUG Frontend] onComplete triggered, opening extracted details review modal...');
           try {
             const savedToken = localStorage.getItem('token') || token;
             const savedSessionId = localStorage.getItem('session_id') || sessionId;
             if (savedToken && savedSessionId) {
-              await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${savedToken}`
-                },
-                body: JSON.stringify({
-                  session_id: savedSessionId,
-                  fields: {
-                    onboarding_finished: true,
-                    completion_status: 'COMPLETED'
-                  }
-                })
+              const res = await fetch(`${API_BASE_URL}/api/applications/${savedSessionId}`, {
+                headers: { 'Authorization': `Bearer ${savedToken}` }
               });
+              const data = await res.json();
+              const extracted = data.extracted_data || {};
+              
+              // Extract key fields into review state
+              const fieldsMap = {};
+              const keysToExtract = [
+                'applicant_name', 'date_of_birth', 'gender', 'phone', 'email',
+                'marital_status', 'education_level', 'enterprise_name', 'business_type',
+                'existing_business_activity', 'registration_number_of_business',
+                'monthly_revenue', 'monthly_profit', 'saving_bank_account_number',
+                'bank_name', 'ifsc_code', 'approximate_cost', 'purpose'
+              ];
+
+              for (const key of keysToExtract) {
+                if (extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== '') {
+                  fieldsMap[key] = typeof extracted[key] === 'object' ? JSON.stringify(extracted[key]) : String(extracted[key]);
+                }
+              }
+
+              // Address formatting
+              if (extracted.address) {
+                if (typeof extracted.address === 'object') {
+                  const addrParts = [
+                    extracted.address.house, extracted.address.street,
+                    extracted.address.locality, extracted.address.vtc,
+                    extracted.address.district, extracted.address.state,
+                    extracted.address.pincode
+                  ].filter(Boolean);
+                  fieldsMap['address'] = addrParts.join(', ') || 'Not Available';
+                } else {
+                  fieldsMap['address'] = String(extracted.address);
+                }
+              }
+
+              // Ensure at least applicant name & phone exist
+              if (!fieldsMap['applicant_name']) fieldsMap['applicant_name'] = localStorage.getItem('applicant_name') || '';
+              if (!fieldsMap['phone']) fieldsMap['phone'] = data.phone || '';
+
+              setReviewFields(fieldsMap);
+              setShowReviewModal(true);
+
+              // Play vocal announcement
+              playReviewVoiceAnnouncement(selectedLanguage);
+            } else {
+              router.push('/dashboard/details');
             }
           } catch (e) {
-            console.error('Failed to update onboarding_finished status:', e);
+            console.error('Failed to fetch extracted details for review modal:', e);
+            router.push('/dashboard/details');
           }
-          router.push('/dashboard/details');
         },
         onSystemMessage: (type, msg) => {
           if (type === 'error' || type === 'system_error') {
@@ -1532,6 +1664,69 @@ export default function InterviewPage() {
           </div>
         )}
       </main>
+
+      {/* Extracted Details Review Pop-up Modal */}
+      {showReviewModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            
+            {/* Modal Header */}
+            <div className={styles.modalHeader}>
+              <div className={styles.modalTitleWrapper}>
+                <h2 className={styles.modalTitle}>
+                  <span>📋</span>
+                  <span>Review Extracted Application Details</span>
+                </h2>
+                <p className={styles.modalSubtitle}>
+                  Please review your information below. You can edit any field before confirming.
+                </p>
+              </div>
+
+              {/* Voice Announcement Indicator Chip */}
+              <div className={styles.voiceAnnouncementChip}>
+                <span style={{ fontSize: '1rem' }}>🔊</span>
+                <span>{selectedLanguage === 'hi' ? 'पुष्टि संदेश चल रहा है...' : 'Voice Announcement'}</span>
+              </div>
+            </div>
+
+            {/* Editable Table Grid */}
+            <div className={styles.tableContainer}>
+              <div className={styles.reviewGrid}>
+                {Object.entries(reviewFields).map(([key, val]) => {
+                  const label = FRIENDLY_FIELD_LABELS[key] || key.replace(/_/g, ' ').toUpperCase();
+                  return (
+                    <div key={key} className={styles.reviewRow}>
+                      <label className={styles.reviewLabel}>
+                        <span>✏️</span>
+                        <span>{label}</span>
+                      </label>
+                      <input
+                        type="text"
+                        className={styles.reviewInput}
+                        value={val || ''}
+                        onChange={(e) => handleFieldChange(key, e.target.value)}
+                        placeholder={`Enter ${label}...`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className={styles.modalFooter}>
+              <button
+                onClick={handleSaveAndConfirmReview}
+                disabled={isSavingReview}
+                className={styles.saveButton}
+              >
+                <span>{isSavingReview ? '💾 Saving & Calculating...' : '✅ Save & Confirm Details'}</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

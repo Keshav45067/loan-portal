@@ -709,3 +709,210 @@
   opacity: 1 !important;
 }
 
+/* ─── Review Modal Overlay & Content ─── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(3, 5, 15, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl);
+  animation: fadeIn 0.3s var(--ease-smooth);
+}
+
+.modalContent {
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(8, 12, 28, 0.98) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 28px;
+  width: 100%;
+  max-width: 850px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.15);
+  overflow: hidden;
+  animation: modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(30px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.modalHeader {
+  padding: 24px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.modalTitleWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.modalTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
+}
+
+.modalSubtitle {
+  font-size: 0.875rem;
+  color: #94a3b8;
+}
+
+.voiceAnnouncementChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(34, 201, 104, 0.1);
+  border: 1px solid rgba(34, 201, 104, 0.25);
+  color: #22c968;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  animation: pulseGlow 2s infinite alternate;
+}
+
+@keyframes pulseGlow {
+  0% { box-shadow: 0 0 5px rgba(34, 201, 104, 0.2); }
+  100% { box-shadow: 0 0 15px rgba(34, 201, 104, 0.5); }
+}
+
+.tableContainer {
+  padding: 24px 32px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+}
+
+.reviewRow {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.reviewRow:focus-within {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.04);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.1);
+}
+
+.reviewLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #818cf8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reviewInput {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: #f8fafc;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.reviewInput:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modalFooter {
+  padding: 20px 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  background: rgba(5, 7, 18, 0.6);
+}
+
+.saveButton {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: #ffffff;
+  border: none;
+  padding: 14px 32px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
+}
+
+.saveButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.5);
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 14px 24px;
+  border-radius: 14px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+
