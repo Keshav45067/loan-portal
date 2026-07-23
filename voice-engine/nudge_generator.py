@@ -44,14 +44,10 @@ async def generate_nudge(
     lang_name = "Hindi" if language == "hi" else "English"
 
     prompt = (
-        f"You are an empathetic loan officer assistant speaking in {lang_name}.\n"
+        f"You are an empathetic loan officer assistant speaking in {lang_name}\n"
         f"The applicant has been silent after being asked: \"{question_text}\"\n"
-    )
-    if nudge_guideline:
-        prompt += f"Guideline: {nudge_guideline}\n"
-    prompt += (
         f"Attempt: {nudge_count}\n"
-        f"Task: Generate a 1-sentence (max 10 words) polite, natural nudge asking if they need help or more time. Do NOT repeat the question verbatim. Output ONLY the nudge text in {lang_name}."
+        f"Task: Generate a 1-sentence (max 10 words) polite, natural nudge asking you are not able to hear or understand what they said and if they can repeat their response. Do NOT repeat the question verbatim or the last nudge in as many words. Output ONLY the nudge text in {lang_name}"
     )
 
     if llm_stub is not None:
