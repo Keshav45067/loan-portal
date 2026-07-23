@@ -286,8 +286,8 @@ export default function DetailsPage() {
     }
   };
 
-  const scoreStr = getVal(['credit_worthiness']);
-  const creditReason = getVal(['credit_reason', 'credit_reason_explanation']);
+  const scoreStr = getVal(['credit_worthiness', 'creditworthiness_score', 'credit_score', 'score']);
+  const creditReason = getVal(['credit_reason', 'reason', 'credit_reason_explanation', 'explanation', 'analysis']);
   const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
   const isCreditPending = isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...' || recalculating);
 
