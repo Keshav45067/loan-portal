@@ -1721,34 +1721,80 @@ export default function InterviewPage() {
           <span>Augmen.io — Mudra Micro-Loan Portal</span>
         </div>
 
-        {/* Multi-Language Selector Parameter (Hindi / English / French) */}
+        {/* Multi-Language Selector Parameter (Hindi / English / French) — Collapses into locked badge after start */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.8125rem', color: '#94a3b8', fontWeight: 600 }}>Voice Language:</span>
-          <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(30, 41, 59, 0.6)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ fontSize: '0.8125rem', color: '#94a3b8', fontWeight: 600, transition: 'all 0.3s ease' }}>
+            {isStarted ? 'Session Language:' : 'Voice Language:'}
+          </span>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: isStarted ? '0px' : '4px',
+            backgroundColor: 'rgba(30, 41, 59, 0.6)',
+            padding: '4px',
+            borderRadius: '10px',
+            border: isStarted ? '1px solid rgba(74, 120, 255, 0.3)' : '1px solid rgba(255,255,255,0.1)',
+            transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: isStarted ? '0 0 12px rgba(74, 120, 255, 0.15)' : 'none',
+          }}>
             {[
-              { code: 'hi', label: 'Hindi' },
-              { code: 'en', label: 'English' },
-              { code: 'fr', label: 'French' }
-            ].map(lang => (
-              <button
-                key={lang.code}
-                type="button"
-                onClick={() => setSelectedLanguage(lang.code)}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '0.8125rem',
-                  fontWeight: selectedLanguage === lang.code ? 700 : 500,
-                  backgroundColor: selectedLanguage === lang.code ? '#4a78ff' : 'transparent',
-                  color: selectedLanguage === lang.code ? '#ffffff' : '#94a3b8',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {lang.label}
-              </button>
-            ))}
+              { code: 'hi', label: 'Hindi', flag: '🇮🇳' },
+              { code: 'en', label: 'English', flag: '🇬🇧' },
+              { code: 'fr', label: 'French', flag: '🇫🇷' },
+            ].map((lang) => {
+              const isSelected = selectedLanguage === lang.code;
+              const isHidden = isStarted && !isSelected;
+
+              return (
+                <button
+                  key={lang.code}
+                  type="button"
+                  disabled={isStarted}
+                  onClick={() => {
+                    if (!isStarted) {
+                      setSelectedLanguage(lang.code);
+                      localStorage.setItem('selected_language', lang.code);
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: isHidden ? '0px' : '4px 12px',
+                    maxWidth: isHidden ? '0px' : '120px',
+                    opacity: isHidden ? 0 : 1,
+                    transform: isHidden ? 'scale(0.8)' : 'scale(1)',
+                    overflow: 'hidden',
+                    borderRadius: '6px',
+                    border: 'none',
+                    fontSize: '0.8125rem',
+                    fontWeight: isSelected ? 700 : 500,
+                    backgroundColor: isSelected ? '#4a78ff' : 'transparent',
+                    color: isSelected ? '#ffffff' : '#94a3b8',
+                    cursor: isStarted ? 'default' : 'pointer',
+                    transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                    whiteSpace: 'nowrap',
+                    pointerEvents: isStarted ? 'none' : 'auto',
+                  }}
+                >
+                  {isStarted && isSelected && (
+                    <span style={{ fontSize: '0.75rem', opacity: 0.9 }}>🔒</span>
+                  )}
+                  <span>{lang.label}</span>
+                  {isStarted && isSelected && (
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      backgroundColor: '#22c968',
+                      boxShadow: '0 0 6px #22c968',
+                      display: 'inline-block',
+                      marginLeft: '2px',
+                    }} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
       </header>

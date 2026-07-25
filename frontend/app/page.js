@@ -6,15 +6,62 @@ import styles from './page.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+const COUNTRY_CODES = [
+  { name: 'India', code: '+91', flag: '🇮🇳', iso: 'IN' },
+  { name: 'United States', code: '+1', flag: '🇺🇸', iso: 'US' },
+  { name: 'United Kingdom', code: '+44', flag: '🇬🇧', iso: 'GB' },
+  { name: 'France', code: '+33', flag: '🇫🇷', iso: 'FR' },
+  { name: 'Canada', code: '+1', flag: '🇨🇦', iso: 'CA' },
+  { name: 'Australia', code: '+61', flag: '🇦🇺', iso: 'AU' },
+  { name: 'Germany', code: '+49', flag: '🇩🇪', iso: 'DE' },
+  { name: 'Singapore', code: '+65', flag: '🇸🇬', iso: 'SG' },
+  { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪', iso: 'AE' },
+  { name: 'Saudi Arabia', code: '+966', flag: '🇸🇦', iso: 'SA' },
+  { name: 'Japan', code: '+81', flag: '🇯🇵', iso: 'JP' },
+  { name: 'Brazil', code: '+55', flag: '🇧🇷', iso: 'BR' },
+  { name: 'Nepal', code: '+977', flag: '🇳🇵', iso: 'NP' },
+  { name: 'Bangladesh', code: '+880', flag: '🇧🇩', iso: 'BD' },
+  { name: 'Sri Lanka', code: '+94', flag: '🇱🇰', iso: 'LK' },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState('phone'); // 'phone' | 'otp'
   const [phone, setPhone] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]); // Default to India (+91)
+  const [isCountryDropdownOpen, setIsCountryDropdownOpen] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
   const [otp, setOtp] = useState(['', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
   const otpRefs = useRef([]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsCountryDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Auto focus search input when dropdown opens
+  useEffect(() => {
+    if (isCountryDropdownOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isCountryDropdownOpen]);
+
+  const filteredCountries = COUNTRY_CODES.filter(c => 
+    c.name.toLowerCase().includes(countrySearch.toLowerCase()) || 
+    c.code.includes(countrySearch)
+  );
 
   // OTP countdown
   useEffect(() => {
@@ -210,11 +257,57 @@ export default function LoginPage() {
                 <p className="text-muted">Enter your 10-digit mobile number to proceed</p>
               </div>
 
-              <div className={styles.phoneInput}>
-                <div className={styles.phonePrefix}>
-                  <span>🇮🇳</span>
-                  <span>+91</span>
+              <div className={styles.phoneInput} ref={dropdownRef}>
+                <div className={styles.phonePrefixWrapper}>
+                  <button
+                    type="button"
+                    className={styles.phonePrefixBtn}
+                    onClick={() => setIsCountryDropdownOpen(!isCountryDropdownOpen)}
+                    aria-label="Select Country Code"
+                  >
+                    <span>{selectedCountry.flag}</span>
+                    <span>{selectedCountry.code}</span>
+                    <span className={styles.dropdownArrow}>{isCountryDropdownOpen ? '▲' : '▼'}</span>
+                  </button>
+
+                  {isCountryDropdownOpen && (
+                    <div className={styles.countryDropdown}>
+                      <div className={styles.countrySearchWrapper}>
+                        <input
+                          ref={searchInputRef}
+                          type="text"
+                          className={styles.countrySearchInput}
+                          placeholder="Search country or code..."
+                          value={countrySearch}
+                          onChange={e => setCountrySearch(e.target.value)}
+                        />
+                      </div>
+                      <div className={styles.countryList}>
+                        {filteredCountries.length > 0 ? (
+                          filteredCountries.map(c => (
+                            <button
+                              key={`${c.iso}-${c.code}`}
+                              type="button"
+                              className={`${styles.countryOption} ${selectedCountry.iso === c.iso ? styles.countryOptionActive : ''}`}
+                              onClick={() => {
+                                setSelectedCountry(c);
+                                setIsCountryDropdownOpen(false);
+                                setCountrySearch('');
+                              }}
+                            >
+                              <span className={styles.countryFlag}>{c.flag}</span>
+                              <span className={styles.countryName}>{c.name}</span>
+                              <span className={styles.countryDialCode}>{c.code}</span>
+                            </button>
+                          ))
+                        ) : (
+                          <div className={styles.noCountryFound}>No country found</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <input
                   id="phone-input"
                   type="tel"

@@ -307,13 +307,19 @@
   display: flex;
   align-items: stretch;
   gap: 0.75rem;
+  position: relative;
 }
 
-.phonePrefix {
+.phonePrefixWrapper {
+  position: relative;
+}
+
+.phonePrefixBtn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 16px;
+  padding: 0 14px;
+  height: 100%;
   background: rgba(30, 41, 59, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
@@ -321,6 +327,127 @@
   font-weight: 600;
   font-size: 0.9375rem;
   white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.phonePrefixBtn:hover {
+  background: rgba(45, 60, 85, 0.8);
+  border-color: rgba(74, 120, 255, 0.4);
+}
+
+.dropdownArrow {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  margin-left: 2px;
+}
+
+.countryDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  background: #0f172a;
+  border: 1px solid rgba(74, 120, 255, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(74, 120, 255, 0.1);
+  z-index: 100;
+  overflow: hidden;
+  backdrop-filter: blur(16px);
+  animation: fadeInDown 0.2s ease-out;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.countrySearchWrapper {
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.countrySearchInput {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.8125rem;
+  outline: none;
+}
+
+.countrySearchInput:focus {
+  border-color: #4a78ff;
+  box-shadow: 0 0 0 2px rgba(74, 120, 255, 0.2);
+}
+
+.countryList {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.countryList::-webkit-scrollbar {
+  width: 5px;
+}
+
+.countryList::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.countryOption {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: #cbd5e1;
+  font-size: 0.84375rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+  gap: 8px;
+}
+
+.countryOption:hover {
+  background: rgba(74, 120, 255, 0.15);
+  color: #ffffff;
+}
+
+.countryOptionActive {
+  background: rgba(74, 120, 255, 0.2) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.countryFlag {
+  font-size: 1.1rem;
+}
+
+.countryName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.countryDialCode {
+  color: #4a78ff;
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.noCountryFound {
+  padding: 16px;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.8125rem;
 }
 
 /* ─── OTP Inputs ─── */
