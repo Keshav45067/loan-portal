@@ -1705,19 +1705,51 @@ export default function InterviewPage() {
   return (
     <div className={styles.container}>
       {/* ─── Header ─── */}
-      <header className={styles.header}>
+      <header className={styles.header} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 700, fontSize: '1.25rem' }}>
-          <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
-            <circle cx="24" cy="24" r="24" fill="url(#lg)" />
-            <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9"/>
+          <svg width="28" height="32" viewBox="0 0 36 40" fill="none">
+            <path d="M18 0L36 34H27L18 16L9 34H0L18 0Z" fill="url(#hdr-lg)"/>
+            <path d="M18 10L25 25H11L18 10Z" fill="#0f172a" stroke="#4a78ff" strokeWidth="0.8"/>
+            <circle cx="18" cy="18" r="2" fill="#4a78ff"/>
             <defs>
-              <linearGradient id="lg" x1="0" y1="0" x2="48" y2="48">
+              <linearGradient id="hdr-lg" x1="0" y1="0" x2="36" y2="40">
                 <stop stopColor="#4a78ff"/>
-                <stop offset="1" stopColor="#7c3aed"/>
+                <stop offset="1" stopColor="#22c968"/>
               </linearGradient>
             </defs>
           </svg>
-          <span>Augmen.io — Account Onboarding</span>
+          <span>Augmen.io — Mudra Micro-Loan Portal</span>
+        </div>
+
+        {/* Multi-Language Selector Parameter (Hindi / English / French) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.8125rem', color: '#94a3b8', fontWeight: 600 }}>Voice Language:</span>
+          <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(30, 41, 59, 0.6)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            {[
+              { code: 'hi', label: 'Hindi' },
+              { code: 'en', label: 'English' },
+              { code: 'fr', label: 'French' }
+            ].map(lang => (
+              <button
+                key={lang.code}
+                type="button"
+                onClick={() => setSelectedLanguage(lang.code)}
+                style={{
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: selectedLanguage === lang.code ? 700 : 500,
+                  backgroundColor: selectedLanguage === lang.code ? '#4a78ff' : 'transparent',
+                  color: selectedLanguage === lang.code ? '#ffffff' : '#94a3b8',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 

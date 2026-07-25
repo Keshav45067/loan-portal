@@ -121,6 +121,8 @@ class GraphWalker:
     def _get_node_text(self, node: dict) -> str:
         if self._language == "en":
             return node.get("text_template_en", "") or node.get("text_template", "")
+        elif self._language == "fr":
+            return node.get("text_template_fr", "") or node.get("text_template_en", "") or node.get("text_template", "")
         elif self._language == "te":
             return node.get("text_template_te", "") or node.get("text_template", "")
         return node.get("text_template", "")

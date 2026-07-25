@@ -25,6 +25,10 @@ FALLBACK_NUDGES = {
     "en": [
         "Are you there? I am here to help you.",
         "Take your time, please let me know if you need any assistance.",
+    ],
+    "fr": [
+        "Êtes-vous là ? Je suis là pour vous aider.",
+        "Prenez votre temps, dites-moi si vous avez besoin d'aide.",
     ]
 }
 
@@ -41,7 +45,8 @@ async def generate_nudge(
     Generate a 1-sentence contextual nudge for silence/inactivity.
     Only called for 'voice-qa' nodes.
     """
-    lang_name = "Hindi" if language == "hi" else "English"
+    lang_names = {"hi": "Hindi", "en": "English", "fr": "French"}
+    lang_name = lang_names.get(language, "English")
 
     prompt = (
         f"You are an empathetic loan officer assistant speaking in {lang_name}\n"

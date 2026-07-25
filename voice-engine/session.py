@@ -1088,6 +1088,8 @@ class VoiceSession:
 
         if self.language == "hi":
             voice_name = "hi-IN-Neural2-A"
+        elif self.language == "fr":
+            voice_name = "fr-FR-Neural2-A"
         elif self.language == "te":
             voice_name = "te-IN-Wavenet-A"
         else:
@@ -1146,6 +1148,16 @@ class VoiceSession:
                     "End this short acknowledgment with a '.' or ',' character. "
                     "2) If the user asked a question, answer it sweetly and directly. "
                     "3) Finally, ask your followup question in a friendly tone.\n"
+                )
+            },
+            "fr": {
+                "lang_name": "French",
+                "filler": (
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
+                    "1) Start with a warm, expressive reaction in French (e.g., 'Ah, je vois !', 'C\\'est parfait.', 'D\\'accord, j\\'ai bien compris.'). "
+                    "End this short acknowledgment with a '.' or ',' character. "
+                    "2) If the user asked a question, answer it warmly and directly in French. "
+                    "3) Finally, ask your followup question in a friendly tone in French.\n"
                 )
             },
             "ar": {

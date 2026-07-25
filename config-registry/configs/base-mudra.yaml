@@ -4,7 +4,7 @@
 
 scheme_id: base-mudra
 display_name: "Base Mudra Loan Configuration"
-languages: [hi, en]
+languages: [hi, en, fr]
 
 # ─── TTS/STT Configuration ───
 tts:
@@ -16,6 +16,10 @@ tts:
     voice_name: "en-US-Neural2-F"
     engine: "google"
     sample_rate: 24000
+  fr:
+    voice_name: "fr-FR-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
 
 stt:
   hi:
@@ -24,6 +28,9 @@ stt:
   en:
     engine: "google"
     language_code: "en-US"
+  fr:
+    engine: "google"
+    language_code: "fr-FR"
 
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
@@ -134,6 +141,8 @@ interview_graph:
     PROMPT_MANUAL_FILLING:
       type: "manual_filling_prompt"
       text_template: "वोटर आईडी कार्ड की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
+      text_template_en: "Voter ID card confirmed. Would you like to fill the remaining details manually in the form, or continue speaking with me?"
+      text_template_fr: "Carte d'électeur confirmée. Souhaitez-vous remplir le reste du formulaire manuellement ou continuer avec l'assistant vocal ?"
       targets: []
       edges:
         - condition: "always"
@@ -142,6 +151,8 @@ interview_graph:
     START:
       type: "voice-qa"
       text_template: "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?"
+      text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
+      text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
       targets: []
       edges:
         - condition: "always"
@@ -150,6 +161,8 @@ interview_graph:
     Q_STATUS:
       type: "voice-qa"
       text_template: "आपका काम कैसा चल रहा है?"
+      text_template_en: "How is your business going currently?"
+      text_template_fr: "Comment se déroule votre activité actuellement ?"
       targets: []
       edges:
         - condition: "always"
