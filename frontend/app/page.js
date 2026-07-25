@@ -96,6 +96,8 @@ export default function LoginPage() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('session_id', data.session_id);
         localStorage.setItem('phone', phone);
+        // Force scheme to mudra-grocery
+        localStorage.setItem('scheme_id', 'mudra-grocery');
 
         router.push('/dashboard');
       } else {
@@ -110,67 +112,102 @@ export default function LoginPage() {
 
   return (
     <div className={styles.container}>
-      {/* Left Panel — Branding */}
+      {/* Left Panel — Augmen Branding & Mudra Loan Showcase */}
       <div className={styles.brandPanel}>
         <div className={styles.brandContent}>
-          <div className={styles.logoMark}>
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="24" r="24" fill="url(#logo-grad)" />
-              <path d="M16 24C16 19.58 19.58 16 24 16V32C19.58 32 16 28.42 16 24Z" fill="white" opacity="0.9" />
-              <path d="M24 16C28.42 16 32 19.58 32 24C32 28.42 28.42 32 24 32" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.6" />
-              <circle cx="28" cy="20" r="2" fill="white" opacity="0.8" />
-              <defs>
-                <linearGradient id="logo-grad" x1="0" y1="0" x2="48" y2="48">
-                  <stop stopColor="#4a78ff" />
-                  <stop offset="1" stopColor="#7c3aed" />
-                </linearGradient>
-              </defs>
-            </svg>
+          
+          {/* Augmen Official Logo & Header */}
+          <div className={styles.brandHeader}>
+            <div className={styles.logoWrapper}>
+              <svg viewBox="0 0 36 40" fill="none" className={styles.augmenLogoSvg}>
+                <path d="M18 0L36 34H27L18 16L9 34H0L18 0Z" fill="url(#augmen-grad)" />
+                <path d="M18 10L25 25H11L18 10Z" fill="#090d16" stroke="#4a78ff" strokeWidth="0.8" />
+                <circle cx="18" cy="18" r="2" fill="#4a78ff" />
+                <defs>
+                  <linearGradient id="augmen-grad" x1="0" y1="0" x2="36" y2="40">
+                    <stop stopColor="#4a78ff" />
+                    <stop offset="1" stopColor="#22c968" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <span className={styles.brandName}>AUGMEN</span>
+            </div>
+            <span className={styles.badgePill}>
+              <span className={styles.badgePulse}></span>
+              PMMY Mudra Micro-Loans
+            </span>
           </div>
+
           <h1 className={styles.brandTitle}>
-            <span className="text-gradient">Augmen.io</span>
+            Conversational <br />
+            <span className={styles.textGradient}>Mudra Micro-Loan</span> Portal
           </h1>
+
           <p className={styles.brandSubtitle}>
-            Conversational Bank Onboarding Demo
+            Apply for Mudra loans up to ₹10 Lakhs through a natural voice conversation in your preferred language. Powered by Augmen Conversational AI.
           </p>
 
+          {/* Mudra Loan Feature Showcase */}
           <div className={styles.features}>
             <div className={`${styles.featureItem} animate-in animate-delay-1`}>
               <div className={styles.featureIcon}>🎙️</div>
               <div>
-                <p className={styles.featureTitle}>Voice-Guided Onboarding</p>
-                <p className={styles.featureDesc}>Speak naturally to complete your account opening form.</p>
+                <p className={styles.featureTitle}>Voice-Guided Micro-Loan Application</p>
+                <p className={styles.featureDesc}>Speak naturally in Hindi or English. Answer simple questions about your business with zero typing.</p>
               </div>
             </div>
+
             <div className={`${styles.featureItem} animate-in animate-delay-2`}>
               <div className={styles.featureIcon}>🪪</div>
               <div>
-                <p className={styles.featureTitle}>Smart Document Extraction</p>
-                <p className={styles.featureDesc}>Scan your Aadhaar & PAN. AI automatically extracts verified details.</p>
+                <p className={styles.featureTitle}>Instant Document Verification</p>
+                <p className={styles.featureDesc}>Scan Aadhaar, PAN, Voter ID, & Udyam Registration. Details are extracted and validated automatically.</p>
               </div>
             </div>
+
             <div className={`${styles.featureItem} animate-in animate-delay-3`}>
               <div className={styles.featureIcon}>⚡</div>
               <div>
-                <p className={styles.featureTitle}>Real-time Verification</p>
-                <p className={styles.featureDesc}>Your savings account details are processed instantly with zero typing.</p>
+                <p className={styles.featureTitle}>Automated Credit & Financial Assessment</p>
+                <p className={styles.featureDesc}>Real-time computation of working capital, inventory, and loan eligibility score for instant disbursement approval.</p>
               </div>
             </div>
           </div>
+
+          {/* Trust Badges Footer */}
+          <div className={styles.trustFooter}>
+            <div className={styles.trustItem}>
+              <span className={styles.trustCheck}>✓</span>
+              <span>Shishu, Kishor & Tarun Schemes</span>
+            </div>
+            <div className={styles.trustDivider} />
+            <div className={styles.trustItem}>
+              <span className={styles.trustCheck}>✓</span>
+              <span>Bank-Grade Encryption</span>
+            </div>
+            <div className={styles.trustDivider} />
+            <div className={styles.trustItem}>
+              <span className={styles.trustCheck}>✓</span>
+              <span>ISO 27001 Certified</span>
+            </div>
+          </div>
+
         </div>
 
-        {/* Decorative orb */}
-        <div className={styles.brandOrb} aria-hidden="true" />
+        {/* Floating Glowing Orbs */}
+        <div className={styles.brandOrb1} aria-hidden="true" />
+        <div className={styles.brandOrb2} aria-hidden="true" />
       </div>
 
-      {/* Right Panel — Auth Form */}
+      {/* Right Panel — Mobile Auth Form */}
       <div className={styles.formPanel}>
         <div className={styles.formCard}>
           {step === 'phone' ? (
             <form onSubmit={handleSendOtp} className={`${styles.form} animate-in`}>
               <div className={styles.formHeader}>
-                <h2>Welcome 🚀</h2>
-                <p className="text-muted">Enter your mobile number to begin onboarding</p>
+                <div className={styles.formBadge}>Apply Now</div>
+                <h2>Start Your Mudra Loan Application 🚀</h2>
+                <p className="text-muted">Enter your 10-digit mobile number to proceed</p>
               </div>
 
               <div className={styles.phoneInput}>
@@ -204,7 +241,7 @@ export default function LoginPage() {
                   <span className={styles.spinner} />
                 ) : (
                   <>
-                    Send OTP Code
+                    Send OTP Verification Code
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M5 12h14M12 5l7 7-7 7" />
                     </svg>
@@ -213,7 +250,7 @@ export default function LoginPage() {
               </button>
 
               <p className={styles.terms}>
-                By continuing, you agree to our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>
+                By logging in, you agree to our <a href="#">Terms of Service</a> & <a href="#">Privacy Policy</a>. Data is secured under DPDP guidelines.
               </p>
             </form>
           ) : (
@@ -228,11 +265,11 @@ export default function LoginPage() {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <path d="M19 12H5M12 19l-7-7 7-7" />
                   </svg>
-                  Back
+                  Back to Phone
                 </button>
                 <h2>Enter OTP Code</h2>
                 <p className="text-muted">
-                  Sent to +91 {phone.slice(0, 5)} {phone.slice(5)}
+                  Code sent to +91 {phone.slice(0, 5)} {phone.slice(5)}
                 </p>
               </div>
 
@@ -263,7 +300,7 @@ export default function LoginPage() {
                 disabled={loading || otp.join('').length !== 4}
                 style={{ width: '100%' }}
               >
-                {loading ? <span className={styles.spinner} /> : 'Verify & Proceed ✓'}
+                {loading ? <span className={styles.spinner} /> : 'Verify & Begin Application ✓'}
               </button>
 
               <div className={styles.resend}>
