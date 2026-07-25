@@ -61,6 +61,7 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
         document_id=node_data.get("document_id", ""),
         text_template_en=node_data.get("text_template_en", ""),
         text_template_te=node_data.get("text_template_te", ""),
+        text_template_fr=node_data.get("text_template_fr", ""),
     )
 
 
@@ -187,6 +188,7 @@ class ConfigRegistryServicer(pb2_grpc.ConfigRegistryServicer):
             financial_rules=_dict_to_financial_rules(financial_data),
             media_configs=media_configs,
             db_mapping=config.get("db_mapping", {}),
+            system_voice_messages_json=json.dumps(config.get("system_voice_messages", {}), ensure_ascii=False) if config.get("system_voice_messages") else "",
         )
 
     async def GetInterviewGraph(self, request, context):

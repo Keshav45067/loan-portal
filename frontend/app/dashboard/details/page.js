@@ -325,7 +325,7 @@ export default function DetailsPage() {
             <span>← Underwriting Hub</span>
           </Link>
           <span style={{ color: 'rgba(255,255,255,0.1)' }}>|</span>
-          <span style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', letterSpacing: '-0.02em' }}>Mudra Smart Underwriting Desk</span>
+          <span style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', letterSpacing: '-0.02em' }}>Smart Micro-Loan Underwriting Desk</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ fontSize: '0.75rem', color: '#818cf8', background: 'rgba(99, 102, 241, 0.08)', padding: '6px 14px', borderRadius: '20px', border: '1px solid rgba(99, 102, 241, 0.15)', fontWeight: 600 }}>

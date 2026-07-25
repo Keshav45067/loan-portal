@@ -329,6 +329,7 @@ class VoiceSession:
         self._config: Optional[dict] = None
         self._field_instructions: Dict[str, str] = {}
         self._media_config: dict = {}
+        self._system_voice_messages: dict = {}
         self._status: str = "initializing"  # initializing, active, completed, disconnected
         self._started_at = time.time()
         self._total_turns = 0
@@ -372,6 +373,7 @@ class VoiceSession:
                     "node_id": node_id,
                     "text_template": proto_node.text_template,
                     "text_template_en": proto_node.text_template_en,
+                    "text_template_fr": getattr(proto_node, "text_template_fr", ""),
                     "text_template_te": proto_node.text_template_te,
                     "targets": list(proto_node.targets),
                     "edges": edges,
@@ -405,6 +407,13 @@ class VoiceSession:
                     "stt_engine": mc.stt_engine,
                     "stt_language_code": mc.stt_language_code,
                 }
+                
+            if getattr(config_resp, "system_voice_messages_json", ""):
+                try:
+                    import json
+                    self._system_voice_messages = json.loads(config_resp.system_voice_messages_json)
+                except Exception:
+                    self._system_voice_messages = {}
                 
             self.set_graph(graph_data, field_instructions, media_config)
             await self._sync_extracted_data()
@@ -1226,14 +1235,9 @@ class VoiceSession:
         )
 
     async def process_capture_processing(self):
-        """Play processing audio message."""
-        processing_msgs = {
-            "en": "Your document is processing. Please wait.",
-            "hi": "आपका दस्तावेज प्रोसेस हो रहा है। कृपया प्रतीक्षा करें।",
-            "te": "మీ పత్రం ప్రాసెస్ చేయబడుతోంది. దయచేసి వేచి ఉండండి.",
-            "ar": "مستندك قيد المعالجة. يرجى الانتظار."
-        }
-        text = processing_msgs.get(self.language, processing_msgs["en"])
+        """Play processing audio message from YAML config."""
+        svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
+        text = svm.get("processing") or "Your document is processing. Please wait."
         
         # Yield transcription for display
         yield pb2.VoiceOutput(
@@ -1247,56 +1251,13 @@ class VoiceSession:
         yield pb2.VoiceOutput(audio_end=True)
 
     async def process_capture_success(self, document_type: str):
-        """Play document capture success audio message."""
-        doc_names = {
-            "en": {
-                "aadhaar_front": "Aadhaar front",
-                "aadhaar_back": "Aadhaar back",
-                "pan": "PAN card",
-                "address_proof": "Address proof",
-                "correspondence": "Correspondence address proof",
-                "correspondence_proof": "Correspondence address proof",
-                "default": "document"
-            },
-            "hi": {
-                "aadhaar_front": "आधार कार्ड का अगला हिस्सा",
-                "aadhaar_back": "आधार कार्ड का पिछला हिस्सा",
-                "pan": "पैन कार्ड",
-                "address_proof": "पते का प्रमाण",
-                "correspondence": "पत्राचार का पता प्रमाण",
-                "correspondence_proof": "पत्राचार का पता प्रमाण",
-                "default": "दस्तावेज़"
-            },
-            "te": {
-                "aadhaar_front": "ఆధార్ కార్డ్ ముందు భాగం",
-                "aadhaar_back": "ఆధార్ కార్డ్ వెనుక భాగం",
-                "pan": "పాన్ కార్డ్",
-                "address_proof": "చిరునామా రుజువు",
-                "correspondence": "చిరునామా రుజువు",
-                "correspondence_proof": "చిరునామా రుజువు",
-                "default": "పత్రం"
-            },
-            "ar": {
-                "aadhaar_front": "الوجه الأمامي لبطاقة الهوية",
-                "aadhaar_back": "الوجه الخلفي لبطاقة الهوية",
-                "pan": "بطاقة الرقم الضريبي",
-                "address_proof": "إثبات العنوان",
-                "correspondence": "إثبات عنوان المراسلات",
-                "correspondence_proof": "إثبات عنوان المراسلات",
-                "default": "المستند"
-            }
-        }
+        """Play document capture success audio message from YAML config."""
+        svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
+        doc_names = svm.get("doc_names", {})
+        doc_name = doc_names.get(document_type, doc_names.get(document_type.lower(), doc_names.get("default", document_type)))
         
-        lang_names = doc_names.get(self.language, doc_names["en"])
-        doc_name = lang_names.get(document_type, lang_names.get(document_type.lower(), lang_names["default"]))
-        
-        success_templates = {
-            "en": f"Details from your {doc_name} have been extracted.",
-            "hi": f"आपके {doc_name} से विवरण निकाल लिए गए हैं।",
-            "te": f"మీ {doc_name} నుండి వివరాలు సేకరించబడ్డాయి.",
-            "ar": f"تم استخراج البيانات من {doc_name} بنجاح."
-        }
-        text = success_templates.get(self.language, success_templates["en"])
+        template = svm.get("success_template") or "Details from your {doc_name} have been extracted."
+        text = template.replace("{doc_name}", doc_name)
         
         # Yield transcription for display
         yield pb2.VoiceOutput(
@@ -1340,35 +1301,18 @@ class VoiceSession:
 
     def _get_localized_error(self, err_msg: str) -> str:
         err_msg_lower = str(err_msg).lower()
+        svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
         
         # Check for blurred/cropped
         if "blur" in err_msg_lower or "crop" in err_msg_lower or "clearer" in err_msg_lower:
-            errs = {
-                "en": "The image is blurred or cropped. Please take a clearer photo.",
-                "hi": "फ़ोटो धुंधली या कटी हुई है। कृपया एक स्पष्ट फ़ोटो लें।",
-                "te": "చిత్రం అస్పష్టంగా లేదా కత్తిరించబడింది. దయచేసి మరింత స్పష్టమైన చిత్రాన్ని తీసుకోండి.",
-                "ar": "الصورة غير واضحة أو مقصوصة. يرجى التقاط صورة أكثر وضوحًا."
-            }
-            return errs.get(self.language, errs["en"])
+            return svm.get("error_blur") or "The image is blurred or cropped. Please take a clearer photo."
             
         # Check for invalid document type
         if "not appear to be a valid" in err_msg_lower or "incorrect document" in err_msg_lower or "intended document" in err_msg_lower or "invalid" in err_msg_lower:
-            errs = {
-                "en": "This does not appear to be a valid document. Please upload a clear image of the correct document.",
-                "hi": "यह सही दस्तावेज़ नहीं लग रहा है। कृपया सही दस्तावेज़ की एक स्पष्ट फ़ोटो अपलोड करें।",
-                "te": "ఇది సరైన పత్రం వలె కనిపించడం లేదు. దయచేసి సరైన పత్రం యొక్క స్పష్టమైన చిత్రాన్ని అప్‌లోడ్ చేయండి.",
-                "ar": "لا يبدو هذا المستند صالحًا. يرجى تحميل صورة واضحة للمستند الصحيح."
-            }
-            return errs.get(self.language, errs["en"])
+            return svm.get("error_invalid") or "This does not appear to be a valid document. Please upload a clear image of the correct document."
             
         # Default error
-        errs = {
-            "en": "Verification failed. Please upload a valid document.",
-            "hi": "सत्यापन विफल रहा। कृपया एक मान्य दस्तावेज़ अपलोड करें।",
-            "te": "ధృవీకరణ విఫలమైంది. దయచేసి ఒక చెల్లుబాటు అయ్యే పత్రాన్ని అప్‌లోడ్ చేయండి.",
-            "ar": "فشل التحقق. يرجى تحميل مستند صالح."
-        }
-        return errs.get(self.language, errs["en"])
+        return svm.get("error_default") or "Verification failed. Please upload a valid document."
 
     def get_state(self) -> dict:
         """Get current session state (for admin/debug)."""

@@ -1257,7 +1257,7 @@ export default function InterviewPage() {
                 <span style={{ fontSize: '3rem', marginBottom: '16px' }}>📍</span>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: '#fff' }}>Location Permission Required</h3>
                 <p style={{ fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '24px', maxWidth: '380px', lineHeight: '1.5' }}>
-                  This government Mudra loan application requires a geotagged video of your workplace. Please enable location permissions for this website in your browser settings and try again.
+                  This micro-loan application requires a geotagged video of your workplace. Please enable location permissions for this website in your browser settings and try again.
                 </p>
                 <button 
                   onClick={async () => {
@@ -1846,13 +1846,13 @@ export default function InterviewPage() {
 
             <h2 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' 
-                ? "Mudra Loan Onboarding & Underwriting" 
+                ? "Micro-Loan Onboarding & Underwriting" 
                 : "Digital Bank Account Onboarding"
               }
             </h2>
             <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', maxWidth: '480px' }}>
               {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
-                ? "Our AI Underwriter will guide you through the Mudra Loan application process. You will be asked to verify documents, answer a few questions, and record a geotagged video of your workplace."
+                ? "Our AI Underwriter will guide you through the Micro-Loan application process. You will be asked to verify documents, answer a few questions, and record a geotagged video of your workplace."
                 : "Our AI Assistant will guide you through the savings account opening process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form."
               }
             </p>

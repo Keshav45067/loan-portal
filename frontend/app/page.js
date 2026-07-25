@@ -134,17 +134,17 @@ export default function LoginPage() {
             </div>
             <span className={styles.badgePill}>
               <span className={styles.badgePulse}></span>
-              PMMY Mudra Micro-Loans
+              Micro-Loans Portal
             </span>
           </div>
 
           <h1 className={styles.brandTitle}>
             Conversational <br />
-            <span className={styles.textGradient}>Mudra Micro-Loan</span> Portal
+            <span className={styles.textGradient}>Micro-Loan</span> Portal
           </h1>
 
           <p className={styles.brandSubtitle}>
-            Apply for Mudra loans up to ₹10 Lakhs through a natural voice conversation in your preferred language. Powered by Augmen Conversational AI.
+            Apply for micro-loans up to ₹10 Lakhs through a natural voice conversation in your preferred language. Powered by Augmen Conversational AI.
           </p>
 
           {/* Mudra Loan Feature Showcase */}
@@ -206,7 +206,7 @@ export default function LoginPage() {
             <form onSubmit={handleSendOtp} className={`${styles.form} animate-in`}>
               <div className={styles.formHeader}>
                 <div className={styles.formBadge}>Apply Now</div>
-                <h2>Start Your Mudra Loan Application 🚀</h2>
+                <h2>Start Your Micro-Loan Application 🚀</h2>
                 <p className="text-muted">Enter your 10-digit mobile number to proceed</p>
               </div>
 

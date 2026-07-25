@@ -69,6 +69,7 @@ message GraphNode {
   string document_id = 7;       // e.g., "aadhaar_front", "pan" (if type == "capture")
   string text_template_en = 8;
   string text_template_te = 9;
+  string text_template_fr = 10;
 }
 
 message InterviewGraph {
@@ -148,6 +149,7 @@ message SchemeConfig {
   FinancialRules financial_rules = 7;
   map<string, MediaConfig> media_configs = 8;  // language → config
   map<string, string> db_mapping = 9;          // extracted_field → db_column
+  string system_voice_messages_json = 10;
 }
 
 // ─── Response Messages ───
