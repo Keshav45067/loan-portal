@@ -565,15 +565,6 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             stt_ms = (_time.perf_counter() - t_stt_start) * 1000
                             logger.info(f"⏱ STT (progressive finalize) in {stt_ms:.0f}ms | text='{transcribed[:60]}'",
                                          session_id=session_id, req_id=req_id)
-                            if not transcribed:
-                                audio_backup = session.get_audio_buffer()
-                                if audio_backup and len(audio_backup) >= 1600:
-                                    logger.info("Progressive STT returned empty text; attempting fallback transcription on session audio buffer", session_id=session_id)
-                                    try:
-                                        transcribed = await self._transcribe(audio_backup, session)
-                                        logger.info(f"Fallback STT transcription succeeded: '{transcribed}'", session_id=session_id)
-                                    except Exception as fb_err:
-                                        logger.error(f"Fallback STT failed: {fb_err}", session_id=session_id)
 
                             progressive_stt.reset()
                             progressive_stt = None
@@ -910,10 +901,13 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                 sample_rate=16000,
                 engine="google"
             )
-            resp = await self._stt_stub.Transcribe(req, metadata=[("x-request-id", session.req_id)])
+            resp = await asyncio.wait_for(
+                self._stt_stub.Transcribe(req, metadata=[("x-request-id", session.req_id)]),
+                timeout=2.5
+            )
             return resp.text
         except Exception as e:
-            logger.error(f"STT Transcribe failed: {e}", session_id=session.session_id)
+            logger.error(f"STT Transcribe failed or timed out: {e}", session_id=session.session_id)
             return ""
 
 
