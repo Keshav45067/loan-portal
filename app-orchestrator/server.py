@@ -539,10 +539,10 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("SendOtp", req_id=req_id, details={"phone": request.phone[-4:]})
 
         try:
-            # Normalize phone to 10 digits
-            phone_clean = "".join(filter(str.isdigit, str(request.phone)))[-10:]
-            if not phone_clean:
-                phone_clean = str(request.phone).strip()
+            full_phone = str(request.phone).strip()
+            phone_clean = "".join(filter(str.isdigit, full_phone))[-10:]
+            if not full_phone.startswith("+"):
+                full_phone = f"+91{phone_clean}"
 
             # Generate 4-digit OTP
             otp = str(random.randint(1000, 9999))
@@ -551,7 +551,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 # Delete any previous/old OTP for this phone number to immediately invalidate old OTPs upon resend
                 cur.execute(
                     "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s",
-                    (phone_clean, f"+91{phone_clean}", request.phone)
+                    (full_phone, phone_clean, request.phone)
                 )
                 # Save new OTP to DB (Upsert)
                 cur.execute(
@@ -559,16 +559,51 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                        VALUES (%s, %s, NOW() + INTERVAL '5 minutes', NOW())
                        ON CONFLICT (phone) 
                        DO UPDATE SET otp = %s, expires_at = NOW() + INTERVAL '5 minutes', created_at = NOW()""",
-                    (phone_clean, otp, otp)
+                    (full_phone, otp, otp)
                 )
 
-            logger.info(f"Generated OTP for {phone_clean}: {otp}", req_id=req_id)
+            logger.info(f"Generated OTP for {full_phone}: {otp}", req_id=req_id)
 
-            # Try to send SMS via 2factor.in if API key is in environment
+            # 1. Try Twilio (International SMS Provider for Global Numbers)
+            twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
+            twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
+            twilio_from = os.getenv("TWILIO_FROM_NUMBER")
+
+            if twilio_sid and twilio_token and twilio_from:
+                try:
+                    import base64
+                    tw_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
+                    tw_payload = urllib.parse.urlencode({
+                        "To": full_phone,
+                        "From": twilio_from,
+                        "Body": f"Your Augmen Micro-Loan verification code is {otp}. Valid for 5 minutes."
+                    }).encode('utf-8')
+
+                    auth_string = base64.b64encode(f"{twilio_sid}:{twilio_token}".encode('utf-8')).decode('utf-8')
+                    tw_req = urllib.request.Request(
+                        tw_url,
+                        data=tw_payload,
+                        headers={
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "Authorization": f"Basic {auth_string}"
+                        },
+                        method="POST"
+                    )
+                    response = await asyncio.to_thread(urllib.request.urlopen, tw_req, timeout=5)
+                    res_data = json.loads(response.read().decode('utf-8'))
+                    if res_data.get("sid"):
+                        logger.info(f"International OTP sent successfully via Twilio to {full_phone}", req_id=req_id)
+                        return pb2.SendOtpResponse(success=True)
+                    else:
+                        logger.error(f"Twilio API error response: {res_data}", req_id=req_id)
+                except Exception as tw_err:
+                    logger.error(f"Could not send International SMS via Twilio: {tw_err}", req_id=req_id)
+
+            # 2. Try 2Factor.in (Domestic India SMS Gateway for +91)
             api_key = os.getenv("TWO_FACTOR_API_KEY")
             url = os.getenv("TWO_FACTOR_URL")
             
-            if api_key and url:
+            if api_key and url and (full_phone.startswith("+91") or len(phone_clean) == 10):
                 try:
                     payload = urllib.parse.urlencode({
                         "module": "TRANS_SMS",
@@ -586,7 +621,6 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         method="POST"
                     )
                     
-                    # Send async call using asyncio.to_thread with explicit timeout!
                     response = await asyncio.to_thread(urllib.request.urlopen, req, timeout=5)
                     res_data = json.loads(response.read().decode('utf-8'))
                     
@@ -595,21 +629,13 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         return pb2.SendOtpResponse(success=True)
                     else:
                         logger.error(f"2Factor API error response: {res_data}", req_id=req_id)
-                        
-                    # Fallback on any failure
-                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {phone_clean}. OTP: {otp}", req_id=req_id)
-                    print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
-                    return pb2.SendOtpResponse(success=True)
-                    
                 except Exception as sms_err:
                     logger.error(f"Could not send SMS via 2Factor (Timeout/Error): {sms_err}", req_id=req_id)
-                    logger.warning(f"[SMS API FAILED] Falling back to console Mock for {phone_clean}. OTP: {otp}", req_id=req_id)
-                    print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
-                    return pb2.SendOtpResponse(success=True)
-            else:
-                logger.warning(f"[SMS CONFIG MISSING] Mocking SMS for {phone_clean}. OTP: {otp}", req_id=req_id)
-                print(f"\n=============================\n OTP for {phone_clean}: {otp}\n=============================\n", flush=True)
-                return pb2.SendOtpResponse(success=True)
+
+            # Fallback on any failure or local dev mode
+            logger.warning(f"[SMS API FALLBACK] Mocking SMS for {full_phone}. OTP: {otp}", req_id=req_id)
+            print(f"\n=============================\n OTP for {full_phone}: {otp}\n=============================\n", flush=True)
+            return pb2.SendOtpResponse(success=True)
         except Exception as e:
             logger.error(f"SendOtp failed: {e}", req_id=req_id, error=traceback.format_exc())
             return pb2.SendOtpResponse(success=False, error=str(e))
@@ -619,9 +645,10 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("VerifyOtp", req_id=req_id, details={"phone": request.phone[-4:]})
 
         try:
-            phone_clean = "".join(filter(str.isdigit, str(request.phone)))[-10:]
-            if not phone_clean:
-                phone_clean = str(request.phone).strip()
+            full_phone = str(request.phone).strip()
+            phone_clean = "".join(filter(str.isdigit, full_phone))[-10:]
+            if not full_phone.startswith("+"):
+                full_phone = f"+91{phone_clean}"
 
             with get_db_cursor(self._db_pool) as cur:
                 # 1. Verify OTP
@@ -630,7 +657,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                        WHERE (phone = %s OR phone = %s OR phone = %s) 
                          AND otp = %s 
                          AND expires_at > NOW()""",
-                    (phone_clean, f"+91{phone_clean}", request.phone, request.otp)
+                    (full_phone, phone_clean, request.phone, request.otp)
                 )
                 otp_row = cur.fetchone()
                 if not otp_row:
@@ -639,14 +666,14 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 # Delete OTP immediately upon verification
                 cur.execute(
                     "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s",
-                    (phone_clean, f"+91{phone_clean}", request.phone)
+                    (full_phone, phone_clean, request.phone)
                 )
 
                 # 2. Get or create session
                 SBI_BANK_SCHEME_ID = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 cur.execute(
-                    "SELECT id FROM user_data WHERE phone = %s",
-                    (request.phone,)
+                    "SELECT id FROM user_data WHERE phone = %s OR phone = %s OR phone = %s",
+                    (full_phone, request.phone, phone_clean)
                 )
                 user_row = cur.fetchone()
 

@@ -72,18 +72,20 @@ export default function LoginPage() {
 
   const handleSendOtp = async (e) => {
     if (e) e.preventDefault();
-    if (phone.length !== 10) {
-      setError('Please enter a valid 10-digit mobile number');
+    if (phone.length < 7 || phone.length > 15) {
+      setError('Please enter a valid mobile number');
       return;
     }
     setLoading(true);
     setError('');
 
+    const fullPhone = `${selectedCountry.code}${phone}`;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/send-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: fullPhone }),
       });
       const data = await res.json();
       setLoading(false);
@@ -130,11 +132,13 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
+    const fullPhone = `${selectedCountry.code}${phone}`;
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp: otpStr }),
+        body: JSON.stringify({ phone: fullPhone, otp: otpStr }),
       });
       const data = await res.json();
       setLoading(false);
@@ -142,7 +146,7 @@ export default function LoginPage() {
       if (data.success) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('session_id', data.session_id);
-        localStorage.setItem('phone', phone);
+        localStorage.setItem('phone', fullPhone);
         // Force scheme to mudra-grocery
         localStorage.setItem('scheme_id', 'mudra-grocery');
 
@@ -313,7 +317,7 @@ export default function LoginPage() {
                   type="tel"
                   className="input"
                   placeholder="98765 43210"
-                  maxLength={10}
+                  maxLength={15}
                   value={phone}
                   onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
                   autoFocus
@@ -327,7 +331,7 @@ export default function LoginPage() {
                 id="send-otp-btn"
                 type="submit"
                 className="btn btn-primary btn-lg"
-                disabled={loading || phone.length !== 10}
+                disabled={loading || phone.length < 7}
                 style={{ width: '100%' }}
               >
                 {loading ? (
@@ -362,7 +366,7 @@ export default function LoginPage() {
                 </button>
                 <h2>Enter OTP Code</h2>
                 <p className="text-muted">
-                  Code sent to +91 {phone.slice(0, 5)} {phone.slice(5)}
+                  Code sent to {selectedCountry.code} {phone}
                 </p>
               </div>
 
