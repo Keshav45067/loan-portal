@@ -544,14 +544,18 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
             if not full_phone.startswith("+"):
                 full_phone = f"+91{phone_clean}"
 
+            phone_digits = "".join(filter(str.isdigit, full_phone))
+            if len(phone_digits) == 10:
+                phone_digits = f"91{phone_digits}"
+
             # Generate 4-digit OTP
             otp = str(random.randint(1000, 9999))
             
             with get_db_cursor(self._db_pool) as cur:
                 # Delete any previous/old OTP for this phone number to immediately invalidate old OTPs upon resend
                 cur.execute(
-                    "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s",
-                    (full_phone, phone_clean, request.phone)
+                    "DELETE FROM otp_verifications WHERE phone = %s OR phone = %s OR phone = %s OR phone = %s",
+                    (full_phone, phone_clean, phone_digits, request.phone)
                 )
                 # Save new OTP to DB (Upsert)
                 cur.execute(
@@ -562,78 +566,48 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     (full_phone, otp, otp)
                 )
 
-            logger.info(f"Generated OTP for {full_phone}: {otp}", req_id=req_id)
+            logger.info(f"Generated OTP for {full_phone} (2Factor target: {phone_digits}): {otp}", req_id=req_id)
 
-            # 1. Try Twilio (International SMS Provider for Global Numbers)
-            twilio_sid = os.getenv("TWILIO_ACCOUNT_SID")
-            twilio_token = os.getenv("TWILIO_AUTH_TOKEN")
-            twilio_from = os.getenv("TWILIO_FROM_NUMBER")
-
-            if twilio_sid and twilio_token and twilio_from:
-                try:
-                    import base64
-                    tw_url = f"https://api.twilio.com/2010-04-01/Accounts/{twilio_sid}/Messages.json"
-                    tw_payload = urllib.parse.urlencode({
-                        "To": full_phone,
-                        "From": twilio_from,
-                        "Body": f"Your Augmen Micro-Loan verification code is {otp}. Valid for 5 minutes."
-                    }).encode('utf-8')
-
-                    auth_string = base64.b64encode(f"{twilio_sid}:{twilio_token}".encode('utf-8')).decode('utf-8')
-                    tw_req = urllib.request.Request(
-                        tw_url,
-                        data=tw_payload,
-                        headers={
-                            "Content-Type": "application/x-www-form-urlencoded",
-                            "Authorization": f"Basic {auth_string}"
-                        },
-                        method="POST"
-                    )
-                    response = await asyncio.to_thread(urllib.request.urlopen, tw_req, timeout=5)
-                    res_data = json.loads(response.read().decode('utf-8'))
-                    if res_data.get("sid"):
-                        logger.info(f"International OTP sent successfully via Twilio to {full_phone}", req_id=req_id)
-                        return pb2.SendOtpResponse(success=True)
-                    else:
-                        logger.error(f"Twilio API error response: {res_data}", req_id=req_id)
-                except Exception as tw_err:
-                    logger.error(f"Could not send International SMS via Twilio: {tw_err}", req_id=req_id)
-
-            # 2. Try 2Factor.in (Domestic India SMS Gateway for +91)
+            # Send SMS via 2Factor.in (Supports Domestic India + International numbers)
             api_key = os.getenv("TWO_FACTOR_API_KEY")
-            url = os.getenv("TWO_FACTOR_URL")
+            custom_url = os.getenv("TWO_FACTOR_URL")
             
-            if api_key and url and (full_phone.startswith("+91") or len(phone_clean) == 10):
+            if api_key:
                 try:
-                    payload = urllib.parse.urlencode({
-                        "module": "TRANS_SMS",
-                        "apikey": api_key,
-                        "to": phone_clean,
-                        "from": "PWINVT",
-                        "templatename": "Mudra OTP",
-                        "var1": otp
-                    }).encode('utf-8')
-                    
-                    req = urllib.request.Request(
-                        url,
-                        data=payload,
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
-                        method="POST"
-                    )
-                    
+                    # Method 1: Try TRANS_SMS module payload if custom URL provided
+                    if custom_url and "2factor.in" in custom_url and "TRANS_SMS" in custom_url:
+                        payload = urllib.parse.urlencode({
+                            "module": "TRANS_SMS",
+                            "apikey": api_key,
+                            "to": phone_digits,
+                            "from": "PWINVT",
+                            "templatename": "Mudra OTP",
+                            "var1": otp
+                        }).encode('utf-8')
+                        req = urllib.request.Request(
+                            custom_url,
+                            data=payload,
+                            headers={"Content-Type": "application/x-www-form-urlencoded"},
+                            method="POST"
+                        )
+                    else:
+                        # Method 2: Direct 2Factor API Endpoint for Domestic & International SMS
+                        direct_url = f"https://2factor.in/API/V1/{api_key}/SMS/{phone_digits}/{otp}"
+                        req = urllib.request.Request(direct_url, method="GET")
+
                     response = await asyncio.to_thread(urllib.request.urlopen, req, timeout=5)
                     res_data = json.loads(response.read().decode('utf-8'))
                     
-                    if res_data.get("Status") == "Success":
-                        logger.info("OTP sent successfully via 2Factor API", req_id=req_id)
+                    if res_data.get("Status") == "Success" or res_data.get("status") == "success":
+                        logger.info(f"OTP sent successfully via 2Factor to {full_phone} ({phone_digits})", req_id=req_id)
                         return pb2.SendOtpResponse(success=True)
                     else:
                         logger.error(f"2Factor API error response: {res_data}", req_id=req_id)
                 except Exception as sms_err:
                     logger.error(f"Could not send SMS via 2Factor (Timeout/Error): {sms_err}", req_id=req_id)
 
-            # Fallback on any failure or local dev mode
-            logger.warning(f"[SMS API FALLBACK] Mocking SMS for {full_phone}. OTP: {otp}", req_id=req_id)
+            # Fallback for local development or missing API key
+            logger.warning(f"[2FACTOR SMS FALLBACK] Mocking SMS for {full_phone}. OTP: {otp}", req_id=req_id)
             print(f"\n=============================\n OTP for {full_phone}: {otp}\n=============================\n", flush=True)
             return pb2.SendOtpResponse(success=True)
         except Exception as e:
