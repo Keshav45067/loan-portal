@@ -8,6 +8,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const COUNTRY_CODES = [
   { name: 'India', code: '+91', flag: '🇮🇳', iso: 'IN' },
+  { name: 'Armenia', code: '+374', flag: '🇦🇲', iso: 'AM' },
   { name: 'United States', code: '+1', flag: '🇺🇸', iso: 'US' },
   { name: 'United Kingdom', code: '+44', flag: '🇬🇧', iso: 'GB' },
   { name: 'France', code: '+33', flag: '🇫🇷', iso: 'FR' },

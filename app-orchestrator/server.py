@@ -574,37 +574,44 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
             
             if api_key:
                 try:
-                    # Method 1: Try TRANS_SMS module payload if custom URL provided
-                    if custom_url and "2factor.in" in custom_url and "TRANS_SMS" in custom_url:
-                        payload = urllib.parse.urlencode({
-                            "module": "TRANS_SMS",
-                            "apikey": api_key,
-                            "to": phone_digits,
-                            "from": "PWINVT",
-                            "templatename": "Mudra OTP",
-                            "var1": otp
-                        }).encode('utf-8')
-                        req = urllib.request.Request(
-                            custom_url,
-                            data=payload,
-                            headers={"Content-Type": "application/x-www-form-urlencoded"},
-                            method="POST"
-                        )
-                    else:
-                        # Method 2: Direct 2Factor API Endpoint for Domestic & International SMS
-                        direct_url = f"https://2factor.in/API/V1/{api_key}/SMS/{phone_digits}/{otp}"
-                        req = urllib.request.Request(direct_url, method="GET")
+                    # Method 1: Send Text SMS via 2Factor Transactional POST API
+                    sms_url = custom_url or f"https://2factor.in/API/V1/{api_key}/ADDON_SERVICES/SEND/TSMS"
+                    payload = urllib.parse.urlencode({
+                        "module": "TRANS_SMS",
+                        "apikey": api_key,
+                        "to": phone_digits,
+                        "from": "PWINVT",
+                        "templatename": "Mudra OTP",
+                        "var1": otp
+                    }).encode('utf-8')
+                    
+                    req = urllib.request.Request(
+                        sms_url,
+                        data=payload,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        method="POST"
+                    )
 
                     response = await asyncio.to_thread(urllib.request.urlopen, req, timeout=5)
                     res_data = json.loads(response.read().decode('utf-8'))
                     
                     if res_data.get("Status") == "Success" or res_data.get("status") == "success":
-                        logger.info(f"OTP sent successfully via 2Factor to {full_phone} ({phone_digits})", req_id=req_id)
+                        logger.info(f"Text SMS OTP sent successfully via 2Factor to {full_phone} ({phone_digits})", req_id=req_id)
                         return pb2.SendOtpResponse(success=True)
                     else:
-                        logger.error(f"2Factor API error response: {res_data}", req_id=req_id)
+                        logger.warning(f"2Factor POST SMS error: {res_data}, trying GET template fallback...", req_id=req_id)
+                        # Method 2: GET with explicit template name parameter (prevents Voice Call fallback)
+                        fallback_url = f"https://2factor.in/API/V1/{api_key}/SMS/{phone_digits}/{otp}/Mudra+OTP"
+                        fb_req = urllib.request.Request(fallback_url, method="GET")
+                        fb_res = await asyncio.to_thread(urllib.request.urlopen, fb_req, timeout=5)
+                        fb_data = json.loads(fb_res.read().decode('utf-8'))
+                        if fb_data.get("Status") == "Success" or fb_data.get("status") == "success":
+                            logger.info(f"Text SMS OTP sent via 2Factor GET template to {full_phone}", req_id=req_id)
+                            return pb2.SendOtpResponse(success=True)
+                        else:
+                            logger.error(f"2Factor GET SMS error: {fb_data}", req_id=req_id)
                 except Exception as sms_err:
-                    logger.error(f"Could not send SMS via 2Factor (Timeout/Error): {sms_err}", req_id=req_id)
+                    logger.error(f"Could not send Text SMS via 2Factor (Timeout/Error): {sms_err}", req_id=req_id)
 
             # Fallback for local development or missing API key
             logger.warning(f"[2FACTOR SMS FALLBACK] Mocking SMS for {full_phone}. OTP: {otp}", req_id=req_id)
