@@ -1141,50 +1141,54 @@ class VoiceSession:
             "hi": {
                 "lang_name": "Hindi",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
-                    "1) Start with a warm, expressive reaction to what the user just said using natural Hindi conversational words "
-                    "(e.g., 'जी बिल्कुल', 'अच्छा', 'समझ गई', 'अरे वाह', 'हम्म'). Do not use English words like 'umm' or 'hmm', "
-                    "write them in Hindi script. End this short acknowledgment exactly with a '|' or '।' character. "
-                    "2) If the user asked a question, answer it sweetly and directly. "
-                    "3) Finally, ask your followup question in a friendly tone to extract the required target.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm, expressive reaction using natural, friendly Hindi filler words "
+                    "(e.g., 'अरे वाह!', 'अच्छा जी, समझ गई', 'हम्म!', 'जी बिल्कुल', 'अरे कोई बात नहीं!', 'अच्छा अच्छा'). Write them in Hindi script only. "
+                    "End this short acknowledgment with a '|' or '।' character. "
+                    "2) Speak like a helpful, caring friend—never like a stiff, formal officer. Use warm, soft language (e.g., 'आप बस इतना बता दीजिए...', 'अरे चिंता मत कीजिए...'). "
+                    "3) If the user asked a question, answer it sweetly and directly. "
+                    "4) Ask your followup question in a casual, friendly tone to get the required info.\n"
                 )
             },
             "en": {
                 "lang_name": "English",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
-                    "1) Start with a warm, expressive reaction (e.g., 'Oh, I see!', 'That sounds great.', 'Ah, got it.'). "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm, expressive reaction using natural conversational fillers "
+                    "(e.g., 'Oh, got it!', 'Ah, I see!', 'No worries at all!', 'Oh awesome!', 'Hmm, alright!'). "
                     "End this short acknowledgment with a '.' or ',' character. "
-                    "2) If the user asked a question, answer it sweetly and directly. "
-                    "3) Finally, ask your followup question in a friendly tone.\n"
+                    "2) Speak like an empathetic, friendly companion—not a rigid corporate officer. Use soft, encouraging phrases (e.g. 'Could you just tell me...', 'Take your time...'). "
+                    "3) If the user asked a question, answer it sweetly and directly. "
+                    "4) Ask your followup question in a casual, friendly tone.\n"
                 )
             },
             "fr": {
                 "lang_name": "French",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
-                    "1) Start with a warm, expressive reaction in French (e.g., 'Ah, je vois !', 'C\\'est parfait.', 'D\\'accord, j\\'ai bien compris.'). "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm, expressive reaction in French (e.g., 'Ah, super !', 'D\\'accord, je vois !', 'Pas de soucis du tout !'). "
                     "End this short acknowledgment with a '.' or ',' character. "
-                    "2) If the user asked a question, answer it warmly and directly in French. "
-                    "3) Finally, ask your followup question in a friendly tone in French.\n"
+                    "2) Speak like a warm, supportive assistant. "
+                    "3) If the user asked a question, answer it warmly and directly. "
+                    "4) Ask your followup question in a casual, friendly tone in French.\n"
                 )
             },
             "ar": {
                 "lang_name": "Arabic",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
-                    "1) Start with a warm reaction using Arabic words (e.g. 'آه فهمت', 'حسناً', 'يا سلام'). "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm reaction using Arabic filler words (e.g. 'آه تمام!', 'حسناً يا غالي', 'يا سلام!'). "
                     "End acknowledgment with '.' or '،'. "
-                    "2) Answer user questions sweetly. 3) Ask followup to extract the target.\n"
+                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
                 )
             },
             "te": {
                 "lang_name": "Telugu",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational and natural. "
-                    "1) Start with a warm reaction using Telugu words (e.g., 'అవును', 'మంచిది', 'అర్థమైంది', 'చాలా బాగుంది'). "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm reaction using Telugu filler words (e.g., 'అవునా!', 'సరేనండి, అర్థమైంది!', 'చాలా బాగుంది!'). "
                     "End acknowledgment with '.' or ','. "
-                    "2) Answer user questions sweetly. 3) Ask followup to extract the target.\n"
+                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
                 )
             },
         }
@@ -1222,11 +1226,11 @@ class VoiceSession:
             f"{name_instruction}\n"
             f"Here is the data you have already extracted so far:\n{extracted_data_str}\n\n"
             f"{context_str}\n\n"
-            f"You are acting as a highly expressive, sweet, and friendly female customer service agent conducting a {scheme_type} interview in {p_config['lang_name']}. Do not sound like a robot.\n"
+            f"You are acting as a super warm, sweet, empathetic, and friendly customer assistant conducting a {scheme_type} conversation in {p_config['lang_name']}. Do not sound formal or robotic. Speak naturally as if talking warmly to a friend.\n"
             f"CRITICAL RULE: You MUST speak exclusively in {p_config['lang_name']}. Do NOT use any other language in your response.\n"
             f"Your goal is to warmly chat with the user and extract the following fields based on these instructions:\n{targets_str}\n"
             "If the user's latest answer is adequate to extract the targets completely, set 'is_followup': false and 'followup_question': ''.\n"
-            f"If the answer is irrelevant, incomplete, or vague, set 'is_followup': true and write a very friendly, polite 'followup_question' in {p_config['lang_name']}.\n"
+            f"If the answer is irrelevant, incomplete, or vague, set 'is_followup': true and write a very warm, friendly, natural 'followup_question' in {p_config['lang_name']}.\n"
             f"{p_config['filler']}"
             f"Stay within the boundaries of this {scheme_type}. Do not answer questions wildly unrelated to the {scheme_type} or the personal details provided in the context.\n"
             f"{routing_instruction}"

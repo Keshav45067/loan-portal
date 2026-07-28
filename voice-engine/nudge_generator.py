@@ -19,15 +19,15 @@ logger = get_logger("voice-engine")
 # Fallback nudge templates if LLM is unavailable
 FALLBACK_NUDGES = {
     "hi": [
-        "क्या आपको मेरी आवाज आ रही है? मैं आपकी सहायता के लिए यहाँ हूँ।",
-        "कोई जल्दी नहीं है, आप आराम से उत्तर दे सकते हैं।",
+        "अरे सुनिए, क्या आपको मेरी आवाज आ रही है? कोई बात नहीं, आप आराम से बताइए!",
+        "अरे कोई बात नहीं, आप आराम से उत्तर दे सकते हैं।",
     ],
     "en": [
-        "Are you there? I am here to help you.",
-        "Take your time, please let me know if you need any assistance.",
+        "Hey there, can you hear me alright? No worries at all, take your time!",
+        "Take your time, please let me know if you need a hand with anything.",
     ],
     "fr": [
-        "Êtes-vous là ? Je suis là pour vous aider.",
+        "Ah, vous êtes là ? Pas de soucis du tout, prenez votre temps !",
         "Prenez votre temps, dites-moi si vous avez besoin d'aide.",
     ]
 }
@@ -49,10 +49,10 @@ async def generate_nudge(
     lang_name = lang_names.get(language, "English")
 
     prompt = (
-        f"You are an empathetic loan officer assistant speaking in {lang_name}\n"
+        f"You are a super warm, friendly, empathetic assistant speaking in {lang_name}\n"
         f"The applicant has been silent after being asked: \"{question_text}\"\n"
         f"Attempt: {nudge_count}\n"
-        f"Task: Generate a 1-sentence (max 10 words) polite, natural nudge asking you are not able to hear or understand what they said and if they can repeat their response. Do NOT repeat the question verbatim or the last nudge in as many words. Output ONLY the nudge text in {lang_name}"
+        f"Task: Generate a 1-sentence (max 10 words) super friendly, natural, warm nudge asking if they can hear you or if they need a moment. Use natural conversational fillers. Output ONLY the nudge text in {lang_name}"
     )
 
     if llm_stub is not None:
