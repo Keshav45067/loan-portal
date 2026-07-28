@@ -122,9 +122,18 @@ async def run_quality_gate(
 
         logger.info(f"QualityGate: Processing layout crop {idx+1}/{len(layouts)}: label={box['label']}, bbox=[{xmin}, {ymin}, {xmax}, {ymax}]")
         
-        # Crop the image
+        # Add adaptive padding around bounding box to preserve letter edges and surrounding context
+        pad_x = max(10, int((xmax - xmin) * 0.05))
+        pad_y = max(10, int((ymax - ymin) * 0.05))
+
+        crop_xmin = max(0, xmin - pad_x)
+        crop_ymin = max(0, ymin - pad_y)
+        crop_xmax = min(width, xmax + pad_x)
+        crop_ymax = min(height, ymax + pad_y)
+
+        # Crop the image with padding
         try:
-            crop_img = main_img.crop((xmin, ymin, xmax, ymax))
+            crop_img = main_img.crop((crop_xmin, crop_ymin, crop_xmax, crop_ymax))
             out = io.BytesIO()
             crop_img.save(out, format="JPEG", quality=90)
             crop_bytes = out.getvalue()
@@ -157,16 +166,13 @@ async def run_quality_gate(
 
         while attempts < max_attempts:
             try:
-                # Check if the expected part specifies table recognition format or spotting
+                # Check if the expected part specifies table recognition format
                 is_table = False
-                spotting_flag = False
                 if part_id:
                     for part in manifest.get("parts", []):
                         if part.get("id") == part_id:
                             if part.get("table") is True:
                                 is_table = True
-                            if part.get("spotting") is True:
-                                spotting_flag = True
                             break
 
                 # Also flag as table if layout box label is table
@@ -175,12 +181,12 @@ async def run_quality_gate(
 
                 ocr_hint = "Table Recognition:" if is_table else document_id
 
-                # Run ExtractText on layout crop
+                # Run ExtractText on layout crop (spotting=False for clean crop text extraction)
                 ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
                     image_data=current_crop_bytes,
                     language=language,
                     hint=ocr_hint,
-                    spotting=spotting_flag
+                    spotting=False
                 ), timeout=30.0)
                 
                 if ocr_res.success:
@@ -222,11 +228,15 @@ async def run_quality_gate(
                 logger.error(f"QualityGate [Crop {idx+1}]: recovery update failed: {e}")
                 break
 
-        # Append to XML layout
-        clean_crop_text = crop_text.strip()
-        xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}" score="{box["score"]:.2f}">\n{clean_crop_text}\n</layout>'
-        xml_parts.append(xml_tag)
-        crop_confidences.append(crop_confidence)
+        # Append clean text to XML layout
+        import re
+        clean_crop_text = re.sub(r'<\|LOC_\d+\|>', '', crop_text).strip()
+        clean_crop_text = re.sub(r'\n\s*\n', '\n', clean_crop_text)
+
+        if clean_crop_text and clean_crop_text not in ["-∞", "∞", "-", ""]:
+            xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}" score="{box["score"]:.2f}">\n{clean_crop_text}\n</layout>'
+            xml_parts.append(xml_tag)
+            crop_confidences.append(crop_confidence)
 
     # Combine everything
     if using_fallback:
