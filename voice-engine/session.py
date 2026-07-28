@@ -1099,6 +1099,8 @@ class VoiceSession:
             voice_name = "hi-IN-Neural2-A"
         elif self.language == "fr":
             voice_name = "fr-FR-Neural2-A"
+        elif self.language == "ar":
+            voice_name = "ar-SA-Wavenet-A"
         elif self.language == "te":
             voice_name = "te-IN-Wavenet-A"
         else:
