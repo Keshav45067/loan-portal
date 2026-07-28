@@ -474,7 +474,7 @@ async def execute_pipeline_step(body: StepRequest):
                 ymax = max(0, min(box["ymax"], 10000))
                 
                 clean_text = res["text"].strip()
-                xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}" score="{box["score"]:.2f}">\n{clean_text}\n</layout>'
+                xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}">\n{clean_text}\n</layout>'
                 xml_parts.append(xml_tag)
                 crop_confidences.append(res["confidence"])
 

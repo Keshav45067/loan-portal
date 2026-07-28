@@ -234,16 +234,16 @@ async def run_quality_gate(
         clean_crop_text = re.sub(r'\n\s*\n', '\n', clean_crop_text)
 
         if clean_crop_text and clean_crop_text not in ["-∞", "∞", "-", ""]:
-            xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}" score="{box["score"]:.2f}">\n{clean_crop_text}\n</layout>'
+            xml_tag = f'<layout label="{box["label"]}" xmin="{xmin}" ymin="{ymin}" xmax="{xmax}" ymax="{ymax}">\n{clean_crop_text}\n</layout>'
             xml_parts.append(xml_tag)
             crop_confidences.append(crop_confidence)
 
     # Combine everything
     if using_fallback:
-        final_ocr = "\n".join(c["text"] for c in session["ocr_results"].values()) if 'session' in locals() else "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480" score="1.00">', '').replace('</layout>', '').strip()
+        final_ocr = "\n".join(c["text"] for c in session["ocr_results"].values()) if 'session' in locals() else "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480">', '').replace('</layout>', '').strip()
         # Fallback to simple joined crop texts
         if not final_ocr:
-            final_ocr = "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480" score="1.00">', '').replace('</layout>', '').strip()
+            final_ocr = "\n".join(xml_parts).replace('<layout label="document" xmin="0" ymin="0" xmax="640" ymax="480">', '').replace('</layout>', '').strip()
             # If the dummy fallback box (640x480) or similar is used, remove the XML tags
             import re
             final_ocr = re.sub(r'<layout[^>]*>', '', final_ocr)
