@@ -369,18 +369,23 @@ class VoiceSession:
                         "condition": edge.condition,
                         "next": edge.next_node_id
                     })
-                graph_nodes[node_id] = {
+                node_dict = {
                     "node_id": node_id,
                     "text_template": proto_node.text_template,
                     "text_template_en": proto_node.text_template_en,
                     "text_template_fr": getattr(proto_node, "text_template_fr", ""),
                     "text_template_te": proto_node.text_template_te,
+                    "text_template_ar": getattr(proto_node, "text_template_ar", ""),
                     "targets": list(proto_node.targets),
                     "edges": edges,
                     "routing_prompt": proto_node.routing_prompt,
                     "type": proto_node.type,
                     "document_id": proto_node.document_id
                 }
+                if hasattr(proto_node, "text_templates") and proto_node.text_templates:
+                    for lang_code, tpl_text in proto_node.text_templates.items():
+                        node_dict[f"text_template_{lang_code}"] = tpl_text
+                graph_nodes[node_id] = node_dict
                 
             context_map = {}
             for node_id, deps in config_resp.interview_graph.context_map.items():

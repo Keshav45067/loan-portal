@@ -70,6 +70,8 @@ message GraphNode {
   string text_template_en = 8;
   string text_template_te = 9;
   string text_template_fr = 10;
+  string text_template_ar = 11;
+  map<string, string> text_templates = 12;
 }
 
 message InterviewGraph {

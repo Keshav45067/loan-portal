@@ -51,6 +51,14 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
             next_node_id=edge.get("next", ""),
         ))
 
+    text_templates = {}
+    for k, v in node_data.items():
+        if k.startswith("text_template_") and isinstance(v, str):
+            lang = k[len("text_template_"):]
+            text_templates[lang] = v
+    if "text_template" in node_data and isinstance(node_data["text_template"], str):
+        text_templates["hi"] = node_data["text_template"]
+
     return pb2.GraphNode(
         node_id=node_id,
         text_template=node_data.get("text_template", ""),
@@ -62,6 +70,8 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
         text_template_en=node_data.get("text_template_en", ""),
         text_template_te=node_data.get("text_template_te", ""),
         text_template_fr=node_data.get("text_template_fr", ""),
+        text_template_ar=node_data.get("text_template_ar", ""),
+        text_templates=text_templates,
     )
 
 
