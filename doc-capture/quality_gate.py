@@ -42,6 +42,8 @@ async def run_quality_gate(
     # 1. Decode main image to inspect size
     try:
         main_img = Image.open(io.BytesIO(image_bytes))
+        if main_img.mode != "RGB":
+            main_img = main_img.convert("RGB")
         width, height = main_img.size
     except Exception as e:
         logger.warning(f"QualityGate: Failed to load main image (using dummy fallback): {e}")

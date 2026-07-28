@@ -299,6 +299,8 @@ async def execute_pipeline_step(body: StepRequest):
         if body.action == "detect_layouts":
             # Draw bounding boxes of layouts on the original image
             img = Image.open(io.BytesIO(original_bytes))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
             draw = ImageDraw.Draw(img)
             for idx, box in enumerate(layouts):
                 draw.rectangle([box["xmin"], box["ymin"], box["xmax"], box["ymax"]], outline="#3b82f6", width=4)
@@ -322,12 +324,16 @@ async def execute_pipeline_step(body: StepRequest):
             box = layouts[idx]
             
             img = Image.open(io.BytesIO(original_bytes))
+            if img.mode != "RGB":
+                img = img.convert("RGB")
             xmin = max(0, min(box["xmin"], img.width))
             ymin = max(0, min(box["ymin"], img.height))
             xmax = max(0, min(box["xmax"], img.width))
             ymax = max(0, min(box["ymax"], img.height))
             
             crop_img = img.crop((xmin, ymin, xmax, ymax))
+            if crop_img.mode != "RGB":
+                crop_img = crop_img.convert("RGB")
             out = io.BytesIO()
             crop_img.save(out, format="JPEG", quality=90)
             crop_bytes = out.getvalue()

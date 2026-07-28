@@ -275,6 +275,8 @@ def build_quality_report(image_bytes: bytes) -> QualityReport:
     """Loads image and builds a full QualityReport."""
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
         has_qr, qr_coords = detect_qr_codes(img)
         has_low_contrast = detect_low_contrast_regions(img)
         return QualityReport(

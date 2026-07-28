@@ -143,6 +143,8 @@ def apply_recovery(image_bytes: bytes, decisions: List[RecoveryDecision]) -> byt
 
     try:
         img = Image.open(io.BytesIO(image_bytes))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
         
         # Sort decisions by ACTION_ORDER index, unmapped actions go to end
         def get_order_idx(d: RecoveryDecision) -> int:
