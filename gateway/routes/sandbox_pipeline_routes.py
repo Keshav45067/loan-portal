@@ -11,6 +11,7 @@ import json
 import base64
 import traceback
 import uuid
+import pickle
 import grpc
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Request, UploadFile, File, Form, HTTPException
@@ -34,8 +35,45 @@ from quality_gate import run_quality_gate, calculate_blur_variance
 logger = get_logger("gateway-sandbox")
 router = APIRouter(prefix="/api/sandbox/pipeline", tags=["sandbox-pipeline"])
 
-# In-memory sandbox session cache
+# In-memory + disk-backed sandbox session store for multi-worker Uvicorn support
 SANDBOX_SESSIONS = {}
+SANDBOX_TMP_DIR = "/tmp/sandbox_pipeline_sessions"
+os.makedirs(SANDBOX_TMP_DIR, exist_ok=True)
+
+def save_sandbox_session(session_id: str, data: dict):
+    SANDBOX_SESSIONS[session_id] = data
+    file_path = os.path.join(SANDBOX_TMP_DIR, f"{session_id}.pkl")
+    try:
+        with open(file_path, "wb") as f:
+            pickle.dump(data, f)
+    except Exception as e:
+        logger.error(f"Failed to persist sandbox session to disk: {e}")
+
+def get_sandbox_session(session_id: str) -> Optional[dict]:
+    if not session_id:
+        return None
+    if session_id in SANDBOX_SESSIONS:
+        return SANDBOX_SESSIONS[session_id]
+    
+    file_path = os.path.join(SANDBOX_TMP_DIR, f"{session_id}.pkl")
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, "rb") as f:
+                data = pickle.load(f)
+                SANDBOX_SESSIONS[session_id] = data
+                return data
+        except Exception as e:
+            logger.error(f"Failed to load sandbox session from disk: {e}")
+    return None
+
+def remove_sandbox_session(session_id: str):
+    SANDBOX_SESSIONS.pop(session_id, None)
+    file_path = os.path.join(SANDBOX_TMP_DIR, f"{session_id}.pkl")
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception:
+            pass
 
 # --- Models ---
 class StepRequest(BaseModel):
@@ -147,12 +185,13 @@ async def init_pipeline_sandbox(
 
         # 4. Create and store sandbox session state
         session_id = str(uuid.uuid4())
-        SANDBOX_SESSIONS[session_id] = {
+        session_data = {
             "original_image_bytes": image_bytes,
             "layouts": layouts,
             "crop_images": {},
             "ocr_results": {}
         }
+        save_sandbox_session(session_id, session_data)
 
         # 5. Populate step decisions list
         decisions_list = []
@@ -240,7 +279,7 @@ async def execute_pipeline_step(body: StepRequest):
     try:
         logs.append(f"[START] Executing step '{body.action}'...")
         session_id = body.session_id
-        session = SANDBOX_SESSIONS.get(session_id)
+        session = get_sandbox_session(session_id)
         if not session:
             logs.append("[ERROR] Sandbox session not found or expired.")
             return {"success": False, "error": "Sandbox session not found", "logs": logs}
@@ -295,6 +334,7 @@ async def execute_pipeline_step(body: StepRequest):
             
             # Store in session state
             session["crop_images"][idx] = crop_bytes
+            save_sandbox_session(session_id, session)
             new_image_bytes = crop_bytes
             logs.append(f"[SUCCESS] Cropped layout region #{idx+1} ({box['label']}). Size: {len(crop_bytes)/1024:.1f} KB.")
             
@@ -333,6 +373,7 @@ async def execute_pipeline_step(body: StepRequest):
                 processed_img.save(out, format="JPEG", quality=90)
                 processed_bytes = out.getvalue()
                 session["crop_images"][idx] = processed_bytes
+                save_sandbox_session(session_id, session)
                 new_image_bytes = processed_bytes
                 logs.append(f"[SUCCESS] Applied recovery '{action}' to crop #{idx+1}.")
             else:
@@ -385,7 +426,8 @@ async def execute_pipeline_step(body: StepRequest):
                     spotting=False
                 ), timeout=30.0)
                 if ocr_res.success:
-                    crop_text = ocr_res.raw_text
+                    import re
+                    crop_text = re.sub(r'<\|LOC_\d+\|>', '', ocr_res.raw_text).strip()
                     crop_confidence = ocr_res.confidence
                     logs.append(f"[OCR] Extracted text from crop #{idx+1} successfully.")
                 else:
@@ -400,6 +442,7 @@ async def execute_pipeline_step(body: StepRequest):
                 "confidence": crop_confidence,
                 "box": box
             }
+            save_sandbox_session(session_id, session)
             new_image_bytes = crop_bytes
             report = build_quality_report(crop_bytes)
             metrics_dict = {
@@ -500,7 +543,7 @@ async def execute_pipeline_step(body: StepRequest):
                 "rotation": report.rotation, "resolution": report.resolution
             }
             
-            SANDBOX_SESSIONS.pop(session_id, None)
+            remove_sandbox_session(session_id)
 
         base64_image = base64.b64encode(new_image_bytes).decode("utf-8")
         return {
