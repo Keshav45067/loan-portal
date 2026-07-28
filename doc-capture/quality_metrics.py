@@ -217,47 +217,58 @@ def measure_resolution(img: Image.Image) -> dict:
 
 def detect_low_contrast_regions(img: Image.Image) -> bool:
     """
-    Divides the image into an 8x8 grid. Calculates standard deviation of pixel
-    luminances for each grid block containing details (std_dev >= 5).
-    If there is a significant disparity (e.g. some blocks have high contrast >= 55, 
-    but other detail blocks have low contrast <= 25), returns True.
+    Detects red/warm background text regions (e.g. red header with yellow/light text, 
+    red seals, or colored certificate headers) where green channel extraction is beneficial,
+    while ignoring neutral black & white images.
     """
     try:
-        # Resize to a standard dimension to speed up computation and unify grid size
-        small_img = img.convert('L').resize((512, 512), Image.Resampling.BILINEAR)
-        img_np = np.array(small_img, dtype=np.uint8)
-        
-        # Grid size (8x8 blocks, each of size 64x64 pixels)
+        rgb_img = img.convert('RGB').resize((256, 256), Image.Resampling.BILINEAR)
+        img_np = np.array(rgb_img, dtype=np.float32)
+
+        r = img_np[:, :, 0]
+        g = img_np[:, :, 1]
+        b = img_np[:, :, 2]
+
+        # 1. Check if the image is neutral grayscale / black & white
+        diff_rg = np.mean(np.abs(r - g))
+        diff_gb = np.mean(np.abs(g - b))
+
+        if diff_rg < 12.0 and diff_gb < 12.0:
+            # Neutral B&W or grayscale image — green channel not needed
+            return False
+
+        # 2. Check for Red / Warm background or text regions (e.g., Red header, Yellow text on Red)
+        # In Red regions: R is significantly higher than G and B
+        red_dominance_mask = (r > 1.15 * g + 10) & (r > 1.15 * b + 10) & (r > 70)
+        red_ratio = np.mean(red_dominance_mask)
+
+        if red_ratio >= 0.08:
+            logger.info(f"Red/Warm color region detected ({red_ratio*100:.1f}% area): Green channel extraction required.")
+            return True
+
+        # 3. Check for local color contrast disparity across grid blocks
         grid_size = 8
-        block_size = 64
-        
-        block_stds = []
+        block_size = 32
+        color_stds = []
+
         for i in range(grid_size):
             for j in range(grid_size):
                 row_start = i * block_size
                 col_start = j * block_size
-                block = img_np[row_start:row_start + block_size, col_start:col_start + block_size]
-                std = float(np.std(block))
-                # Only consider blocks with some content (std >= 5 to filter out solid background)
+                block_r = r[row_start:row_start + block_size, col_start:col_start + block_size]
+                block_g = g[row_start:row_start + block_size, col_start:col_start + block_size]
+                diff_block = np.abs(block_r - block_g)
+                std = float(np.std(diff_block))
                 if std >= 5.0:
-                    block_stds.append(std)
-                    
-        if len(block_stds) < 3:
-            return False
-            
-        max_std = max(block_stds)
-        min_std = min(block_stds)
-        
-        # If the image has high-contrast sections (max_std >= 55) 
-        # but also contains low-contrast detail sections (min_std <= 25),
-        # it has a local contrast disparity.
-        if max_std >= 55.0 and min_std <= 25.0:
-            logger.info(f"Local contrast imbalance detected: min_std={min_std:.2f}, max_std={max_std:.2f}")
+                    color_stds.append(std)
+
+        if color_stds and max(color_stds) >= 20.0 and min(color_stds) <= 10.0:
+            logger.info(f"Local color contrast disparity detected: max_std={max(color_stds):.2f}, min_std={min(color_stds):.2f}")
             return True
-            
+
         return False
     except Exception as e:
-        logger.error(f"Error checking local contrast: {e}")
+        logger.error(f"Error checking local color contrast: {e}")
         return False
 
 def build_quality_report(image_bytes: bytes) -> QualityReport:
