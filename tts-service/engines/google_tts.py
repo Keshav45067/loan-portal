@@ -26,7 +26,8 @@ logger = get_logger("tts-service")
 # Voice configuration per language
 DEFAULT_VOICES = {
     "hi": {"language_code": "hi-IN", "name": "hi-IN-Neural2-A"},
-    "en": {"language_code": "en-US", "name": "en-US-Neural2-F"},
+    "en": {"language_code": "en-US", "name": "en-US-Journey-F"},
+    "fr": {"language_code": "fr-FR", "name": "fr-FR-Neural2-A"},
     "ta": {"language_code": "ta-IN", "name": "ta-IN-Wavenet-A"},
     "te": {"language_code": "te-IN", "name": "te-IN-Wavenet-A"},
     "ar": {"language_code": "ar-SA", "name": "ar-SA-Wavenet-A"},
@@ -97,6 +98,7 @@ class GoogleTTSEngine(BaseTTSEngine):
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.LINEAR16,
             sample_rate_hertz=sample_rate,
+            speaking_rate=1.06,
         )
 
         response = self._client.synthesize_speech(

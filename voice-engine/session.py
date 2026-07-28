@@ -1085,9 +1085,6 @@ class VoiceSession:
                 logger.error(f"Background extraction failed: {response.error}",
                               session_id=self.session_id)
         except Exception as e:
-            logger.error(f"Background extraction error: {e}",
-                          session_id=self.session_id)
-
     async def _synthesize_text(self, text: str):
         """
         Synthesize text via TTS gRPC stream.
@@ -1102,7 +1099,7 @@ class VoiceSession:
         elif self.language == "te":
             voice_name = "te-IN-Wavenet-A"
         else:
-            voice_name = "en-US-Neural2-F"
+            voice_name = "en-US-Journey-F"
         engine = "google"
         sample_rate = 24000
 
@@ -1141,36 +1138,36 @@ class VoiceSession:
             "hi": {
                 "lang_name": "Hindi",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm, expressive reaction using natural, friendly Hindi filler words "
-                    "(e.g., 'अरे वाह!', 'अच्छा जी, समझ गई', 'हम्म!', 'जी बिल्कुल', 'अरे कोई बात नहीं!', 'अच्छा अच्छा'). Write them in Hindi script only. "
-                    "End this short acknowledgment with a '|' or '।' character. "
-                    "2) Speak like a helpful, caring friend—never like a stiff, formal officer. Use warm, soft language (e.g., 'आप बस इतना बता दीजिए...', 'अरे चिंता मत कीजिए...'). "
-                    "3) If the user asked a question, answer it sweetly and directly. "
-                    "4) Ask your followup question in a casual, friendly tone to get the required info.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
+                    "1) Start with a warm, expressive reaction using natural, friendly Hindi filler words and punctuation "
+                    "(e.g., 'अरे वाह!', 'अच्छा जी, समझ गई...', 'हम्म!', 'जी बिल्कुल!', 'अरे कोई बात नहीं!', 'अच्छा अच्छा...'). Write them in Hindi script only. "
+                    "2) Use punctuation strategically: Use exclamation marks ('!') for excitement/warmth, ellipses ('...') for natural thinking pauses, and em-dashes ('—') for breath gaps. "
+                    "3) Speak like a helpful, caring friend—never like a stiff, formal officer. Use warm, soft language (e.g., 'आप बस इतना बता दीजिए...', 'अरे चिंता मत कीजिए...'). "
+                    "4) If the user asked a question, answer it sweetly and directly. "
+                    "5) Ask your followup question in a casual, friendly tone to get the required info.\n"
                 )
             },
             "en": {
                 "lang_name": "English",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm, expressive reaction using natural conversational fillers "
-                    "(e.g., 'Oh, got it!', 'Ah, I see!', 'No worries at all!', 'Oh awesome!', 'Hmm, alright!'). "
-                    "End this short acknowledgment with a '.' or ',' character. "
-                    "2) Speak like an empathetic, friendly companion—not a rigid corporate officer. Use soft, encouraging phrases (e.g. 'Could you just tell me...', 'Take your time...'). "
-                    "3) If the user asked a question, answer it sweetly and directly. "
-                    "4) Ask your followup question in a casual, friendly tone.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
+                    "1) Start with a warm, expressive reaction using natural conversational fillers and punctuation "
+                    "(e.g., 'Oh, got it!', 'Ah, I see...', 'No worries at all!', 'Oh awesome!', 'Hmm, alright...'). "
+                    "2) Use punctuation strategically: Use exclamation marks ('!') for warmth, ellipses ('...') for natural thinking pauses, and em-dashes ('—') for breath gaps. "
+                    "3) Speak like an empathetic, friendly companion—not a rigid corporate officer. Use soft, encouraging phrases (e.g. 'Could you just tell me...', 'Take your time...'). "
+                    "4) If the user asked a question, answer it sweetly and directly. "
+                    "5) Ask your followup question in a casual, friendly tone.\n"
                 )
             },
             "fr": {
                 "lang_name": "French",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm, expressive reaction in French (e.g., 'Ah, super !', 'D\\'accord, je vois !', 'Pas de soucis du tout !'). "
-                    "End this short acknowledgment with a '.' or ',' character. "
-                    "2) Speak like a warm, supportive assistant. "
-                    "3) If the user asked a question, answer it warmly and directly. "
-                    "4) Ask your followup question in a casual, friendly tone in French.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
+                    "1) Start with a warm, expressive reaction in French using natural fillers and punctuation (e.g., 'Ah, super !', 'D\\'accord, je vois...', 'Pas de soucis du tout !'). "
+                    "2) Use punctuation strategically: Use exclamation marks ('!') for warmth and ellipses ('...') for thinking pauses. "
+                    "3) Speak like a warm, supportive assistant. "
+                    "4) If the user asked a question, answer it warmly and directly. "
+                    "5) Ask your followup question in a casual, friendly tone in French.\n"
                 )
             },
             "ar": {
