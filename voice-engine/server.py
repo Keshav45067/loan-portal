@@ -119,6 +119,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
         inactivity_timer_task = None
         timer_deadline = None  # Live timestamp when current nudge window expires
         timer_generation = 0   # Monotonic counter — each arm() increments; stale events are discarded
+        is_user_speaking = False
+        is_awaiting_playback_complete = False
 
         def cancel_timer_task_only():
             nonlocal inactivity_timer_task
@@ -187,6 +189,11 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         logger.info(f"Discarding stale inactivity_timeout (event gen={event_gen}, current gen={timer_generation})")
                         continue
 
+                    # Guard 3 & Guard 1: Discard if user is speaking or playback is active
+                    if is_user_speaking or is_awaiting_playback_complete:
+                        logger.info(f"Discarding inactivity_timeout because user speaking={is_user_speaking} or playback active={is_awaiting_playback_complete}", session_id=session_id)
+                        continue
+
                     target_node_id = item.get("node_id")
                     if not session or not session.walker or session.walker.is_completed:
                         continue
@@ -216,6 +223,11 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         req_id=req_id
                     )
 
+                    # Abort sending nudge if user started speaking while nudge was generating
+                    if is_user_speaking:
+                        logger.info("Aborting generated nudge because user started speaking during generation", session_id=session_id)
+                        continue
+
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
                     from session import split_sentences
                     sentences, remainder = split_sentences(nudge_text)
@@ -228,13 +240,16 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 transcription=pb2.TranscriptionUpdate(text=clean, is_final=False)
                             )
                             async for audio_chunk in session._synthesize_text(clean):
+                                if is_user_speaking:
+                                    logger.info("Aborting nudge audio playback stream mid-sentence because user started speaking", session_id=session_id)
+                                    break
                                 yield pb2.VoiceOutput(
                                     audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
                                 )
                     yield pb2.VoiceOutput(audio_end=True)
                     yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="listening"))
 
-                    arm_inactivity_timer(target_node_id)
+                    is_awaiting_playback_complete = True
                     continue
 
                 # ─── VoiceInput Message ───
@@ -394,7 +409,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                  req_id=req_id, session_id=session_id)
 
                     if signal_type == "speech_start":
-                        cancel_timer_task_only()
+                        is_user_speaking = True
+                        clear_inactivity_timer()
                         # ─── Guard: Ignore speech if session is completed ───
                         if session and session.walker and session.walker.is_completed:
                             logger.info("Ignoring speech_start because session is completed", session_id=session_id)
@@ -498,11 +514,12 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
                     elif signal_type == "playback_complete":
                         logger.info("Playback complete received from client; arming inactivity timer", session_id=session_id)
-                        if session and session.walker:
+                        is_awaiting_playback_complete = False
+                        if session and session.walker and not is_user_speaking:
                             arm_inactivity_timer(session.walker.current_node_id, fresh=True)
 
                     elif signal_type == "speech_end":
-                        # Cancel any running timer task to prevent expiry during STT processing
+                        is_user_speaking = False
                         cancel_timer_task_only()
                         # User stopped speaking — run the streaming 2-call pipeline
                         import time as _time
@@ -577,8 +594,10 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                 yield pb2.VoiceOutput(
                                     status=pb2.StatusUpdate(status="listening")
                                 )
-                                if session and session.walker:
+                                if session and session.walker and not is_awaiting_playback_complete:
                                     arm_inactivity_timer(session.walker.current_node_id, fresh=False)
+                                else:
+                                    logger.info("Ignoring timer re-arm on empty audio buffer because audio playback is active/pending", session_id=session_id)
                                 continue
                             transcribed = await self._transcribe(audio_data, session)
                             stt_ms = (_time.perf_counter() - t_turn_start) * 1000
@@ -593,8 +612,10 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             yield pb2.VoiceOutput(
                                 status=pb2.StatusUpdate(status="listening")
                             )
-                            if session and session.walker:
+                            if session and session.walker and not is_awaiting_playback_complete:
                                 arm_inactivity_timer(session.walker.current_node_id, fresh=False)
+                            else:
+                                logger.info("Ignoring timer re-arm on empty STT text because audio playback is active/pending", session_id=session_id)
                             continue
 
                         # Valid user transcript arrived — clear deadline completely before turn streaming
