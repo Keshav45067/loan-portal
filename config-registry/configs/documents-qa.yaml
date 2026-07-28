@@ -12,7 +12,7 @@ tts:
     engine: "google"
     sample_rate: 24000
   en:
-    voice_name: "en-US-Journey-F"
+    voice_name: "en-US-Neural2-F"
     engine: "google"
     sample_rate: 24000
   fr:

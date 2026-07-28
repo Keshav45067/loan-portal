@@ -1106,7 +1106,7 @@ class VoiceSession:
             "ar": "ar-XA-Wavenet-A",
             "te": "te-IN-Wavenet-A",
             "ta": "ta-IN-Wavenet-A",
-            "en": "en-US-Journey-F",
+            "en": "en-US-Neural2-F",
         }
         engine = "google"
         sample_rate = 24000
@@ -1118,7 +1118,7 @@ class VoiceSession:
             sample_rate = self._media_config.get("tts_sample_rate", sample_rate)
 
         if not voice_name:
-            voice_name = DEFAULT_VOICE_MAP.get(self.language, "en-US-Journey-F")
+            voice_name = DEFAULT_VOICE_MAP.get(self.language, "en-US-Neural2-F")
 
         req = tts_pb2.SynthesizeRequest(
             text=text,

@@ -26,7 +26,7 @@ logger = get_logger("tts-service")
 # Voice configuration per language
 DEFAULT_VOICES = {
     "hi": {"language_code": "hi-IN", "name": "hi-IN-Neural2-A"},
-    "en": {"language_code": "en-US", "name": "en-US-Journey-F"},
+    "en": {"language_code": "en-US", "name": "en-US-Neural2-F"},
     "fr": {"language_code": "fr-FR", "name": "fr-FR-Neural2-A"},
     "ta": {"language_code": "ta-IN", "name": "ta-IN-Wavenet-A"},
     "te": {"language_code": "te-IN", "name": "te-IN-Wavenet-A"},
