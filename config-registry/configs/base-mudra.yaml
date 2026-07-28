@@ -4,7 +4,7 @@
 
 scheme_id: base-mudra
 display_name: "Base Mudra Loan Configuration"
-languages: [hi, en, fr]
+languages: [hi, en, fr, ar]
 
 # ─── TTS/STT Configuration ───
 tts:
@@ -13,11 +13,15 @@ tts:
     engine: "google"
     sample_rate: 24000
   en:
-    voice_name: "en-US-Neural2-F"
+    voice_name: "en-US-Journey-F"
     engine: "google"
     sample_rate: 24000
   fr:
     voice_name: "fr-FR-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  ar:
+    voice_name: "ar-SA-Wavenet-A"
     engine: "google"
     sample_rate: 24000
 
@@ -31,6 +35,9 @@ stt:
   fr:
     engine: "google"
     language_code: "fr-FR"
+  ar:
+    engine: "google"
+    language_code: "ar-SA"
 
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
@@ -131,6 +138,36 @@ system_voice_messages:
       company_id: "carte d'identité de l'entreprise"
       default: "document"
 
+  ar:
+    processing: "جاري معالجة وثيقتك. يرجى الانتظار."
+    success_template: "تم استخراج التفاصيل بنجاح من {doc_name} الخاص بك."
+    error_blur: "الصورة ضبابية أو غير واضحة. يرجى التقاط صورة أكثر وضوحاً."
+    error_invalid: "يبدو أن هذه الوثيقة غير صالحة. يرجى تحميل صورة واضحة للوثيقة الصحيحة."
+    error_default: "فشلت عملية التحقق. يرجى تحميل وثيقة صالحة."
+    fallback_nudges:
+      - "أهلاً، هل تسمعني بشكل جيد؟ لا تقلق أبداً، خذ وقتك!"
+      - "خذ وقتك الكامل، وأخبرني إذا كنت بحاجة إلى أي مساعدة."
+    doc_names:
+      selfie: "الصورة الشخصية (السيلفي)"
+      aadhaar: "بطاقة الهوية"
+      aadhaar_front: "الوجه الأمامي لبطاقة الهوية"
+      aadhaar_back: "الوجه الخلفي لبطاقة الهوية"
+      doc_aadhaar_002: "بطاقة الهوية"
+      doc_aadhaar_002_front: "الوجه الأمامي لبطاقة الهوية"
+      doc_aadhaar_002_back: "الوجه الخلفي لبطاقة الهوية"
+      front: "الوجه الأمامي للبطاقة"
+      back: "الوجه الخلفي للبطاقة"
+      pan: "البطاقة الضريبية"
+      doc_pan_001: "البطاقة الضريبية"
+      spouse_pan: "البطاقة الضريبية للزوج/الزوجة"
+      voter_front: "الوجه الأمامي لبطاقة الناخب"
+      voter_back: "الوجه الخلفي لبطاقة الناخب"
+      udyam: "شهادة تسجيل المنشأة"
+      bank_statement: "كشف الحساب البنكي"
+      workplace_video: "فيديو مكان العمل"
+      company_id: "بطاقة هوية الشركة"
+      default: "الوثيقة"
+
 # ─── Base Interview Graph ───
 interview_graph:
   start_node_id: "START"
@@ -141,6 +178,7 @@ interview_graph:
       text_template: "कृपया अपनी एक सेल्फी लें।"
       text_template_en: "Please take a selfie photo of yourself."
       text_template_fr: "Veuillez prendre une photo selfie de vous-même."
+      text_template_ar: "يرجى التقاط صورة شخصية (سيلفي) لنفسك."
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_FRONT"
@@ -151,6 +189,7 @@ interview_graph:
       text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the front side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_BACK"
@@ -161,6 +200,7 @@ interview_graph:
       text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the back side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
       edges:
         - condition: "always"
           next: "Q_NAME_CONFIRMATION"
@@ -170,6 +210,7 @@ interview_graph:
       text_template: "कृपया बताएं, क्या मेरी बात {applicant_name} से हो रही है?"
       text_template_en: "Please tell me, am I speaking with {applicant_name}?"
       text_template_fr: "S'il vous plaît, est-ce que je m'adresse à {applicant_name} ?"
+      text_template_ar: "من فضلك أخبرني، هل أتحدث مع {applicant_name}؟"
       targets: [name_confirmation]
       edges:
         - condition: "always"
@@ -180,6 +221,7 @@ interview_graph:
       text_template: "बढ़िया, और आप किस व्यवसाय के लिए लोन चाहते हैं?"
       text_template_en: "Great, and for which business would you like the micro-loan?"
       text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous ce micro-crédit ?"
+      text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على القرض المصغر لأجله؟"
       targets: [business_purpose]
       inactivity_policy:
         timeout_seconds: 3.0
@@ -193,6 +235,7 @@ interview_graph:
       text_template: "ठीक है। क्या आप विवाहित हैं?"
       text_template_en: "Alright. Are you married?"
       text_template_fr: "D'accord. Êtes-vous marié(e) ?"
+      text_template_ar: "حسناً. هل أنت متزوج؟"
       targets: [is_married]
       inactivity_policy:
         timeout_seconds: 3.0
@@ -206,6 +249,7 @@ interview_graph:
       text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
       text_template_en: "Please take a photo of your PAN card."
       text_template_fr: "Veuillez prendre une photo de votre carte PAN."
+      text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بك."
       edges:
         - condition: "is_married == 'Yes'"
           next: "DOC_SPOUSE_PAN"
@@ -218,6 +262,7 @@ interview_graph:
       text_template: "कृपया अपने पति या पत्नी के पैन कार्ड की फोटो लें।"
       text_template_en: "Please take a photo of your spouse's PAN card."
       text_template_fr: "Veuillez prendre une photo de la carte PAN de votre conjoint."
+      text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بزوجك/زوجتك."
       edges:
         - condition: "always"
           next: "DOC_UDYAM"
@@ -228,6 +273,7 @@ interview_graph:
       text_template: "कृपया अपने उद्यम प्रमाणपत्र की फोटो लें।"
       text_template_en: "Please take a photo of your Udyam Registration certificate."
       text_template_fr: "Veuillez prendre une photo de votre certificat Udyam."
+      text_template_ar: "يرجى التقاط صورة لشهادة تسجيل المنشأة الخاصة بك."
       edges:
         - condition: "always"
           next: "DOC_VOTER_FRONT"
@@ -238,6 +284,7 @@ interview_graph:
       text_template: "कृपया अपने वोटर आईडी कार्ड के आगे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the front side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte d'électeur."
+      text_template_ar: "يرجى التقاط صورة للوجه الأمامي لبطاقة الناخب الخاصة بك."
       edges:
         - condition: "always"
           next: "DOC_VOTER_BACK"
@@ -248,6 +295,7 @@ interview_graph:
       text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the back side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte d'électeur."
+      text_template_ar: "يرجى التقاط صورة للوجه الخلفي لبطاقة الناخب الخاصة بك."
       edges:
         - condition: "always"
           next: "PROMPT_MANUAL_FILLING"
@@ -257,6 +305,7 @@ interview_graph:
       text_template: "वोटर आईडी कार्ड की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
       text_template_en: "Voter ID card confirmed. Would you like to fill the remaining details manually in the form, or continue speaking with me?"
       text_template_fr: "Carte d'électeur confirmée. Souhaitez-vous remplir le reste du formulaire manuellement ou continuer avec l'assistant vocal ?"
+      text_template_ar: "تم تأكيد بطاقة الناخب. هل ترغب في إكمال بقية التفاصيل يدوياً في النموذج، أم تفضل الاستمرار في التحدث معي؟"
       targets: []
       edges:
         - condition: "always"
@@ -267,6 +316,7 @@ interview_graph:
       text_template: "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?"
       text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
       text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
+      text_template_ar: "أهلاً بك في خدمة القروض المصغرة. أنا هنا لمساعدتك في الحصول على القرض المناسب لنشاطك التجاري. هل أنت جاهز للبدء؟"
       targets: []
       edges:
         - condition: "always"
@@ -277,6 +327,7 @@ interview_graph:
       text_template: "आपका काम कैसा चल रहा है?"
       text_template_en: "How is your business going currently?"
       text_template_fr: "Comment se déroule votre activité actuellement ?"
+      text_template_ar: "كيف تسير أعمالك ونشاطك التجاري حالياً؟"
       targets: []
       edges:
         - condition: "always"
@@ -287,6 +338,7 @@ interview_graph:
       text_template: "अभी आप महीने में लगभग कितनी बिक्री कर लेते हैं?"
       text_template_en: "Approximately how much sales or revenue do you generate per month?"
       text_template_fr: "Quel est environ votre chiffre d'affaires ou vos ventes mensuelles ?"
+      text_template_ar: "كم تبلغ مبيعاتك أو إيراداتك الشهرية تقريباً؟"
       targets: [monthly_revenue]
       edges:
         - condition: "always"
@@ -297,6 +349,7 @@ interview_graph:
       text_template: "काम का सारा खर्चा निकालने के बाद, महीने में कितना पैसा बच जाता है?"
       text_template_en: "After deducting all business expenses, how much net profit remains per month?"
       text_template_fr: "Après avoir déduit toutes les dépenses professionnelles, quel est votre bénéfice net mensuel ?"
+      text_template_ar: "بعد خصم جميع المصاريف التشغيلية، كم يتبقى لك كصافي ربح شهرياً؟"
       targets: [monthly_profit]
       edges:
         - condition: "always"
@@ -307,6 +360,7 @@ interview_graph:
       text_template: "अच्छा! पहले, जब काम नया था, तब महीने की बिक्री कितनी होती थी? पिछले एक साल में काम कुछ बढ़ा है क्या?"
       text_template_en: "Earlier, what were your monthly sales? Has the business grown over the past year?"
       text_template_fr: "Auparavant, quel était votre chiffre d'affaires mensuel ? Votre entreprise a-t-elle progressé au cours de la dernière année ?"
+      text_template_ar: "في السابق، كم كانت مبيعاتك الشهرية؟ وهل شهد نشاطك التجاري نمواً خلال العام الماضي؟"
       targets: [last_year_monthly_revenue]
       edges:
         - condition: "always"
@@ -317,6 +371,7 @@ interview_graph:
       text_template: "अभी काम पर आपके अलावा और कौन-कौन काम करता है?"
       text_template_en: "Who else works in your business besides you?"
       text_template_fr: "Qui d'autre travaille dans votre entreprise à part vous ?"
+      text_template_ar: "من يعمل معك في هذا النشاط التجاري بالإضافة إليك؟"
       targets: [persons_involved]
       routing_prompt: "Evaluate if the user works alone or with others. Set 'routing_decision' to 'YES' if they work with others, 'NO' if they work alone."
       edges:
@@ -330,6 +385,7 @@ interview_graph:
       text_template: "उनमें से घर के लोग हैं या बाहर के लोग भी हैं, जिन्हें पगार देनी पड़ती है?"
       text_template_en: "Are they family members or outside paid employees?"
       text_template_fr: "S'agit-il de membres de votre famille ou d'employés rémunérés ?"
+      text_template_ar: "هل هم أفراد من العائلة أم موظفون يتقاضون رواتب؟"
       targets: [number_of_paid_employees]
       routing_prompt: "Evaluate if any workers are paid employees (outsiders). Set 'routing_decision' to 'YES' if they have paid employees, 'NO' if only family members."
       edges:
@@ -343,6 +399,7 @@ interview_graph:
       text_template: "उन लोगों को पगार देने में महीने का कितना खर्च हो जाता है?"
       text_template_en: "How much do you spend per month on employee wages?"
       text_template_fr: "Combien dépensez-vous par mois pour les salaires des employés ?"
+      text_template_ar: "كم تنفق شهرياً على رواتب الموظفين؟"
       targets: [current_wages]
       edges:
         - condition: "always"
@@ -353,6 +410,7 @@ interview_graph:
       text_template: "अभी दुकान/बिज़नेस में जो माल रखा है, उसकी कुल क़ीमत कितनी होगी?"
       text_template_en: "What is the total value of stock or inventory currently in your business?"
       text_template_fr: "Quelle est la valeur totale du stock actuel dans votre entreprise ?"
+      text_template_ar: "ما هي القيمة الإجمالية للبضائع والمخزون الحالي في منشأتك؟"
       targets: [inventory_amount]
       edges:
         - condition: "always"
@@ -363,6 +421,7 @@ interview_graph:
       text_template: "क्या कोई उधार का पैसा है, जो आपको लोगों से मिलना बाकी है?"
       text_template_en: "Is there any money owed to you by customers (receivables)?"
       text_template_fr: "Y a-t-il des sommes qui vous sont dues par vos clients ?"
+      text_template_ar: "هل هناك أي أموال متبقية لك عند العملاء (ديون للنشاط)؟"
       targets: [debtors_amount]
       edges:
         - condition: "always"
@@ -373,6 +432,7 @@ interview_graph:
       text_template: "और क्या कोई पैसा ऐसा है, जो आपको देना बाकी है? जैसे आपने माल लिया है और पैसा अभी नहीं दिया?"
       text_template_en: "And is there any money you owe to suppliers for stock (payables)?"
       text_template_fr: "Et y a-t-il des sommes que vous devez à vos fournisseurs ?"
+      text_template_ar: "وهل هناك أي أموال مستحقة عليك للموردين مقابل البضائع؟"
       targets: [creditors_amount]
       edges:
         - condition: "always"
@@ -383,6 +443,7 @@ interview_graph:
       text_template: "बहुत अच्छा! अब यह जो कर्ज आप लेने वाले हैं, कर्ज मिलने के बाद महीने की बिक्री कितनी हो जाएगी, ऐसा आपको क्या लगता है?"
       text_template_en: "Great! What do you expect your monthly sales to be after getting this loan?"
       text_template_fr: "Très bien ! Quel chiffre d'affaires mensuel prévoyez-vous après l'obtention de ce prêt ?"
+      text_template_ar: "رائع! كم تتوقع أن تصبح مبيعاتك الشهرية بعد الحصول على هذا القرض؟"
       targets: [proposed_monthly_revenue]
       edges:
         - condition: "always"
@@ -393,6 +454,7 @@ interview_graph:
       text_template: "कर्ज मिलने के बाद, क्या काम के लिए और आदमी रखने पड़ेंगे, या अभी जैसे चल रहा है वैसे चल जाएगा?"
       text_template_en: "Will you need to hire additional workers after receiving the loan?"
       text_template_fr: "Aurez-vous besoin d'embaucher du personnel supplémentaire après avoir reçu le prêt ?"
+      text_template_ar: "هل ستحتاج إلى توظيف عمال إضافيين بعد الحصول على القرض؟"
       targets: [proposed_number_of_people]
       routing_prompt: "Evaluate if the user will hire new people after the loan. Set 'routing_decision' to 'YES' if they will hire new people, 'NO' if not."
       edges:
@@ -406,6 +468,7 @@ interview_graph:
       text_template: "उन नए लोगों को पगार देने में महीने का कितना खर्च होगा?"
       text_template_en: "How much will you spend monthly on salaries for those new employees?"
       text_template_fr: "Combien dépenserez-vous par mois pour les salaires de ces nouveaux employés ?"
+      text_template_ar: "كم ستكون تكلفة رواتب هؤلاء الموظفين الجدد شهرياً؟"
       targets: [proposed_wages]
       edges:
         - condition: "always"
@@ -416,6 +479,7 @@ interview_graph:
       text_template: "क्या कोई फ्रिज, मशीन या और सामान भी लेना है?"
       text_template_en: "Do you need to purchase any new machinery, equipment, or items?"
       text_template_fr: "Avez-vous besoin d'acheter de nouvelles machines ou des équipements ?"
+      text_template_ar: "هل تحتاج لشراء أي معدات، آلات، أو أجهزة جديدة؟"
       targets: [needs_machine, machine_name]
       routing_prompt: "Evaluate if the user needs to purchase any new machine or equipment. Set 'routing_decision' to 'YES' if they need a machine/equipment, 'NO' if not."
       edges:
@@ -429,6 +493,7 @@ interview_graph:
       text_template: "यह मशीन किस काम आएगी, कहाँ से लेंगे और इसकी कीमत क्या होगी?"
       text_template_en: "What is the purpose of this equipment, where will you buy it, and how much will it cost?"
       text_template_fr: "Quel est l'usage de cet équipement, où l'achèterez-vous et quel en sera le coût ?"
+      text_template_ar: "ما هو الغرض من هذه المعدات، من أين ستشتريها، وكم ستكون تكلفتها؟"
       targets: [machine_purpose, machine_supplier, machine_cost]
       edges:
         - condition: "always"
@@ -439,6 +504,7 @@ interview_graph:
       text_template: "क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो नहीं हुई? मतलब कर्ज लिया और किस्त ना दी या देर से दी हो?"
       text_template_en: "Have you taken any loan previously, and did you ever face delays in paying installments?"
       text_template_fr: "Avez-vous déjà contracté un prêt auparavant, et avez-vous déjà eu des retards de remboursement ?"
+      text_template_ar: "هل حصلت على أي قرض سابقاً، وهل واجهت أي تأخير في سداد الأقساط؟"
       targets: [previous_loan_detail, previous_loan_default_flag, default_reason]
       edges:
         - condition: "always"
@@ -449,6 +515,7 @@ interview_graph:
       text_template: "अभी कोई और कर्ज या किस्त चल रही है क्या? कितनी किस्त है, किस बैंक से है और कितना बचा है?"
       text_template_en: "Do you have any ongoing active loans or monthly EMIs currently?"
       text_template_fr: "Avez-vous actuellement des prêts ou des mensualités en cours ?"
+      text_template_ar: "هل لديك أي قروض قائمة حالياً أو أقساط شهرية ملتزم بسدادها؟"
       targets: [current_emi_value, current_emi_lender, current_emi_outstanding]
       edges:
         - condition: "always"
@@ -459,6 +526,7 @@ interview_graph:
       text_template: "{name} जी, घर में आपके साथ कौन-कौन रहता है?"
       text_template_en: "{name}, who lives with you in your family?"
       text_template_fr: "{name}, qui vit avec vous dans votre famille ?"
+      text_template_ar: "يا سيد {name}، من يعيش معك في المنزل من أفراد عائلتك؟"
       targets: [number_of_family_members, marital_status, number_of_kids]
       edges:
         - condition: "always"
@@ -469,6 +537,7 @@ interview_graph:
       text_template: "आपने कहाँ तक पढ़ाई की है? काम का हिसाब खुद कर लेते हैं?"
       text_template_en: "What is your educational background? Do you handle business accounting yourself?"
       text_template_fr: "Quel est votre niveau d'études ? Gérez-vous vous-même la comptabilité de votre entreprise ?"
+      text_template_ar: "ما هو مستواك التعليمي؟ وهل تقوم بإدارة الحسابات المالية لنشاطك بنفسك؟"
       targets: [education_level]
       edges:
         - condition: "always"
@@ -479,6 +548,7 @@ interview_graph:
       text_template: "यह काम आप खुद चलाते हैं, या घर का कोई और भी देखता है?"
       text_template_en: "Do you manage this business independently, or does a co-borrower assist you?"
       text_template_fr: "Gérez-vous cette entreprise de manière indépendante ou un co-emprunteur vous aide-t-il ?"
+      text_template_ar: "هل تدير هذا العمل بمفردك أم يساعدك شريك أو ممتلك آخر في القرض؟"
       targets: [co_borrower]
       edges:
         - condition: "always"
@@ -490,6 +560,7 @@ interview_graph:
       text_template: "कृपया अपने कार्यस्थल का 30 सेकंड का वीडियो बनाएं।"
       text_template_en: "Please record a 30-second video of your workplace."
       text_template_fr: "Veuillez enregistrer une vidéo de 30 secondes de votre lieu de travail."
+      text_template_ar: "يرجى تسجيل فيديو لمدة 30 ثانية لمكان عملك."
       geo_tagged: true
       max_duration_seconds: 30
       instructions:

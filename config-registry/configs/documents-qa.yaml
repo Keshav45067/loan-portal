@@ -3,7 +3,7 @@
 # ================================================================
 scheme_id: documents-qa
 display_name: "Documents Q&A Session"
-languages: [hi, en]
+languages: [hi, en, fr, ar]
 
 # ─── TTS/STT Configuration ───
 tts:
@@ -12,7 +12,15 @@ tts:
     engine: "google"
     sample_rate: 24000
   en:
-    voice_name: "en-US-Neural2-F"
+    voice_name: "en-US-Journey-F"
+    engine: "google"
+    sample_rate: 24000
+  fr:
+    voice_name: "fr-FR-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  ar:
+    voice_name: "ar-SA-Wavenet-A"
     engine: "google"
     sample_rate: 24000
 
@@ -23,6 +31,12 @@ stt:
   en:
     engine: "google"
     language_code: "en-US"
+  fr:
+    engine: "google"
+    language_code: "fr-FR"
+  ar:
+    engine: "google"
+    language_code: "ar-SA"
 
 # ─── Interview Graph ───
 interview_graph:
@@ -30,6 +44,9 @@ interview_graph:
   nodes:
     START:
       text_template: "{name} जी, अब मैं आपसे दस्तावेज़ सत्यापन के लिए कुछ प्रश्न पूछूँगी। बोलने का संकेत मिलने पर कृपया जवाब दें। क्या आप तैयार हैं?"
+      text_template_en: "{name}, now I will ask you a few questions for document verification. Please answer when prompted. Are you ready?"
+      text_template_fr: "{name}, je vais maintenant vous poser quelques questions pour la vérification des documents. Veuillez répondre lorsque vous y êtes invité(e). Êtes-vous prêt(e) ?"
+      text_template_ar: "يا سيد {name}، سأطرح عليك الآن بضعة أسئلة للتحقق من الوثائق. يرجى الإجابة عندما تظهر الإشارة. هل أنت جاهز؟"
       targets: []
       edges:
         - condition: "always"
@@ -37,6 +54,9 @@ interview_graph:
 
     Q_NAME_CONFIRMED:
       text_template: "कृपया बताएं, क्या मेरी बात {name} से हो रही है?"
+      text_template_en: "Please tell me, am I speaking with {name}?"
+      text_template_fr: "S'il vous plaît, est-ce que je m'adresse à {name} ?"
+      text_template_ar: "من فضلك أخبرني، هل أتحدث مع {name}؟"
       targets: [is_name_confirmed, corrected_name]
       routing_prompt: "Determine if user confirmed their name. Set 'routing_decision' to 'YES' if confirmed, or 'NO' if they denied it or corrected it."
       edges:
@@ -45,6 +65,9 @@ interview_graph:
 
     Q_BUSINESS_PURPOSE:
       text_template: "बढ़िया, और आप किस व्यवसाय के लिए मुद्रा लोन चाहते हैं?"
+      text_template_en: "Great, and for which business would you like the Mudra loan?"
+      text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous le prêt Mudra ?"
+      text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على قرض المودرا لأجله؟"
       targets: [business_purpose]
       edges:
         - condition: "always"
@@ -52,6 +75,9 @@ interview_graph:
 
     Q_IS_MARRIED:
       text_template: "ठीक है। क्या आप विवाहित हैं?"
+      text_template_en: "Alright. Are you married?"
+      text_template_fr: "D'accord. Êtes-vous marié(e) ?"
+      text_template_ar: "حسناً. هل أنت متزوج؟"
       targets: [is_married]
       routing_prompt: "Evaluate if user is married. Set 'routing_decision' to 'YES' if married, 'NO' if not."
       edges:
@@ -62,6 +88,9 @@ interview_graph:
 
     Q_SPOUSE_MOBILE:
       text_template: "कृपया अपने पति या पत्नी का मोबाइल नंबर बोलें।"
+      text_template_en: "Please state your spouse's mobile number."
+      text_template_fr: "Veuillez indiquer le numéro de téléphone portable de votre conjoint."
+      text_template_ar: "يرجى ذكر رقم الهاتف المحمول لزوجك/زوجتك."
       targets: [spouse_mobile]
       edges:
         - condition: "always"
@@ -69,6 +98,9 @@ interview_graph:
 
     Q_MOTHER_NAME:
       text_template: "आपकी माता जी का पूरा नाम क्या है?"
+      text_template_en: "What is your mother's full name?"
+      text_template_fr: "Quel est le nom complet de votre mère ?"
+      text_template_ar: "ما هو الاسم الكامل لوالدتك؟"
       targets: [mother_name]
       edges:
         - condition: "always"
@@ -76,6 +108,9 @@ interview_graph:
 
     Q_ACADEMIC_QUALIFICATION:
       text_template: "आपकी पढ़ाई कहाँ तक हुई है?"
+      text_template_en: "What is your educational qualification?"
+      text_template_fr: "Quel est votre niveau d'études ?"
+      text_template_ar: "ما هو مستواك التعليمي؟"
       targets: [academic_qualification]
       edges:
         - condition: "always"
@@ -83,6 +118,9 @@ interview_graph:
 
     Q_EXISTING_BUSINESS:
       text_template: "आपका व्यवसाय पहले से चल रहा है या नया शुरू कर रहे हैं?"
+      text_template_en: "Is your business currently operational or are you starting a new one?"
+      text_template_fr: "Votre entreprise est-elle déjà en activité ou en démarrez-vous une nouvelle ?"
+      text_template_ar: "هل نشاطك التجاري قائم حالياً أم أنك تؤسس نشاطاً جديداً؟"
       targets: [existing_business]
       edges:
         - condition: "always"
@@ -90,6 +128,9 @@ interview_graph:
 
     Q_PROPERTY_OWNED:
       text_template: "जहाँ आप काम करेंगे, वह जगह आपकी अपनी है या किराए पर है?"
+      text_template_en: "Is the place where you work owned by you or rented?"
+      text_template_fr: "Le lieu de travail vous appartient-il ou est-il loué ?"
+      text_template_ar: "هل موقع عملك ملك خاص لك أم مستأجر؟"
       targets: [is_property_owned]
       edges:
         - condition: "always"
@@ -97,6 +138,9 @@ interview_graph:
 
     Q_OTHER_SCHEME:
       text_template: "क्या आपने इस व्यवसाय के लिए पहले कभी किसी अन्य योजना का लाभ लिया है?"
+      text_template_en: "Have you ever taken benefits from any other government scheme for this business?"
+      text_template_fr: "Avez-vous déjà bénéficié d'un autre programme gouvernemental pour cette entreprise ?"
+      text_template_ar: "هل استفدت سابقاً من أي برنامج حكومي آخر لهذا النشاط التجاري؟"
       targets: [other_scheme]
       edges: []
 
