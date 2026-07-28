@@ -1085,6 +1085,9 @@ class VoiceSession:
                 logger.error(f"Background extraction failed: {response.error}",
                               session_id=self.session_id)
         except Exception as e:
+            logger.error(f"Background extraction error: {e}",
+                          session_id=self.session_id)
+
     async def _synthesize_text(self, text: str):
         """
         Synthesize text via TTS gRPC stream.
