@@ -20,7 +20,7 @@ tts:
     engine: "google"
     sample_rate: 24000
   ar:
-    voice_name: "ar-SA-Wavenet-A"
+    voice_name: "ar-XA-Wavenet-A"
     engine: "google"
     sample_rate: 24000
 
@@ -36,7 +36,7 @@ stt:
     language_code: "fr-FR"
   ar:
     engine: "google"
-    language_code: "ar-SA"
+    language_code: "ar-XA"
 
 # ─── Interview Graph ───
 interview_graph:

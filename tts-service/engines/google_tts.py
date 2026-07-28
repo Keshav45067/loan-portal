@@ -30,7 +30,7 @@ DEFAULT_VOICES = {
     "fr": {"language_code": "fr-FR", "name": "fr-FR-Neural2-A"},
     "ta": {"language_code": "ta-IN", "name": "ta-IN-Wavenet-A"},
     "te": {"language_code": "te-IN", "name": "te-IN-Wavenet-A"},
-    "ar": {"language_code": "ar-SA", "name": "ar-SA-Wavenet-A"},
+    "ar": {"language_code": "ar-XA", "name": "ar-XA-Wavenet-A"},
     "kn": {"language_code": "kn-IN", "name": "kn-IN-Wavenet-A"},
 }
 

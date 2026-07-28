@@ -1095,23 +1095,25 @@ class VoiceSession:
         """
         from generated import tts_pb2
 
-        if self.language == "hi":
-            voice_name = "hi-IN-Neural2-A"
-        elif self.language == "fr":
-            voice_name = "fr-FR-Neural2-A"
-        elif self.language == "ar":
-            voice_name = "ar-SA-Wavenet-A"
-        elif self.language == "te":
-            voice_name = "te-IN-Wavenet-A"
-        else:
-            voice_name = "en-US-Journey-F"
+        DEFAULT_VOICE_MAP = {
+            "hi": "hi-IN-Neural2-A",
+            "fr": "fr-FR-Neural2-A",
+            "ar": "ar-XA-Wavenet-A",
+            "te": "te-IN-Wavenet-A",
+            "ta": "ta-IN-Wavenet-A",
+            "en": "en-US-Journey-F",
+        }
         engine = "google"
         sample_rate = 24000
+        voice_name = None
 
         if self._media_config:
-            voice_name = self._media_config.get("tts_voice_name", voice_name)
+            voice_name = self._media_config.get("tts_voice_name")
             engine = self._media_config.get("tts_engine", engine)
             sample_rate = self._media_config.get("tts_sample_rate", sample_rate)
+
+        if not voice_name:
+            voice_name = DEFAULT_VOICE_MAP.get(self.language, "en-US-Journey-F")
 
         req = tts_pb2.SynthesizeRequest(
             text=text,

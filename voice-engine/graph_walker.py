@@ -119,15 +119,8 @@ class GraphWalker:
         return self._turn_history.copy()
 
     def _get_node_text(self, node: dict) -> str:
-        if self._language == "ar":
-            return node.get("text_template_ar", "") or node.get("text_template_en", "") or node.get("text_template", "")
-        elif self._language == "en":
-            return node.get("text_template_en", "") or node.get("text_template", "")
-        elif self._language == "fr":
-            return node.get("text_template_fr", "") or node.get("text_template_en", "") or node.get("text_template", "")
-        elif self._language == "te":
-            return node.get("text_template_te", "") or node.get("text_template", "")
-        return node.get("text_template", "")
+        lang_key = f"text_template_{self._language}"
+        return node.get(lang_key, "") or node.get("text_template_en", "") or node.get("text_template", "")
 
     # ─── Core Operations ───
 
