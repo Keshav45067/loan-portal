@@ -1741,6 +1741,7 @@ export default function InterviewPage() {
               { code: 'hi', label: 'Hindi', flag: '🇮🇳' },
               { code: 'en', label: 'English', flag: '🇬🇧' },
               { code: 'fr', label: 'French', flag: '🇫🇷' },
+              { code: 'ar', label: 'Arabic', flag: '🇸🇦' },
             ].map((lang) => {
               const isSelected = selectedLanguage === lang.code;
               const isHidden = isStarted && !isSelected;

@@ -126,6 +126,8 @@ export default function CaptureLandingPage() {
             >
               <option value="en">English</option>
               <option value="hi">Hindi (हिंदी)</option>
+              <option value="fr">French (Français)</option>
+              <option value="ar">Arabic (العربية)</option>
             </select>
           </div>
 
