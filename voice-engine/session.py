@@ -1254,7 +1254,35 @@ class VoiceSession:
         """Play document capture success audio message from YAML config."""
         svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
         doc_names = svm.get("doc_names", {})
-        doc_name = doc_names.get(document_type, doc_names.get(document_type.lower(), doc_names.get("default", document_type)))
+
+        dt = document_type.lower().replace("-", "_")
+        doc_name = None
+
+        # Build fallback lookup candidates
+        lookup_candidates = [
+            document_type,
+            dt,
+            dt.replace("doc_", "").replace("_002", "").replace("_001", ""),
+            dt.replace("doc_", ""),
+        ]
+        if "aadhaar" in dt:
+            if "back" in dt:
+                lookup_candidates.insert(0, "aadhaar_back")
+            else:
+                lookup_candidates.insert(0, "aadhaar_front")
+        elif "voter" in dt:
+            if "back" in dt:
+                lookup_candidates.insert(0, "voter_back")
+            else:
+                lookup_candidates.insert(0, "voter_front")
+
+        for candidate in lookup_candidates:
+            if candidate in doc_names and doc_names[candidate]:
+                doc_name = doc_names[candidate]
+                break
+
+        if not doc_name:
+            doc_name = doc_names.get("default", "document")
         
         template = svm.get("success_template") or "Details from your {doc_name} have been extracted."
         text = template.replace("{doc_name}", doc_name)

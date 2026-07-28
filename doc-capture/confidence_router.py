@@ -17,9 +17,9 @@ def route_slot(slot_result: SlotResult, slot_def: dict, bands: dict) -> str:
     criticality = slot_def.get("criticality", "standard")
     
     default_bands = {
-        "critical": { "accept": 0.92, "confirm": 0.75 },
-        "standard": { "accept": 0.85, "confirm": 0.65 },
-        "low":      { "accept": 0.75, "confirm": 0.50 }
+        "critical": { "accept": 0.85, "confirm": 0.50 },
+        "standard": { "accept": 0.80, "confirm": 0.45 },
+        "low":      { "accept": 0.70, "confirm": 0.40 }
     }
     
     selected_bands = bands.get(criticality, default_bands.get(criticality, default_bands["standard"]))
