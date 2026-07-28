@@ -255,6 +255,9 @@ async def run_extraction(
     from generated import llm_pb2
     try:
         logger.info(f"Extraction: sending prompt to LLM (model=gemini-2.5-flash)...")
+        logger.info(f"Extraction: Stitched final prompt sent to LLM:\n{prompt}")
+        print(f"\n=============================\n[FINAL STITCHED LLM PROMPT]\n{prompt}\n=============================\n", flush=True)
+
         llm_res = await llm_stub.Extract(llm_pb2.ExtractRequest(
             prompt=prompt,
             model="gemini-2.5-flash",
