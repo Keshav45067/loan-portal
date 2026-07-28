@@ -105,26 +105,9 @@ def white_balance(img: Image.Image) -> Image.Image:
         return img
 
 def mask_qr_codes(img: Image.Image) -> Image.Image:
-    """Detects QR codes and masks their regions with solid white blocks."""
-    try:
-        from quality_metrics import detect_qr_codes
-        has_qr, coords = detect_qr_codes(img)
-        if has_qr and coords:
-            cv_img = np.array(img.convert('RGB'))
-            cv_img = cv2.cvtColor(cv_img, cv2.COLOR_RGB2BGR)
-            for c in coords:
-                min_x = c["x"]
-                min_y = c["y"]
-                max_x = min_x + c["width"]
-                max_y = min_y + c["height"]
-                # Draw a solid white rectangle to mask the QR code region
-                cv2.rectangle(cv_img, (min_x, min_y), (max_x, max_y), (255, 255, 255), -1)
-            masked_rgb = cv2.cvtColor(cv_img, cv2.COLOR_BGR2RGB)
-            return Image.fromarray(masked_rgb)
-        return img
-    except Exception as e:
-        logger.error(f"Error in mask_qr_codes action: {e}")
-        return img
+    """Detects QR codes and masks their regions with solid white blocks. (DISABLED)"""
+    # QR code masking pre-processing stage disabled
+    return img
 
 def green_channel(img: Image.Image) -> Image.Image:
     """Isolates the green channel of the image to improve text readability on red backgrounds."""
