@@ -1,6 +1,6 @@
 PROTO_DIR = ../proto
 OUT_DIR = ./generated
-PROTO_FILES = agent.proto
+PROTO_FILES = agent.proto doc_capture.proto
 
 .PHONY: setup proto run clean
 

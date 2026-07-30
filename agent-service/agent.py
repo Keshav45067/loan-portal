@@ -448,6 +448,10 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
         logger.info(f"⚙️ [TOOL EXEC] Session: {session.session_id} | Status: {tool_result['status']} | Msg: '{tool_result['message']}'")
         if tool_result.get("signal"):
             logger.info(f"📡 [SIGNAL EMITTED] Session: {session.session_id} | Signal: {tool_result['signal']['type']} -> {json.dumps(tool_result['signal']['payload'])}")
+            if tool_result["signal"].get("type") in ("SWITCH_PAGE", "RESET_PAGE"):
+                payload = tool_result["signal"]["payload"]
+                from tools import sync_doc_capture_page
+                await sync_doc_capture_page(session.session_id, payload.get("doc_id", ""), payload.get("part_id", ""))
 
         internal_log.append({
             "step": "tool_executed",

@@ -14,6 +14,26 @@ from typing import Any, Dict, Optional
 from session import AgentSession, log_session_snapshot
 
 
+async def sync_doc_capture_page(session_id: str, doc_id: str, part_id: str):
+    """Sync active document page directly with doc-capture gRPC service."""
+    try:
+        import grpc
+        from config import DOC_CAPTURE_ADDR
+        from generated import doc_capture_pb2, doc_capture_pb2_grpc
+        channel = grpc.aio.insecure_channel(DOC_CAPTURE_ADDR)
+        stub = doc_capture_pb2_grpc.DocumentCaptureStub(channel)
+        await stub.SwitchPage(
+            doc_capture_pb2.SwitchPageRequest(
+                session_id=session_id,
+                document_id=doc_id,
+                page_id=part_id or ""
+            )
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger("agent-service").warning(f"Failed to sync SwitchPage with doc-capture: {e}")
+
+
 # ─── Field Validation Rules ───
 
 FIELD_VALIDATORS = {

@@ -217,10 +217,25 @@ export default function CaptureFlowPage({ params }) {
     }
   }, [previewUrl, processingDoc, state.pageId]);
 
+  const getCleanDocTitle = (docId, manifestsDict) => {
+    if (manifestsDict && manifestsDict[docId]?.title?.English) {
+      return manifestsDict[docId].title.English;
+    }
+    if (!docId) return "Document";
+    const lower = docId.toLowerCase();
+    if (lower.includes("aadhaar")) return "Aadhaar Card";
+    if (lower.includes("pan")) return "PAN Card";
+    if (lower.includes("gst")) return "GST Registration Certificate";
+    if (lower.includes("udyam")) return "Udyam Registration Certificate";
+    if (lower.includes("bank")) return "Bank Statement";
+    return docId.replace(/^doc_/, '').replace(/_\d+$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
   const fetchCaptureState = useCallback(async () => {
     const savedToken = localStorage.getItem('token') || token;
     if (!savedToken) return;
     try {
+      // 1. Fetch current capture session state
       const res = await fetch(`${API_BASE_URL}/api/capture/start`, {
         method: 'POST',
         headers: {
@@ -243,12 +258,26 @@ export default function CaptureFlowPage({ params }) {
         allComplete: data.all_complete
       });
       setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
+
+      // 2. Load scheme manifests if not loaded yet
+      if (Object.keys(manifests).length === 0) {
+        const schemeRes = await fetch(`${API_BASE_URL}/api/capture/scheme-docs/${schemeId}`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const schemeData = await schemeRes.json();
+        if (schemeData.manifests) {
+          setManifests(schemeData.manifests);
+        }
+        if (schemeData.fields_registry) {
+          setFieldsRegistry(schemeData.fields_registry);
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [schemeId, language, token]);
+  }, [schemeId, language, token, manifests]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
@@ -1314,7 +1343,7 @@ export default function CaptureFlowPage({ params }) {
                 <div className={styles.headerRow}>
                     <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span>📄</span>
-                        <span>{manifests[state.docId]?.title?.English || formatKey(state.docId || 'Document')}</span>
+                        <span>{getCleanDocTitle(state.docId, manifests)}</span>
                         <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 400 }}>(Doc {state.docIndex + 1} of {state.totalDocs})</span>
                     </h2>
                     <span style={{ fontSize: '0.95rem', color: '#93c5fd', fontWeight: 700 }}>{state.pageInfo?.page_name}</span>

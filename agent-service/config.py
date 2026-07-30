@@ -8,6 +8,7 @@ load_dotenv()
 
 AGENT_SERVICE_PORT = int(os.getenv("AGENT_SERVICE_PORT", "8090"))
 AGENT_GRPC_PORT = int(os.getenv("AGENT_GRPC_PORT", "50059"))
+DOC_CAPTURE_ADDR = os.getenv("DOC_CAPTURE_ADDR", "localhost:50058")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
 # Gemini — uses Vertex AI credentials directly (same as llm-service)
