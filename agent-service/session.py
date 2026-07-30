@@ -215,12 +215,41 @@ class AgentSession:
         return True
 
     def mark_completed(self, doc_id: str, part_id: str) -> bool:
-        """Mark a queue item as COMPLETED."""
+        """Mark a queue item as COMPLETED and advance to next pending document."""
         item = self.get_queue_item(doc_id, part_id)
         if item:
             item["status"] = "COMPLETED"
+            self.advance_queue()
             return True
         return False
+
+    def advance_queue(self) -> Optional[dict]:
+        """
+        Advance the queue to the next pending document.
+        Search strategy:
+        1. Search forward from current active item to end of queue.
+        2. If none found, wrap around to beginning of queue (index 0).
+        3. If no pending items exist anywhere -> return None (all complete!).
+        """
+        active_idx = -1
+        for i, item in enumerate(self.document_queue):
+            if item["status"] == "ACTIVE":
+                active_idx = i
+                break
+
+        # Search forward from active_idx + 1
+        for i in range(active_idx + 1, len(self.document_queue)):
+            if self.document_queue[i]["status"] == "PENDING":
+                self.set_active(self.document_queue[i]["doc_id"], self.document_queue[i]["part_id"])
+                return self.document_queue[i]
+
+        # Wrap around: search from index 0 to active_idx
+        for i in range(0, max(0, active_idx)):
+            if self.document_queue[i]["status"] == "PENDING":
+                self.set_active(self.document_queue[i]["doc_id"], self.document_queue[i]["part_id"])
+                return self.document_queue[i]
+
+        return None
 
     def reset_page(self, doc_id: str, part_id: str):
         """Reset a completed page back to PENDING, clear its extracted data, and set it as ACTIVE."""
