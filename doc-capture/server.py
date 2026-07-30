@@ -277,14 +277,13 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             return pb2.CaptureSessionResponse(success=False, error="Session not found")
 
         doc_idx = -1
-        for idx, doc in enumerate(session.required_documents):
-            if doc.get("id") == request.document_id:
+        for idx, doc_id in enumerate(session.required_documents):
+            if doc_id == request.document_id:
                 doc_idx = idx
                 break
         if doc_idx != -1:
             session.current_document_index = doc_idx
-            session.current_document_config = session.required_documents[doc_idx]
-            session.current_page_index = 0
+            session._load_current_document()
             if request.page_id:
                 parts = session.current_document_config.get("parts", [])
                 for p_idx, part in enumerate(parts):
