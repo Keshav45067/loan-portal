@@ -151,7 +151,12 @@ export default function LoginPage() {
         // Force scheme to mudra-grocery
         localStorage.setItem('scheme_id', 'mudra-grocery');
 
-        router.push('/dashboard');
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('capture') === 'true') {
+          router.push('/capture');
+        } else {
+          router.push('/dashboard');
+        }
       } else {
         setError(data.error || 'Invalid OTP. Please try again.');
       }
