@@ -1439,9 +1439,11 @@ class RawAgentSession(VoiceSession):
                     self._agent_stub = agent_pb2_grpc.AgentServiceStub(channel)
 
                 from generated import agent_pb2
+                target_scheme = self.scheme_id if (hasattr(self, "scheme_id") and self.scheme_id and self.scheme_id != "raw_agent") else "sandbox-demo"
+                
                 # Init session
                 await self._agent_stub.InitSession(
-                    agent_pb2.InitSessionRequest(scheme_id="sandbox-demo", session_id=self.session_id)
+                    agent_pb2.InitSessionRequest(scheme_id=target_scheme, session_id=self.session_id)
                 )
                 
                 # Run turn
@@ -1458,8 +1460,11 @@ class RawAgentSession(VoiceSession):
                                     agent_signals.append(sig_obj)
                             except Exception:
                                 pass
+                    logger.info(f"🤖 AGENT SERVICE TURN SUCCESS: {len(res.tool_calls)} tools called, response len={len(agent_response_text)}", session_id=self.session_id)
+                else:
+                    logger.warning(f"Agent-service turn returned error: {res.error}", session_id=self.session_id)
             except Exception as agent_err:
-                logger.warning(f"gRPC Agent-service call fallback: {agent_err}", session_id=self.session_id)
+                logger.warning(f"⚠️ gRPC Agent-service connection failed (falling back to FAQ): {agent_err}", session_id=self.session_id)
 
             # 2. Emit control signals over gRPC output
             for sig in agent_signals:
