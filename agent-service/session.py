@@ -374,9 +374,10 @@ class AgentSession:
 _sessions: Dict[str, AgentSession] = {}
 
 
-def create_session(scheme_id: str) -> AgentSession:
+def create_session(scheme_id: str, session_id: Optional[str] = None) -> AgentSession:
     """Create and initialize a new agent session."""
-    session_id = str(uuid.uuid4())
+    if not session_id:
+        session_id = str(uuid.uuid4())
     session = AgentSession(session_id=session_id, scheme_id=scheme_id)
     session.initialize()
     _sessions[session_id] = session
