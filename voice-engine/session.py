@@ -1432,9 +1432,9 @@ class RawAgentSession(VoiceSession):
 
             # 1. Query agent-service over native gRPC
             try:
+                from generated import agent_pb2, agent_pb2_grpc
                 if not hasattr(self, "_agent_stub") or self._agent_stub is None:
                     import grpc
-                    from generated import agent_pb2, agent_pb2_grpc
                     channel = grpc.aio.insecure_channel("localhost:50059")
                     self._agent_stub = agent_pb2_grpc.AgentServiceStub(channel)
 
