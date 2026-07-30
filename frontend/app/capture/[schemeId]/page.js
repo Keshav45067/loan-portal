@@ -350,6 +350,57 @@ export default function CaptureFlowPage({ params }) {
     setIsStarted(true);
   };
 
+  const onControlSignalRef = useRef(null);
+
+  onControlSignalRef.current = async (sigType, payload) => {
+    console.log('[capture page] Received control_signal:', sigType, payload);
+    if (sigType === 'UPDATE_FIELD' && payload?.field_key) {
+      setExtractedData(prev => ({
+        ...(prev || {}),
+        [payload.field_key]: {
+          value: payload.new_value,
+          manually_overridden: true,
+          override_reason: payload.override_reason || 'Agent override'
+        }
+      }));
+    } else if (sigType === 'SWITCH_PAGE' || sigType === 'RESET_PAGE') {
+      setPreviewUrl(null);
+      setPreviewFile(null);
+      setProcessingDoc(false);
+      setError(null);
+      if (payload?.doc_title) {
+        setStatusText(`Switched to ${payload.doc_title}`);
+      }
+      const savedToken = localStorage.getItem('token') || token;
+      if (!savedToken) return;
+
+      try {
+        const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const infoData = await infoRes.json();
+        if (infoData.success) {
+          setState(prev => ({
+            ...prev,
+            docId: infoData.document_id,
+            pageId: infoData.page_info?.page_id,
+            docIndex: infoData.document_index,
+            totalDocs: infoData.total_documents,
+            pageInfo: infoData.page_info
+          }));
+          if (infoData.page_info?.uploads_count !== undefined) {
+            setLocalUploadsCount(infoData.page_info.uploads_count);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch page-info on control signal:', err);
+      }
+    } else if (sigType === 'SUBMIT_APPLICATION') {
+      stopCamera();
+      router.push('/dashboard');
+    }
+  };
+
   // Start Voice Session
   useEffect(() => {
     if (!loading && !state.allComplete && token && sessionId && isStarted) {
@@ -379,59 +430,8 @@ export default function CaptureFlowPage({ params }) {
                     manager.sendControlSignal('update_page_context');
                 },
                 onControlSignal: (sigType, payload) => {
-                    console.log('[capture page] Received control_signal:', sigType, payload);
-                    if (sigType === 'UPDATE_FIELD' && payload?.field_key) {
-                        setExtractedData(prev => ({
-                            ...(prev || {}),
-                            [payload.field_key]: {
-                                value: payload.new_value,
-                                manually_overridden: true,
-                                override_reason: payload.override_reason || 'Agent override'
-                            }
-                        }));
-                    } else if (sigType === 'SWITCH_PAGE' || sigType === 'RESET_PAGE') {
-                        setPreviewUrl(null);
-                        setPreviewFile(null);
-                        setError(null);
-                        if (payload?.doc_title) {
-                            setStatusText(`Switched to ${payload.doc_title}`);
-                        }
-                        const savedToken = localStorage.getItem('token') || token;
-                        const docTarget = payload?.doc_id || payload?.doc_title || "";
-                        if (docTarget && savedToken) {
-                            fetch(`${API_BASE_URL}/api/capture/switch-page`, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${savedToken}`
-                                },
-                                body: JSON.stringify({ document_id: docTarget, page_id: payload?.part_id || "" })
-                            }).then(r => r.json()).then(data => {
-                                if (data.success) {
-                                    setState(prev => ({
-                                        ...prev,
-                                        docId: data.current_document_id,
-                                        pageId: data.current_page_id,
-                                        docIndex: data.current_document_index,
-                                        totalDocs: data.total_documents,
-                                        pageIndex: data.current_page_index,
-                                        totalPages: data.total_pages,
-                                        pageInfo: data.current_page_info,
-                                        allComplete: data.all_complete
-                                    }));
-                                    if (data.current_page_info?.uploads_count !== undefined) {
-                                        setLocalUploadsCount(data.current_page_info.uploads_count);
-                                    }
-                                } else {
-                                    fetchCaptureState();
-                                }
-                            }).catch(() => fetchCaptureState());
-                        } else {
-                            fetchCaptureState();
-                        }
-                    } else if (sigType === 'SUBMIT_APPLICATION') {
-                        stopCamera();
-                        router.push('/dashboard');
+                    if (onControlSignalRef.current) {
+                        onControlSignalRef.current(sigType, payload);
                     }
                 }
             });
@@ -733,6 +733,8 @@ export default function CaptureFlowPage({ params }) {
           }
           
           setError(data.validation_error_text || data.error || 'Validation failed. Please try again.');
+          setPreviewUrl(null);
+          setPreviewFile(null);
           
           if (data.next_page_id) {
               setState(prev => ({

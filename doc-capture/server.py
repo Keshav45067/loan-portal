@@ -319,12 +319,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not session:
             return pb2.ProcessDocResponse(success=False, error="Session not found")
             
-        # 1. Verification of document/page ids matches session
-        if request.document_id != session.get_current_document_id():
-            return pb2.ProcessDocResponse(success=False, error="Document ID mismatch")
+        # 1. Use session's active document ID (handles live page switches gracefully)
+        doc_id = session.get_current_document_id()
+        if request.document_id and request.document_id != doc_id:
+            logger.warning(f"ProcessDocument: Client sent doc='{request.document_id}' but active session doc is '{doc_id}'. Aligning with active session doc.", req_id=req_id)
             
         doc_config = session.current_document_config
-        doc_id = session.get_current_document_id()
         expected_part_id, page_index = parse_page_id(request.page_id)
         
         # 2. Validate file size and formats based on source configuration in manifest
