@@ -269,6 +269,45 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             all_complete=session.is_all_complete()
         )
 
+    async def SwitchPage(self, request, context):
+        req_id = extract_req_id(context)
+        logger.info(f"SwitchPage: doc={request.document_id} page={request.page_id}", req_id=req_id)
+        session = session_manager.get_session(request.session_id)
+        if not session:
+            return pb2.CaptureSessionResponse(success=False, error="Session not found")
+
+        doc_idx = -1
+        for idx, doc in enumerate(session.required_documents):
+            if doc.get("id") == request.document_id:
+                doc_idx = idx
+                break
+        if doc_idx != -1:
+            session.current_document_index = doc_idx
+            session.current_document_config = session.required_documents[doc_idx]
+            session.current_page_index = 0
+            if request.page_id:
+                parts = session.current_document_config.get("parts", [])
+                for p_idx, part in enumerate(parts):
+                    if part.get("id") == request.page_id:
+                        session.current_page_index = p_idx
+                        break
+
+        page = session.get_current_page()
+        page_info = self._build_page_info(page, session) if page else None
+
+        return pb2.CaptureSessionResponse(
+            success=True,
+            session_id=request.session_id,
+            current_document_id=session.get_current_document_id(),
+            current_page_id=page.get("page_id") if page else "",
+            current_document_index=session.current_document_index,
+            total_documents=len(session.required_documents),
+            current_page_index=session.current_page_index,
+            total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
+            current_page_info=page_info,
+            all_complete=session.is_all_complete()
+        )
+
     async def ProcessDocument(self, request, context):
         req_id = extract_req_id(context)
         logger.info(f"ProcessDocument: doc={request.document_id} page={request.page_id}", req_id=req_id)

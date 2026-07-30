@@ -367,7 +367,34 @@ export default function CaptureFlowPage({ params }) {
                         if (payload?.doc_title) {
                             setStatusText(`Switched to ${payload.doc_title}`);
                         }
-                        fetchCaptureState();
+                        const savedToken = localStorage.getItem('token') || token;
+                        if (payload?.doc_id && savedToken) {
+                            fetch(`${API_BASE_URL}/api/capture/switch-page`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${savedToken}`
+                                },
+                                body: JSON.stringify({ document_id: payload.doc_id, page_id: payload.part_id || "" })
+                            }).then(r => r.json()).then(data => {
+                                if (data.success) {
+                                    setState({
+                                        docId: data.current_document_id,
+                                        pageId: data.current_page_id,
+                                        docIndex: data.current_document_index,
+                                        totalDocs: data.total_documents,
+                                        pageIndex: data.current_page_index,
+                                        totalPages: data.total_pages,
+                                        pageInfo: data.current_page_info,
+                                        allComplete: data.all_complete
+                                    });
+                                } else {
+                                    fetchCaptureState();
+                                }
+                            }).catch(() => fetchCaptureState());
+                        } else {
+                            fetchCaptureState();
+                        }
                     } else if (sigType === 'SUBMIT_APPLICATION') {
                         stopCamera();
                         router.push('/dashboard');
@@ -1285,7 +1312,11 @@ export default function CaptureFlowPage({ params }) {
             {/* Header / Progress over camera */}
             <div style={{ width: '100%', marginBottom: '16px' }}>
                 <div className={styles.headerRow}>
-                    <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff', margin: 0 }}>Document {state.docIndex + 1} of {state.totalDocs}</h2>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📄</span>
+                        <span>{manifests[state.docId]?.title?.English || formatKey(state.docId || 'Document')}</span>
+                        <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 400 }}>(Doc {state.docIndex + 1} of {state.totalDocs})</span>
+                    </h2>
                     <span style={{ fontSize: '0.95rem', color: '#93c5fd', fontWeight: 700 }}>{state.pageInfo?.page_name}</span>
                 </div>
                 <div className={styles.progressBar}>

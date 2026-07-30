@@ -11,6 +11,7 @@ service DocumentCapture {
   rpc StartSession (StartCaptureRequest) returns (CaptureSessionResponse);
   rpc GetPageInfo (PageInfoRequest) returns (PageInfoResponse);
   rpc AdvancePage (AdvancePageRequest) returns (CaptureSessionResponse);
+  rpc SwitchPage (SwitchPageRequest) returns (CaptureSessionResponse);
 
   // ─── Document Processing Pipeline ───
   rpc ProcessDocument (ProcessDocRequest) returns (ProcessDocResponse);
@@ -81,6 +82,12 @@ message PageInfo {
 
 message AdvancePageRequest {
   string session_id = 1;
+}
+
+message SwitchPageRequest {
+  string session_id = 1;
+  string document_id = 2;
+  string page_id = 3;
 }
 
 // ─── Document Processing ───

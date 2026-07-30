@@ -365,6 +365,62 @@ async def advance_capture_page(
         return {"success": False, "error": str(e)}
 
 
+class SwitchCapturePageRequest(BaseModel):
+    document_id: str
+    page_id: str = ""
+
+@router.post("/api/capture/switch-page")
+async def switch_capture_page(
+    body: SwitchCapturePageRequest,
+    request: Request,
+    auth: dict = Depends(require_auth)
+):
+    req_id = request.state.req_id
+    session_id = auth.get("session_id")
+    
+    try:
+        stub = request.app.state.doc_capture_stub
+        res = await stub.SwitchPage(
+            doc_capture_pb2.SwitchPageRequest(
+                session_id=session_id,
+                document_id=body.document_id,
+                page_id=body.page_id
+            ),
+            metadata=[("x-request-id", req_id)]
+        )
+        page_info = None
+        if res.HasField("current_page_info"):
+            pi = res.current_page_info
+            page_info = {
+                "page_id": pi.page_id,
+                "page_name": pi.page_name,
+                "allow_multiple": pi.allow_multiple,
+                "ui_camera_overlay": pi.ui_camera_overlay,
+                "intro_prompt": json.loads(pi.intro_prompt_json) if pi.intro_prompt_json else {},
+                "success_prompt": json.loads(pi.success_prompt_json) if pi.success_prompt_json else {},
+                "acceptable_formats": list(pi.acceptable_formats),
+                "max_file_size_mb": pi.max_file_size_mb,
+                "uploads_count": pi.uploads_count
+            }
+            
+        return {
+            "success": res.success,
+            "error": res.error,
+            "session_id": res.session_id,
+            "current_document_id": res.current_document_id,
+            "current_page_id": res.current_page_id,
+            "current_document_index": res.current_document_index,
+            "total_documents": res.total_documents,
+            "current_page_index": res.current_page_index,
+            "total_pages": res.total_pages,
+            "all_complete": res.all_complete,
+            "current_page_info": page_info,
+        }
+    except Exception as e:
+        logger.error(f"switch_capture_page failed: {e}", req_id=req_id)
+        return {"success": False, "error": str(e)}
+
+
 # --- WebSocket Endpoint for FAQ ---
 
 @router.websocket("/ws/capture-voice")
