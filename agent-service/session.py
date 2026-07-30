@@ -223,10 +223,10 @@ class AgentSession:
         return False
 
     def reset_page(self, doc_id: str, part_id: str):
-        """Reset a completed page back to PENDING and clear its extracted data."""
+        """Reset a completed page back to PENDING, clear its extracted data, and set it as ACTIVE."""
         item = self.get_queue_item(doc_id, part_id)
         if item:
-            item["status"] = "PENDING"
+            self.set_active(doc_id, part_id)
 
         # Clear extracted data that came from this part
         manifest = self.manifests.get(doc_id)
