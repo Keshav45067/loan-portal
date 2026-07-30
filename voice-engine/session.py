@@ -1438,10 +1438,10 @@ class RawAgentSession(VoiceSession):
                     channel = grpc.aio.insecure_channel("localhost:50059")
                     self._agent_stub = agent_pb2_grpc.AgentServiceStub(channel)
 
-                from generated import agent_pb2
+                target_scheme = self.scheme_id if (hasattr(self, 'scheme_id') and self.scheme_id and self.scheme_id != "raw_agent") else "demo_business_kyc"
                 # Init session
                 await self._agent_stub.InitSession(
-                    agent_pb2.InitSessionRequest(scheme_id="sandbox-demo", session_id=self.session_id)
+                    agent_pb2.InitSessionRequest(scheme_id=target_scheme, session_id=self.session_id)
                 )
                 
                 # Run turn

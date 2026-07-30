@@ -146,7 +146,17 @@ class AgentSession:
         """Load manifests and build initial queue from scheme."""
         doc_ids = SCHEME_DOCUMENTS.get(self.scheme_id)
         if not doc_ids:
-            return False
+            scheme_path = os.path.normpath(os.path.join(MANIFESTS_DIR, "..", "schemes", f"{self.scheme_id}.json"))
+            if os.path.exists(scheme_path):
+                try:
+                    with open(scheme_path, "r", encoding="utf-8") as f:
+                        scheme_data = json.load(f)
+                        doc_ids = scheme_data.get("required_documents", [])
+                except Exception:
+                    doc_ids = None
+
+        if not doc_ids:
+            doc_ids = SCHEME_DOCUMENTS.get("sandbox-demo")
 
         # Load mock completed pages ONLY for sandbox-demo
         completed_pages = MOCK_COMPLETED_PAGES if self.scheme_id == "sandbox-demo" else {}

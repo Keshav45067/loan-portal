@@ -130,7 +130,7 @@ if GRPC_AVAILABLE:
     class AgentServiceServicer(agent_pb2_grpc.AgentServiceServicer):
         async def InitSession(self, request, context):
             try:
-                scheme_id = request.scheme_id or "sandbox-demo"
+                scheme_id = request.scheme_id or "demo_business_kyc"
                 sess_id = request.session_id if request.session_id else None
                 session = create_session(scheme_id=scheme_id, session_id=sess_id)
                 if not session.manifests:
@@ -151,7 +151,7 @@ if GRPC_AVAILABLE:
             try:
                 session = get_session(request.session_id)
                 if not session:
-                    session = create_session(scheme_id="sandbox-demo", session_id=request.session_id)
+                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id)
 
                 result = await run_agent_turn(session, request.message)
 
