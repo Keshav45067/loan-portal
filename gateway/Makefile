@@ -1,7 +1,7 @@
 PROTO_DIR = ../proto
 OUT_DIR = ./grpc_clients/generated
 # Gateway needs stubs for ALL services it connects to
-PROTO_FILES = llm.proto stt.proto tts.proto config_registry.proto doc_intelligence.proto voice_engine.proto app_orchestrator.proto common.proto doc_capture.proto ocr.proto
+PROTO_FILES = llm.proto stt.proto tts.proto config_registry.proto doc_intelligence.proto voice_engine.proto app_orchestrator.proto common.proto doc_capture.proto ocr.proto agent.proto
 
 .PHONY: proto run docker clean install venv
 

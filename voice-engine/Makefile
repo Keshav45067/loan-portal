@@ -1,6 +1,6 @@
 PROTO_DIR = ../proto
 OUT_DIR = ./generated
-PROTO_FILES = voice_engine.proto common.proto stt.proto tts.proto llm.proto config_registry.proto app_orchestrator.proto
+PROTO_FILES = voice_engine.proto common.proto stt.proto tts.proto llm.proto config_registry.proto app_orchestrator.proto agent.proto
 
 .PHONY: proto run docker clean install venv
 
