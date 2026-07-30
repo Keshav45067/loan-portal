@@ -397,17 +397,19 @@ export default function CaptureFlowPage({ params }) {
                             setStatusText(`Switched to ${payload.doc_title}`);
                         }
                         const savedToken = localStorage.getItem('token') || token;
-                        if (payload?.doc_id && savedToken) {
+                        const docTarget = payload?.doc_id || payload?.doc_title || "";
+                        if (docTarget && savedToken) {
                             fetch(`${API_BASE_URL}/api/capture/switch-page`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${savedToken}`
                                 },
-                                body: JSON.stringify({ document_id: payload.doc_id, page_id: payload.part_id || "" })
+                                body: JSON.stringify({ document_id: docTarget, page_id: payload?.part_id || "" })
                             }).then(r => r.json()).then(data => {
                                 if (data.success) {
-                                    setState({
+                                    setState(prev => ({
+                                        ...prev,
                                         docId: data.current_document_id,
                                         pageId: data.current_page_id,
                                         docIndex: data.current_document_index,
@@ -416,7 +418,10 @@ export default function CaptureFlowPage({ params }) {
                                         totalPages: data.total_pages,
                                         pageInfo: data.current_page_info,
                                         allComplete: data.all_complete
-                                    });
+                                    }));
+                                    if (data.current_page_info?.uploads_count !== undefined) {
+                                        setLocalUploadsCount(data.current_page_info.uploads_count);
+                                    }
                                 } else {
                                     fetchCaptureState();
                                 }
