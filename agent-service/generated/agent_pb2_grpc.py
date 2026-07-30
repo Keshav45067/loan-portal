@@ -50,6 +50,11 @@ class AgentServiceStub:
                 request_serializer=agent__pb2.GetSessionStateRequest.SerializeToString,
                 response_deserializer=agent__pb2.GetSessionStateResponse.FromString,
                 _registered_method=True)
+        self.SyncExtractedData = channel.unary_unary(
+                '/chayan.agent.AgentService/SyncExtractedData',
+                request_serializer=agent__pb2.SyncExtractedDataRequest.SerializeToString,
+                response_deserializer=agent__pb2.SyncExtractedDataResponse.FromString,
+                _registered_method=True)
 
 
 class AgentServiceServicer:
@@ -77,6 +82,13 @@ class AgentServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SyncExtractedData(self, request, context):
+        """Sync extracted data from doc-capture processing
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_AgentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -94,6 +106,11 @@ def add_AgentServiceServicer_to_server(servicer, server):
                     servicer.GetSessionState,
                     request_deserializer=agent__pb2.GetSessionStateRequest.FromString,
                     response_serializer=agent__pb2.GetSessionStateResponse.SerializeToString,
+            ),
+            'SyncExtractedData': grpc.unary_unary_rpc_method_handler(
+                    servicer.SyncExtractedData,
+                    request_deserializer=agent__pb2.SyncExtractedDataRequest.FromString,
+                    response_serializer=agent__pb2.SyncExtractedDataResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -178,6 +195,33 @@ class AgentService:
             '/chayan.agent.AgentService/GetSessionState',
             agent__pb2.GetSessionStateRequest.SerializeToString,
             agent__pb2.GetSessionStateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SyncExtractedData(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chayan.agent.AgentService/SyncExtractedData',
+            agent__pb2.SyncExtractedDataRequest.SerializeToString,
+            agent__pb2.SyncExtractedDataResponse.FromString,
             options,
             channel_credentials,
             insecure,

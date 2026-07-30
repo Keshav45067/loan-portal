@@ -11,7 +11,7 @@ Signals are UI control commands that the frontend interprets.
 
 import re
 from typing import Any, Dict, Optional
-from session import AgentSession
+from session import AgentSession, log_session_snapshot
 
 
 # ─── Field Validation Rules ───
@@ -159,6 +159,8 @@ def execute_switch_document_page(
         part_id,
     )
 
+    log_session_snapshot(session, f"Page Switch: {doc_title} — {part_name}")
+
     return {
         "status": "success",
         "message": f"Switched to {doc_title} — {part_name}",
@@ -244,6 +246,8 @@ def execute_update_extracted_field(
     session.extracted_data[resolved_key]["override_reason"] = reason or "User correction"
     session.extracted_data[resolved_key]["confidence"] = 1.0  # Manual = 100% confidence
 
+    log_session_snapshot(session, f"Extracted Field Updated ({resolved_key} = '{new_value}')")
+
     return {
         "status": "success",
         "message": f"Updated {resolved_key}: '{old_value}' → '{new_value}' (flagged as manual override)",
@@ -295,6 +299,8 @@ def execute_reset_document_page(
 
     # Reset
     session.reset_page(resolved_doc_id, resolved_part)
+
+    log_session_snapshot(session, f"Page Reset ({doc_title} — {part_name})")
 
     return {
         "status": "success",

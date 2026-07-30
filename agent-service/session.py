@@ -392,7 +392,45 @@ def create_session(scheme_id: str, session_id: Optional[str] = None) -> AgentSes
     session = AgentSession(session_id=session_id, scheme_id=scheme_id)
     session.initialize()
     _sessions[session_id] = session
+    log_session_snapshot(session, f"Session Created / Initialized ({scheme_id})")
     return session
+
+
+def log_session_snapshot(session: AgentSession, event_title: str):
+    """Log a complete, formatted snapshot of the session state to journalctl."""
+    import logging
+    logger = logging.getLogger("agent-service")
+
+    queue_lines = []
+    for item in session.document_queue:
+        queue_lines.append(
+            f"    [{item['status']}] {item['doc_title']} — {item['part_name']} (doc_id: {item['doc_id']}, part_id: {item['part_id']})"
+        )
+    queue_str = "\n".join(queue_lines) if queue_lines else "    (empty queue)"
+
+    if session.extracted_data:
+        ext_lines = []
+        for k, v in session.extracted_data.items():
+            if isinstance(v, dict):
+                val = v.get('value')
+                conf = v.get('confidence', 1.0)
+                override = " ⚠️ [MANUALLY EDITED]" if v.get('manually_overridden') else ""
+                ext_lines.append(f"    • {k}: {json.dumps(val)} (conf: {conf:.0%}){override}")
+            else:
+                ext_lines.append(f"    • {k}: {json.dumps(v)}")
+        ext_str = "\n".join(ext_lines)
+    else:
+        ext_str = "    (no extracted data yet)"
+
+    logger.info(
+        f"\n======================================================\n"
+        f"📋 [SESSION STATE SNAPSHOT] {event_title}\n"
+        f"Session ID: {session.session_id} | Scheme: {session.scheme_id} | Turn: #{session.turn_count}\n"
+        f"Active Doc: {session._get_active_summary() or 'None'}\n"
+        f"Document Queue:\n{queue_str}\n"
+        f"Extracted Data:\n{ext_str}\n"
+        f"======================================================"
+    )
 
 
 def get_session(session_id: str) -> Optional[AgentSession]:

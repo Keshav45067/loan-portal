@@ -14,6 +14,9 @@ service AgentService {
 
   // Query current session state
   rpc GetSessionState (GetSessionStateRequest) returns (GetSessionStateResponse);
+
+  // Sync extracted data from doc-capture processing
+  rpc SyncExtractedData (SyncExtractedDataRequest) returns (SyncExtractedDataResponse);
 }
 
 // ─── Messages ───
@@ -58,6 +61,20 @@ message GetSessionStateRequest {
 }
 
 message GetSessionStateResponse {
+  bool success = 1;
+  string json_session_state = 2;
+  string error = 3;
+}
+
+message SyncExtractedDataRequest {
+  string session_id = 1;
+  string doc_id = 2;
+  string part_id = 3;
+  string json_extracted_fields = 4; // JSON object: {field_id: {value, confidence}}
+  bool page_complete = 5;
+}
+
+message SyncExtractedDataResponse {
   bool success = 1;
   string json_session_state = 2;
   string error = 3;

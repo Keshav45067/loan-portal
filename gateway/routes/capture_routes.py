@@ -275,6 +275,24 @@ async def process_document(
             metadata=[("x-request-id", req_id)]
         )
         
+        if res.success:
+            try:
+                import grpc
+                from grpc_clients.generated import agent_pb2, agent_pb2_grpc
+                agent_channel = grpc.aio.insecure_channel("localhost:50059")
+                agent_stub = agent_pb2_grpc.AgentServiceStub(agent_channel)
+                await agent_stub.SyncExtractedData(
+                    agent_pb2.SyncExtractedDataRequest(
+                        session_id=session_id,
+                        doc_id=document_id,
+                        part_id=res.part_id or page_id,
+                        json_extracted_fields=res.extracted_fields_json,
+                        page_complete=res.page_complete
+                    )
+                )
+            except Exception as agent_sync_err:
+                logger.warning(f"Failed to sync extracted data with agent-service: {agent_sync_err}", req_id=req_id)
+
         # NOTE: GCS uploading is done in the doc-capture service via orchestrator
         return {
             "success": res.success,

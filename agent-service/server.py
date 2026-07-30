@@ -190,6 +190,33 @@ if GRPC_AVAILABLE:
                 logger.error(f"gRPC GetSessionState error: {e}")
                 return agent_pb2.GetSessionStateResponse(success=False, error=str(e))
 
+        async def SyncExtractedData(self, request, context):
+            try:
+                session = get_session(request.session_id)
+                if not session:
+                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id)
+
+                if request.json_extracted_fields:
+                    try:
+                        fields = json.loads(request.json_extracted_fields)
+                        session.extracted_data.update(fields)
+                    except Exception as parse_err:
+                        logger.error(f"Failed to parse json_extracted_fields: {parse_err}")
+
+                if request.page_complete and request.doc_id and request.part_id:
+                    session.mark_completed(request.doc_id, request.part_id)
+
+                from session import log_session_snapshot
+                log_session_snapshot(session, f"Document Uploaded & Processed ({request.doc_id} — {request.part_id})")
+
+                return agent_pb2.SyncExtractedDataResponse(
+                    success=True,
+                    json_session_state=json.dumps(session.to_dict())
+                )
+            except Exception as e:
+                logger.error(f"gRPC SyncExtractedData error: {e}")
+                return agent_pb2.SyncExtractedDataResponse(success=False, error=str(e))
+
 
 async def serve_grpc():
     if not GRPC_AVAILABLE:
