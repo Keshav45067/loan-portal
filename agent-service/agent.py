@@ -40,16 +40,19 @@ def get_client() -> genai.Client:
     if USE_VERTEX:
         project_id = ""
         if GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
-            with open(GOOGLE_APPLICATION_CREDENTIALS, "r") as f:
-                creds = json.load(f)
-            project_id = creds.get("project_id") or creds.get("quota_project_id") or ""
+            try:
+                with open(GOOGLE_APPLICATION_CREDENTIALS, "r") as f:
+                    creds = json.load(f)
+                project_id = creds.get("project_id") or creds.get("quota_project_id") or ""
+            except Exception as e:
+                pass
             os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = GOOGLE_APPLICATION_CREDENTIALS
 
-        _client = genai.Client(
-            vertexai=True,
-            project=project_id,
-            location=VERTEX_LOCATION,
-        )
+        kwargs = {"vertexai": True, "location": VERTEX_LOCATION}
+        if project_id:
+            kwargs["project"] = project_id
+
+        _client = genai.Client(**kwargs)
     else:
         _client = genai.Client(api_key=GEMINI_API_KEY)
 
