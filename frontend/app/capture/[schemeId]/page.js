@@ -217,54 +217,56 @@ export default function CaptureFlowPage({ params }) {
     }
   }, [previewUrl, processingDoc, state.pageId]);
 
+  const fetchCaptureState = useCallback(async () => {
+    const savedToken = localStorage.getItem('token') || token;
+    if (!savedToken) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/capture/start`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${savedToken}`
+        },
+        body: JSON.stringify({ scheme_id: schemeId, language: language })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      setState({
+        docId: data.current_document_id,
+        pageId: data.current_page_id,
+        docIndex: data.current_document_index,
+        totalDocs: data.total_documents,
+        pageIndex: data.current_page_index,
+        totalPages: data.total_pages,
+        pageInfo: data.current_page_info,
+        allComplete: data.all_complete
+      });
+      setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [schemeId, language, token]);
+
   useEffect(() => {
-    const init = async () => {
-      const savedToken = localStorage.getItem('token');
-      const savedSessionId = localStorage.getItem('session_id');
-      if (!savedToken || !savedSessionId) {
-        router.push('/');
-        return;
-      }
-      setToken(savedToken);
-      setSessionId(savedSessionId);
-      
-      // Fetch initial state
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/capture/start`, {
-            method: 'POST',
-            headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${savedToken}`
-            },
-            body: JSON.stringify({ scheme_id: schemeId, language: language })
-        });
-        const data = await res.json();
-        if (!data.success) throw new Error(data.error);
-        
-        setState({
-            docId: data.current_document_id,
-            pageId: data.current_page_id,
-            docIndex: data.current_document_index,
-            totalDocs: data.total_documents,
-            pageIndex: data.current_page_index,
-            totalPages: data.total_pages,
-            pageInfo: data.current_page_info,
-            allComplete: data.all_complete
-        });
-        setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
+    const savedToken = localStorage.getItem('token');
+    const savedSessionId = localStorage.getItem('session_id');
+    if (!savedToken || !savedSessionId) {
+      router.push('/');
+      return;
+    }
+    setToken(savedToken);
+    setSessionId(savedSessionId);
+
+    fetchCaptureState();
 
     return () => {
       stopCamera();
       if (voiceSessionRef.current) voiceSessionRef.current.disconnect();
     };
-  }, [schemeId, language, router]);
+  }, [schemeId, language, router, fetchCaptureState]);
 
   useEffect(() => {
     // Preload large WASM/ONNX VAD scripts early
@@ -329,7 +331,8 @@ export default function CaptureFlowPage({ params }) {
             // Ensure VAD is loaded (will return true instantly if already preloaded)
             const isLoaded = await loadVADScripts();
             if (!isLoaded) {
-                setError('Failed to load voice components. Please check your connection and reload.');
+                console.error("VAD scripts failed to load!");
+                setError("Voice engine audio analyzer failed to load.");
                 return;
             }
 
@@ -357,6 +360,14 @@ export default function CaptureFlowPage({ params }) {
                                 override_reason: payload.override_reason || 'Agent override'
                             }
                         }));
+                    } else if (sigType === 'SWITCH_PAGE' || sigType === 'RESET_PAGE') {
+                        setPreviewUrl(null);
+                        setPreviewFile(null);
+                        setError(null);
+                        if (payload?.doc_title) {
+                            setStatusText(`Switched to ${payload.doc_title}`);
+                        }
+                        fetchCaptureState();
                     } else if (sigType === 'SUBMIT_APPLICATION') {
                         stopCamera();
                         router.push('/dashboard');
@@ -371,7 +382,7 @@ export default function CaptureFlowPage({ params }) {
         };
         startVoice();
     }
-  }, [loading, state.allComplete, token, sessionId, language, isStarted]);
+  }, [loading, state.allComplete, token, sessionId, language, isStarted, fetchCaptureState]);
 
   // Camera Management
   const stopCamera = useCallback(() => {

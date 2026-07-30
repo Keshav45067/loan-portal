@@ -148,7 +148,8 @@ class AgentSession:
         if not doc_ids:
             return False
 
-        completed_pages = MOCK_COMPLETED_PAGES
+        # Load mock completed pages ONLY for sandbox-demo
+        completed_pages = MOCK_COMPLETED_PAGES if self.scheme_id == "sandbox-demo" else {}
 
         for doc_id in doc_ids:
             manifest = load_manifest(doc_id)
@@ -172,8 +173,8 @@ class AgentSession:
                     "part_name": part_name,
                 })
 
-            # Load mock extracted data if available
-            if doc_id in MOCK_EXTRACTED_DATA:
+            # Load mock extracted data ONLY for sandbox-demo
+            if self.scheme_id == "sandbox-demo" and doc_id in MOCK_EXTRACTED_DATA:
                 self.extracted_data.update(copy.deepcopy(MOCK_EXTRACTED_DATA[doc_id]))
 
         # Set first PENDING item as ACTIVE
