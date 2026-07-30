@@ -161,6 +161,7 @@ export class VoiceSessionManager {
     this.onSystemMessage = options.onSystemMessage || (() => {});
     this.onError = options.onError || (() => {});
     this.onConnected = options.onConnected || (() => {});
+    this.onControlSignal = options.onControlSignal || (() => {});
 
     // Audio Refs
     this.ws = null;
@@ -377,6 +378,10 @@ export class VoiceSessionManager {
                 }
               }
               this.onNodeChange(data.node_type, data.document_id);
+            } else if (data.type === 'control_signal') {
+              if (this.onControlSignal) {
+                this.onControlSignal(data.signal, data.payload);
+              }
             } else if (data.type === 'extraction') {
               try {
                 const fields = JSON.parse(data.json_fields);

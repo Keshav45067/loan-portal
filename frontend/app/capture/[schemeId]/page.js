@@ -345,6 +345,22 @@ export default function CaptureFlowPage({ params }) {
                     const text = state.pageInfo?.intro_prompt?.[language] || "Please capture your document.";
                     manager.sendControlSignal(`capture_speak:${text}`);
                     manager.sendControlSignal('update_page_context');
+                },
+                onControlSignal: (sigType, payload) => {
+                    console.log('[capture page] Received control_signal:', sigType, payload);
+                    if (sigType === 'UPDATE_FIELD' && payload?.field_key) {
+                        setExtractedData(prev => ({
+                            ...(prev || {}),
+                            [payload.field_key]: {
+                                value: payload.new_value,
+                                manually_overridden: true,
+                                override_reason: payload.override_reason || 'Agent override'
+                            }
+                        }));
+                    } else if (sigType === 'SUBMIT_APPLICATION') {
+                        stopCamera();
+                        router.push('/dashboard');
+                    }
                 }
             });
             voiceSessionRef.current = manager;
@@ -941,332 +957,158 @@ export default function CaptureFlowPage({ params }) {
   const renderCompletedTable = () => {
     if (fetchingData) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#f8fafc', color: '#0f172a' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
-          <p style={{ color: '#64748b' }}>Retrieving final extraction results...</p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, background: 'rgba(3, 4, 8, 0.9)', backdropFilter: 'blur(20px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+          <div style={{ width: '44px', height: '44px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
+          <p style={{ color: '#94a3b8', fontSize: '1rem' }}>Retrieving final extraction results...</p>
         </div>
       );
     }
 
     const activeDocTypes = Object.keys(manifests);
 
-    // ─────────────────────────────────────────────────────────────────
-    // DEMO BUSINESS KYC — custom supplier registration questionnaire
-    // ─────────────────────────────────────────────────────────────────
-    if (schemeId === 'demo_business_kyc') {
-      const aadhaarName   = getValueWithFallback('doc_aadhaar_name', extractedData) || '';
-      const splitNames    = aadhaarName.trim().split(/\s+/);
-      const firstName     = splitNames[0] || '';
-      const lastName      = splitNames.slice(1).join(' ') || '';
-      const companyName   = getValueWithFallback('doc_gst_trade_name', extractedData)
-                         || getValueWithFallback('doc_gst_legal_name', extractedData) || '';
-      const panNumber     = getValueWithFallback('doc_pan_number', extractedData) || '';
-      const addressObj    = getValueWithFallback('doc_aadhaar_address', extractedData) || {};
-
-      // Build additional-details tables (exclude names + aadhaar address)
-      const personalExcludes = ['doc_aadhaar_name', 'doc_pan_name', 'doc_aadhaar_address'];
-      const companyExcludes  = ['doc_udyam_enterprise_name', 'doc_gst_legal_name', 'doc_gst_trade_name'];
-      const personalFields   = [];
-      const companyFields    = [];
-
-      activeDocTypes.forEach((docType) => {
-        const manifest = manifests[docType];
-        if (!manifest) return;
-        (manifest.expects || []).forEach((slotId) => {
-          const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
-          const item = {
-            slotId,
-            pageName: getPageNameForSlot(slotId, manifest),
-            label: fieldDef?.label?.English || formatKey(slotId),
-            value: getValueWithFallback(slotId, extractedData),
-            fieldDef
-          };
-          if (['doc_aadhaar_002', 'doc_pan_001'].includes(docType)) {
-            if (!personalExcludes.includes(slotId)) personalFields.push(item);
-          } else if (['doc_udyam_001', 'doc_gst_001'].includes(docType)) {
-            if (!companyExcludes.includes(slotId)) companyFields.push(item);
-          }
-        });
-      });
-
-      // ── Shared style tokens (light theme) ──────────────────────────
-      const page     = { minHeight: '100vh', background: '#f1f5f9', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'system-ui, -apple-system, sans-serif' };
-      const card     = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' };
-      const secTitle = { fontSize: '1.05rem', fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginTop: '28px', marginBottom: '20px' };
-      const lbl      = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: '6px', letterSpacing: '0.02em' };
-      const row      = { display: 'flex', flexDirection: 'column', marginBottom: '18px' };
-      const inp      = { width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' };
-      const inpRO    = { ...inp, background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed', borderStyle: 'dashed' };
-
-      const YesNoBox = ({ label, stateKey }) => {
-        const checked = demoCheckboxes[stateKey];
-        return (
-          <div style={row}>
-            <label style={lbl}>{label}</label>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: checked ? '#2563eb' : '#64748b', padding: '8px 16px', border: `1px solid ${checked ? '#3b82f6' : '#cbd5e1'}`, borderRadius: '8px', background: checked ? '#eff6ff' : '#f8fafc', transition: 'all 0.15s' }}>
-                <input type="radio" name={stateKey} value="yes" checked={checked === true} onChange={() => setDemoCheckboxes(prev => ({ ...prev, [stateKey]: true }))} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }} />
-                Yes
-              </label>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: !checked ? '#ef4444' : '#64748b', padding: '8px 16px', border: `1px solid ${!checked ? '#fca5a5' : '#cbd5e1'}`, borderRadius: '8px', background: !checked ? '#fff5f5' : '#f8fafc', transition: 'all 0.15s' }}>
-                <input type="radio" name={stateKey} value="no" checked={checked === false} onChange={() => setDemoCheckboxes(prev => ({ ...prev, [stateKey]: false }))} style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#ef4444' }} />
-                No
-              </label>
-            </div>
-          </div>
-        );
-      };
-
-      const TextBox = ({ label, stateKey, placeholder = '' }) => (
-        <div style={row}>
-          <label style={lbl}>{label}</label>
-          <input type="text" value={demoTextInputs[stateKey]} onChange={(e) => setDemoTextInputs(prev => ({ ...prev, [stateKey]: e.target.value }))} placeholder={placeholder} style={inp} onFocus={(e) => e.target.style.borderColor = '#3b82f6'} onBlur={(e) => e.target.style.borderColor = '#cbd5e1'} />
-        </div>
-      );
-
-      const ReadField = ({ label, value }) => (
-        <div style={row}>
-          <label style={lbl}>{label}</label>
-          <input type="text" value={value || '—'} readOnly style={inpRO} />
-        </div>
-      );
-
-      const AdditionalTable = ({ icon, title, fields }) => (
-        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#e2e8f0', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>{icon}</span><span>{title}</span>
-          </h3>
-          {fields.length === 0
-            ? <p style={{ color: '#64748b', fontSize: '0.9rem', textAlign: 'center', padding: '16px' }}>No additional fields extracted.</p>
-            : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', textAlign: 'left' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #334155' }}>
-                      <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '35%' }}>Field</th>
-                      <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '65%' }}>Extracted Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fields.map((f, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid #1e293b' }}>
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ fontWeight: 600, color: '#94a3b8' }}>{f.label}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#475569', marginTop: '2px' }}>{f.pageName}</div>
-                        </td>
-                        <td style={{ padding: '12px 16px', color: '#ffffff', fontWeight: 500 }}>
-                          {formatExtractedValue(f.value, f.fieldDef)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
-          }
-        </div>
-      );
-
-      return (
-        <div style={page}>
-          <style>{`
-            @keyframes spin { to { transform: rotate(360deg); } }
-            input[type="text"]:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
-          `}</style>
-          <div style={{ width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-
-            {/* ── Success header ── */}
-            <div style={{ textAlign: 'center', marginTop: '12px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '52px', height: '52px', borderRadius: '50%', background: '#dcfce7', border: '1px solid #86efac', color: '#16a34a', fontSize: '1.4rem', marginBottom: '14px' }}>✓</div>
-              <h1 style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#0f172a', margin: '0 0 6px' }}>Scanning Completed Successfully</h1>
-              <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>All document pages have been captured, analyzed, and verified by our extraction engine.</p>
-            </div>
-
-            {/* ── Main questionnaire card ── */}
-            <div style={card}>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Supplier Registration Questionnaire</h2>
-              <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 28px' }}>Please complete the following details for the supplier onboarding request.</p>
-
-              {/* Section 1 – Initial */}
-              <YesNoBox label="Need for backend registration" stateKey="needRegistration" />
-              <TextBox  label="Business Justification for New Supplier" stateKey="businessJustification" />
-              <YesNoBox label="Is this an Existing Supplier registering again due to name change?" stateKey="existingSupplier" />
-              <ReadField label="Your Full Name" value={aadhaarName} />
-              <TextBox  label="Your TPL Email address" stateKey="tplEmail" />
-
-              {/* Section 2 – General Supplier Information */}
-              <h3 style={secTitle}>General Supplier Information</h3>
-              <p style={{ fontSize: '0.82rem', color: '#ef4444', fontStyle: 'italic', marginTop: '-12px', marginBottom: '20px', background: '#fff5f5', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px' }}>
-                Note: The details filled in this form and approved by TPL will auto flow to next step of registration process and will become non editable
-              </p>
-
-              <YesNoBox  label="Is this supplier company registered within India" stateKey="registeredIndia" />
-              <ReadField label="Company Name (Trade Name as per GST)" value={companyName} />
-              <ReadField label="PAN number" value={panNumber} />
-              <YesNoBox  label="Is this supplier GST Registered" stateKey="gstRegistered" />
-
-              {/* Supplier Main Address */}
-              <div style={row}>
-                <label style={{ ...lbl, fontSize: '0.88rem', color: '#334155', marginBottom: '12px' }}>Supplier Main Address</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderLeft: '3px solid #bfdbfe', paddingLeft: '18px' }}>
-                  <ReadField label="Care of"      value={addressObj.care_of}      />
-                  <ReadField label="Street"        value={addressObj.street}       />
-                  <ReadField label="City / Village" value={addressObj.city_village} />
-                  <ReadField label="District"      value={addressObj.district}     />
-                  <ReadField label="State"         value={addressObj.state}        />
-                  <ReadField label="PIN Code"      value={addressObj.pincode}      />
-                </div>
-              </div>
-
-              {/* Section 3 – Primary Supplier Contact */}
-              <h3 style={secTitle}>Primary Supplier Contact</h3>
-              <ReadField label="Contact first name" value={firstName} />
-              <ReadField label="Contact last name"  value={lastName}  />
-              <TextBox   label="Contact email"      stateKey="contactEmail"  />
-              <TextBox   label="Mobile phone"       stateKey="mobilePhone"   />
-              <TextBox   label="Contact phone"      stateKey="contactPhone"  />
-
-              {/* Section 4 – Additional Information */}
-              <h3 style={secTitle}>Additional Information</h3>
-              <TextBox label="Please nominate the categories of goods and/or services the supplier organisation provides" stateKey="categories" />
-              <TextBox label="Please nominate the locations the supplier organisation can provide goods and/or services" stateKey="locations" />
-              <TextBox label="Vendor type"             stateKey="vendorType"  />
-              <TextBox label="Is supplier eligible for CE" stateKey="eligibleCE" />
-            </div>
-
-            {/* ── Additional Personal Details ── */}
-            <AdditionalTable icon="👤" title="Additional Personal Details" fields={personalFields} />
-
-            {/* ── Additional Company Details ── */}
-            <AdditionalTable icon="🏢" title="Additional Company Details"  fields={companyFields}  />
-
-            {/* ── Action button ── */}
-            <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '20px' }}>
-              <button onClick={() => router.push('/dashboard')} style={{ background: '#1e293b', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 36px', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', transition: 'transform 0.1s, background 0.15s' }} onMouseOver={(e) => e.currentTarget.style.background = '#0f172a'} onMouseOut={(e) => e.currentTarget.style.background = '#1e293b'}>
-                Go to Dashboard
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div style={{
-        minHeight: '100vh',
-        background: 'radial-gradient(circle at center, #0b0d16 0%, #030408 100%)',
-        color: '#fff',
-        padding: '40px 20px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        fontFamily: 'sans-serif'
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
+        background: 'rgba(3, 4, 8, 0.88)', backdropFilter: 'blur(20px)',
+        color: '#fff', padding: '30px 20px', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', overflowY: 'auto'
       }}>
-        <div style={{ width: '100%', maxWidth: '800px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
+        <div style={{ width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Header */}
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)', color: '#22c55e', fontSize: '1.5rem', marginBottom: '16px' }}>✓</div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 8px' }}>Scanning Completed Successfully</h1>
-            <p style={{ color: '#94a3b8', fontSize: '0.95rem', margin: 0 }}>All document pages have been captured, analyzed, and verified by our extraction engine.</p>
+          <div style={{ textAlign: 'center', marginTop: '10px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(34, 197, 94, 0.15)', border: '1px solid rgba(34, 197, 94, 0.4)', color: '#4ade80', fontSize: '1.6rem', marginBottom: '14px' }}>✓</div>
+            <h1 style={{ fontSize: '1.65rem', fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 6px' }}>All Documents Captured Successfully</h1>
+            <p style={{ color: '#94a3b8', fontSize: '0.92rem', margin: 0 }}>Review or edit extracted details below. The AI voice assistant remains active to answer questions or make updates.</p>
           </div>
 
           {/* Grouped Document Results */}
-          {activeDocTypes.length === 0 ? (
-            <div style={{
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)',
-              borderRadius: '16px',
-              padding: '24px',
-              textAlign: 'center'
-            }}>
-              <p style={{ color: '#64748b', fontSize: '0.9rem', padding: '20px' }}>No metadata extracted from the uploaded files.</p>
-            </div>
-          ) : (
-            activeDocTypes.map((docType) => {
-              const manifest = manifests[docType];
-              if (!manifest) return null;
+          {activeDocTypes.map((docType) => {
+            const manifest = manifests[docType];
+            if (!manifest) return null;
 
-              const expects = manifest.expects || [];
-              const docFields = [];
+            const expects = manifest.expects || [];
+            const docFields = [];
 
-              expects.forEach((slotId) => {
-                const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
-                const label = fieldDef?.label?.English || formatKey(slotId);
-                const val = getValueWithFallback(slotId, extractedData);
-                const pageName = getPageNameForSlot(slotId, manifest);
+            expects.forEach((slotId) => {
+              const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
+              const label = fieldDef?.label?.English || formatKey(slotId);
+              const valObj = extractedData ? extractedData[slotId] : null;
+              const rawVal = valObj && typeof valObj === 'object' && valObj.value !== undefined ? valObj.value : getValueWithFallback(slotId, extractedData);
+              const isOverridden = valObj?.manually_overridden || false;
+              const pageName = getPageNameForSlot(slotId, manifest);
 
-                docFields.push({
-                  slotId,
-                  pageName,
-                  label,
-                  value: val,
-                  fieldDef
-                });
+              docFields.push({
+                slotId,
+                pageName,
+                label,
+                value: rawVal,
+                isOverridden,
+                fieldDef
               });
+            });
 
-              if (docFields.length === 0) return null;
+            if (docFields.length === 0) return null;
 
-              return (
-                <div key={docType} style={{
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  borderRadius: '16px',
-                  padding: '24px',
-                  boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-                  backdropFilter: 'blur(20px)'
-                }}>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#a7b4fc', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>📄</span>
-                    <span>{manifest.title?.English || formatKey(docType)}</span>
-                  </h3>
-                  
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', textAlign: 'left' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                          <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '30%' }}>Field Name</th>
-                          <th style={{ padding: '12px 16px', color: '#94a3b8', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '70%' }}>Extracted Value</th>
+            return (
+              <div key={docType} style={{
+                background: 'rgba(30, 41, 59, 0.7)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '16px',
+                padding: '24px',
+                boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                backdropFilter: 'blur(20px)'
+              }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#60a5fa', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>📄</span>
+                  <span>{manifest.title?.English || formatKey(docType)}</span>
+                </h3>
+                
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        <th style={{ padding: '10px 14px', color: '#94a3b8', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', width: '35%' }}>Field Name</th>
+                        <th style={{ padding: '10px 14px', color: '#94a3b8', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', width: '65%' }}>Extracted Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {docFields.map((field, fIdx) => (
+                        <tr key={fIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                          <td style={{ padding: '12px 14px', color: '#cbd5e1' }}>
+                            <div style={{ fontWeight: 600, color: '#fff', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{field.label}</span>
+                              {field.isOverridden && (
+                                <span style={{ background: 'rgba(251, 191, 36, 0.18)', color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.3)', fontSize: '0.62rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
+                                  EDITED
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{field.pageName}</div>
+                          </td>
+                          <td style={{ padding: '12px 14px' }}>
+                            {typeof field.value === 'object' && field.value !== null ? (
+                              formatExtractedValue(field.value, field.fieldDef)
+                            ) : (
+                              <input
+                                type="text"
+                                value={field.value !== null && field.value !== undefined ? String(field.value) : ''}
+                                onChange={(e) => {
+                                  const newVal = e.target.value;
+                                  setExtractedData(prev => ({
+                                    ...(prev || {}),
+                                    [field.slotId]: {
+                                      value: newVal,
+                                      manually_overridden: true,
+                                      override_reason: 'User manual edit'
+                                    }
+                                  }));
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px 12px',
+                                  background: field.isOverridden ? 'rgba(251, 191, 36, 0.08)' : '#0f172a',
+                                  border: `1px solid ${field.isOverridden ? 'rgba(251, 191, 36, 0.4)' : '#334155'}`,
+                                  borderRadius: '8px',
+                                  color: field.isOverridden ? '#fbbf24' : '#fff',
+                                  fontSize: '0.88rem',
+                                  outline: 'none'
+                                }}
+                              />
+                            )}
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {docFields.map((field, fIdx) => (
-                          <tr key={fIdx} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}>
-                            <td style={{ padding: '14px 16px', color: '#cbd5e1' }}>
-                              <div style={{ fontWeight: 600, color: '#fff' }}>{field.label}</div>
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>{field.pageName}</div>
-                            </td>
-                            <td style={{ padding: '14px 16px', color: '#fff', fontWeight: 500 }}>
-                              {formatExtractedValue(field.value, field.fieldDef)}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
 
           {/* Action Button */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', paddingBottom: '30px' }}>
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => {
+                stopCamera();
+                if (voiceSessionRef.current) voiceSessionRef.current.disconnect();
+                router.push('/dashboard');
+              }}
               style={{
-                background: '#fff',
-                color: '#000',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: '#fff',
                 border: 'none',
-                borderRadius: '8px',
-                padding: '12px 32px',
-                fontSize: '0.95rem',
-                fontWeight: 600,
+                borderRadius: '10px',
+                padding: '14px 40px',
+                fontSize: '1rem',
+                fontWeight: 700,
                 cursor: 'pointer',
-                transition: 'transform 0.1s'
+                boxShadow: '0 4px 20px rgba(34, 197, 94, 0.3)',
+                transition: 'transform 0.15s'
               }}
               onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
               onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
-              Go to Dashboard
+              ✓ Submit Application
             </button>
           </div>
         </div>
@@ -1275,7 +1117,6 @@ export default function CaptureFlowPage({ params }) {
   };
 
   if (loading) return <div className={styles.container} style={{ justifyContent: 'center', height: '100vh' }}>Loading capture engine...</div>;
-  if (state.allComplete) return renderCompletedTable();
 
   return (
     <div className={styles.container}>
@@ -1497,9 +1338,64 @@ export default function CaptureFlowPage({ params }) {
             )}
           </div>
 
+          {/* Text Message Input Bar for AI Voice Assistant */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '16px',
+            padding: '8px 12px',
+            maxWidth: '600px',
+            width: '100%',
+            marginBottom: '10px'
+          }} className={styles.interactive}>
+            <input
+              type="text"
+              placeholder="Type a message to AI Assistant..."
+              value={textInputValue}
+              onChange={(e) => setTextInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendText();
+              }}
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                background: '#1e293b',
+                border: '1px solid #334155',
+                borderRadius: '10px',
+                color: '#fff',
+                fontSize: '0.88rem',
+                outline: 'none'
+              }}
+            />
+            <button
+              onClick={handleSendText}
+              disabled={!textInputValue.trim()}
+              style={{
+                padding: '10px 20px',
+                background: textInputValue.trim() ? '#3b82f6' : '#334155',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: textInputValue.trim() ? 'pointer' : 'not-allowed',
+                transition: 'background 0.15s'
+              }}
+            >
+              Send
+            </button>
+          </div>
+
         </div>
       </div>
       
+      {/* ─── Completion Pop-Up Modal Overlay (preserves WS voice session) ─── */}
+      {state.allComplete && renderCompletedTable()}
+
       {/* Hidden canvas for image capture */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
     </div>

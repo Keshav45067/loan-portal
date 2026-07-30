@@ -1426,63 +1426,116 @@ class RawAgentSession(VoiceSession):
         set_req_id(self.req_id)
         t_turn_start = time.perf_counter()
 
-        user_prompt = f"Context:\n{self.context_prompt}\n\nUser's message:\n{transcribed_text}"
-
         try:
-            # Stream from LLM via gRPC GenerateStream with thinking budget disabled
-            stream = self._llm_stub.GenerateStream(
-                llm_pb2.GenerateRequest(
-                    prompt=user_prompt,
-                    model="gemini-2.5-flash",
-                    temperature=0.3,
-                    system_instruction=self.system_prompt,
-                    disable_thinking=True,
-                    thinking_budget=0,
-                ),
-                metadata=[("x-request-id", self.req_id)]
-            )
+            agent_response_text = ""
+            agent_signals = []
 
-            yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
+            # 1. Attempt agent-service call for function tool calls & signals
+            try:
+                import httpx
+                async with httpx.AsyncClient(timeout=15.0) as http_client:
+                    # Init agent session if needed
+                    await http_client.post(
+                        "http://localhost:8090/init",
+                        json={"scheme_id": "sandbox-demo"}
+                    )
+                    chat_res = await http_client.post(
+                        "http://localhost:8090/chat",
+                        json={"session_id": self.session_id, "message": transcribed_text}
+                    )
+                    if chat_res.status_code == 200:
+                        data = chat_res.json()
+                        agent_response_text = data.get("agent_response", "")
+                        for tc in data.get("tool_calls", []):
+                            if tc.get("signal"):
+                                agent_signals.append(tc["signal"])
+            except Exception as agent_err:
+                logger.warning(f"Agent-service call fallback: {agent_err}", session_id=self.session_id)
 
-            current_sentence = ""
-            async for text_chunk_msg in stream:
-                text_chunk = text_chunk_msg.text
-                if not text_chunk:
-                    continue
-                current_sentence += text_chunk
+            # 2. Emit control signals over gRPC output
+            for sig in agent_signals:
+                yield pb2.VoiceOutput(
+                    extraction=pb2.ExtractionData(
+                        node_id="agent",
+                        json_fields=json.dumps({
+                            "type": "control_signal",
+                            "signal": sig.get("type"),
+                            "payload": sig.get("payload", {})
+                        })
+                    )
+                )
 
-                # Split sentences using voice-engine's helper
-                sentences, remainder = split_sentences(current_sentence)
-                current_sentence = remainder
+            # 3. Stream spoken response
+            if agent_response_text:
+                yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
+                sentences, remainder = split_sentences(agent_response_text)
+                if remainder.strip():
+                    sentences.append(remainder.strip())
 
                 for sentence in sentences:
                     clean = sentence.replace("|", "").strip()
                     if clean:
-                        # Send transcription to client
                         yield pb2.VoiceOutput(
                             transcription=pb2.TranscriptionUpdate(
                                 text=clean, is_final=False
                             )
                         )
-                        # Synthesize speech audio chunks
                         async for audio_chunk in self._synthesize_text(clean):
                             yield pb2.VoiceOutput(
                                 audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
                             )
+            else:
+                # Fallback to direct LLM stream if agent-service returned no text
+                user_prompt = f"Context:\n{self.context_prompt}\n\nUser's message:\n{transcribed_text}"
+                stream = self._llm_stub.GenerateStream(
+                    llm_pb2.GenerateRequest(
+                        prompt=user_prompt,
+                        model="gemini-2.5-flash",
+                        temperature=0.3,
+                        system_instruction=self.system_prompt,
+                        disable_thinking=True,
+                        thinking_budget=0,
+                    ),
+                    metadata=[("x-request-id", self.req_id)]
+                )
 
-            # Process remainder sentence in the text buffer
-            if current_sentence.strip():
-                clean = current_sentence.replace("|", "").strip()
-                if clean:
-                    yield pb2.VoiceOutput(
-                        transcription=pb2.TranscriptionUpdate(
-                            text=clean, is_final=False
-                        )
-                    )
-                    async for audio_chunk in self._synthesize_text(clean):
+                yield pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking"))
+
+                current_sentence = ""
+                async for text_chunk_msg in stream:
+                    text_chunk = text_chunk_msg.text
+                    if not text_chunk:
+                        continue
+                    current_sentence += text_chunk
+
+                    sentences, remainder = split_sentences(current_sentence)
+                    current_sentence = remainder
+
+                    for sentence in sentences:
+                        clean = sentence.replace("|", "").strip()
+                        if clean:
+                            yield pb2.VoiceOutput(
+                                transcription=pb2.TranscriptionUpdate(
+                                    text=clean, is_final=False
+                                )
+                            )
+                            async for audio_chunk in self._synthesize_text(clean):
+                                yield pb2.VoiceOutput(
+                                    audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+                                )
+
+                if current_sentence.strip():
+                    clean = current_sentence.replace("|", "").strip()
+                    if clean:
                         yield pb2.VoiceOutput(
-                            audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+                            transcription=pb2.TranscriptionUpdate(
+                                text=clean, is_final=False
+                            )
                         )
+                        async for audio_chunk in self._synthesize_text(clean):
+                            yield pb2.VoiceOutput(
+                                audio=pb2.AudioData(wav_data=audio_chunk, sample_rate=24000)
+                            )
 
             # Signal end of playback
             yield pb2.VoiceOutput(audio_end=True)

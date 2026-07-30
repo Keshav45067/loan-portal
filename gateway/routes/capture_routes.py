@@ -488,6 +488,31 @@ async def capture_voice_websocket(websocket: WebSocket):
                         await websocket.send_bytes(response.audio.wav_data)
                     elif output_type == "audio_end":
                         await websocket.send_json({"type": "audio_end"})
+                    elif output_type == "extraction":
+                        try:
+                            payload_obj = json.loads(response.extraction.json_fields)
+                            if isinstance(payload_obj, dict) and payload_obj.get("type") == "control_signal":
+                                await websocket.send_json({
+                                    "type": "control_signal",
+                                    "signal": payload_obj.get("signal"),
+                                    "payload": payload_obj.get("payload", {})
+                                })
+                            else:
+                                await websocket.send_json({
+                                    "type": "extraction",
+                                    "json_fields": response.extraction.json_fields
+                                })
+                        except Exception:
+                            await websocket.send_json({
+                                "type": "extraction",
+                                "json_fields": response.extraction.json_fields
+                            })
+                    elif output_type == "node_change":
+                        await websocket.send_json({
+                            "type": "node_change",
+                            "node_type": response.node_change.node_type,
+                            "document_id": response.node_change.document_id
+                        })
                     elif output_type == "error":
                         await websocket.send_json({
                             "type": "error",
