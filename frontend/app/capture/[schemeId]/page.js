@@ -134,6 +134,24 @@ export default function CaptureFlowPage({ params }) {
   const [torchOn, setTorchOn] = useState(false);
   const [torchSupported, setTorchSupported] = useState(false);
 
+  const [demoCheckboxes, setDemoCheckboxes] = useState({
+    needRegistration: false,
+    existingSupplier: false,
+    registeredIndia: false,
+    gstRegistered: false,
+  });
+  const [demoTextInputs, setDemoTextInputs] = useState({
+    businessJustification: '',
+    tplEmail: '',
+    contactEmail: '',
+    mobilePhone: '',
+    contactPhone: '',
+    categories: '',
+    locations: '',
+    vendorType: '',
+    eligibleCE: ''
+  });
+
   const toggleTorch = useCallback(async () => {
     if (!streamRef.current || !torchSupported) return;
     try {
@@ -923,9 +941,206 @@ export default function CaptureFlowPage({ params }) {
   const renderCompletedTable = () => {
     if (fetchingData) {
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: 'radial-gradient(circle at center, #0f111a 0%, #050508 100%)', color: '#fff' }}>
-          <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#4a78ff', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
-          <p style={{ color: '#94a3b8' }}>Retrieving final extraction results...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh', background: '#f8fafc', color: '#0f172a' }}>
+          <div style={{ width: '40px', height: '40px', border: '3px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '20px' }}></div>
+          <p style={{ color: '#64748b' }}>Retrieving final extraction results...</p>
+        </div>
+      );
+    }
+
+    const activeDocTypes = Object.keys(manifests);
+
+    // ─────────────────────────────────────────────────────────────────
+    // DEMO BUSINESS KYC — custom supplier registration questionnaire
+    // ─────────────────────────────────────────────────────────────────
+    if (schemeId === 'demo_business_kyc') {
+      const aadhaarName   = getValueWithFallback('doc_aadhaar_name', extractedData) || '';
+      const splitNames    = aadhaarName.trim().split(/\s+/);
+      const firstName     = splitNames[0] || '';
+      const lastName      = splitNames.slice(1).join(' ') || '';
+      const companyName   = getValueWithFallback('doc_gst_trade_name', extractedData)
+                         || getValueWithFallback('doc_gst_legal_name', extractedData) || '';
+      const panNumber     = getValueWithFallback('doc_pan_number', extractedData) || '';
+      const addressObj    = getValueWithFallback('doc_aadhaar_address', extractedData) || {};
+
+      // Build additional-details tables (exclude names + aadhaar address)
+      const personalExcludes = ['doc_aadhaar_name', 'doc_pan_name', 'doc_aadhaar_address'];
+      const companyExcludes  = ['doc_udyam_enterprise_name', 'doc_gst_legal_name', 'doc_gst_trade_name'];
+      const personalFields   = [];
+      const companyFields    = [];
+
+      activeDocTypes.forEach((docType) => {
+        const manifest = manifests[docType];
+        if (!manifest) return;
+        (manifest.expects || []).forEach((slotId) => {
+          const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
+          const item = {
+            slotId,
+            pageName: getPageNameForSlot(slotId, manifest),
+            label: fieldDef?.label?.English || formatKey(slotId),
+            value: getValueWithFallback(slotId, extractedData),
+            fieldDef
+          };
+          if (['doc_aadhaar_002', 'doc_pan_001'].includes(docType)) {
+            if (!personalExcludes.includes(slotId)) personalFields.push(item);
+          } else if (['doc_udyam_001', 'doc_gst_001'].includes(docType)) {
+            if (!companyExcludes.includes(slotId)) companyFields.push(item);
+          }
+        });
+      });
+
+      // ── Shared style tokens (light theme) ──────────────────────────
+      const page     = { minHeight: '100vh', background: '#f1f5f9', padding: '40px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'system-ui, -apple-system, sans-serif' };
+      const card     = { background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' };
+      const secTitle = { fontSize: '1.05rem', fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', marginTop: '28px', marginBottom: '20px' };
+      const lbl      = { display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: '6px', letterSpacing: '0.02em' };
+      const row      = { display: 'flex', flexDirection: 'column', marginBottom: '18px' };
+      const inp      = { width: '100%', padding: '10px 14px', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', color: '#0f172a', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' };
+      const inpRO    = { ...inp, background: '#f1f5f9', color: '#64748b', cursor: 'not-allowed', borderStyle: 'dashed' };
+
+      const YesNoBox = ({ label, stateKey }) => {
+        const checked = demoCheckboxes[stateKey];
+        return (
+          <div style={row}>
+            <label style={lbl}>{label}</label>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem', color: '#0f172a', width: 'fit-content', padding: '8px 14px', border: `1px solid ${checked ? '#3b82f6' : '#cbd5e1'}`, borderRadius: '8px', background: checked ? '#eff6ff' : '#f8fafc', transition: 'all 0.15s' }}>
+              <input type="checkbox" checked={checked} onChange={(e) => setDemoCheckboxes(prev => ({ ...prev, [stateKey]: e.target.checked }))} style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#3b82f6' }} />
+              <span style={{ fontWeight: 600, color: checked ? '#2563eb' : '#64748b' }}>{checked ? 'Yes' : 'No'}</span>
+            </label>
+          </div>
+        );
+      };
+
+      const TextBox = ({ label, stateKey, placeholder = '' }) => (
+        <div style={row}>
+          <label style={lbl}>{label}</label>
+          <input type="text" value={demoTextInputs[stateKey]} onChange={(e) => setDemoTextInputs(prev => ({ ...prev, [stateKey]: e.target.value }))} placeholder={placeholder} style={inp} onFocus={(e) => e.target.style.borderColor = '#3b82f6'} onBlur={(e) => e.target.style.borderColor = '#cbd5e1'} />
+        </div>
+      );
+
+      const ReadField = ({ label, value }) => (
+        <div style={row}>
+          <label style={lbl}>{label}</label>
+          <input type="text" value={value || '—'} readOnly style={inpRO} />
+        </div>
+      );
+
+      const AdditionalTable = ({ icon, title, fields }) => (
+        <div style={card}>
+          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e293b', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>{icon}</span><span>{title}</span>
+          </h3>
+          {fields.length === 0
+            ? <p style={{ color: '#94a3b8', fontSize: '0.9rem', textAlign: 'center', padding: '16px' }}>No additional fields extracted.</p>
+            : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '35%' }}>Field</th>
+                      <th style={{ padding: '10px 16px', color: '#64748b', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '65%' }}>Extracted Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fields.map((f, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '12px 16px' }}>
+                          <div style={{ fontWeight: 600, color: '#1e293b' }}>{f.label}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>{f.pageName}</div>
+                        </td>
+                        <td style={{ padding: '12px 16px', color: '#334155', fontWeight: 500 }}>
+                          {formatExtractedValue(f.value, f.fieldDef)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+        </div>
+      );
+
+      return (
+        <div style={page}>
+          <style>{`
+            @keyframes spin { to { transform: rotate(360deg); } }
+            input[type="text"]:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+          `}</style>
+          <div style={{ width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+            {/* ── Success header ── */}
+            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '52px', height: '52px', borderRadius: '50%', background: '#dcfce7', border: '1px solid #86efac', color: '#16a34a', fontSize: '1.4rem', marginBottom: '14px' }}>✓</div>
+              <h1 style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '-0.02em', color: '#0f172a', margin: '0 0 6px' }}>Scanning Completed Successfully</h1>
+              <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>All document pages have been captured, analyzed, and verified by our extraction engine.</p>
+            </div>
+
+            {/* ── Main questionnaire card ── */}
+            <div style={card}>
+              <h2 style={{ fontSize: '1.3rem', fontWeight 700, color: '#0f172a', margin: '0 0 4px' }}>Supplier Registration Questionnaire</h2>
+              <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 28px' }}>Please complete the following details for the supplier onboarding request.</p>
+
+              {/* Section 1 – Initial */}
+              <YesNoBox label="Need for backend registration" stateKey="needRegistration" />
+              <TextBox  label="Business Justification for New Supplier" stateKey="businessJustification" />
+              <YesNoBox label="Is this an Existing Supplier registering again due to name change?" stateKey="existingSupplier" />
+              <ReadField label="Your Full Name" value={aadhaarName} />
+              <TextBox  label="Your TPL Email address" stateKey="tplEmail" />
+
+              {/* Section 2 – General Supplier Information */}
+              <h3 style={secTitle}>General Supplier Information</h3>
+              <p style={{ fontSize: '0.82rem', color: '#ef4444', fontStyle: 'italic', marginTop: '-12px', marginBottom: '20px', background: '#fff5f5', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px' }}>
+                Note: The details filled in this form and approved by TPL will auto flow to next step of registration process and will become non editable
+              </p>
+
+              <YesNoBox  label="Is this supplier company registered within India" stateKey="registeredIndia" />
+              <ReadField label="Company Name (Trade Name as per GST)" value={companyName} />
+              <ReadField label="PAN number" value={panNumber} />
+              <YesNoBox  label="Is this supplier GST Registered" stateKey="gstRegistered" />
+
+              {/* Supplier Main Address */}
+              <div style={row}>
+                <label style={{ ...lbl, fontSize: '0.88rem', color: '#334155', marginBottom: '12px' }}>Supplier Main Address</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', borderLeft: '3px solid #bfdbfe', paddingLeft: '18px' }}>
+                  <ReadField label="Care of"      value={addressObj.care_of}      />
+                  <ReadField label="Street"        value={addressObj.street}       />
+                  <ReadField label="City / Village" value={addressObj.city_village} />
+                  <ReadField label="District"      value={addressObj.district}     />
+                  <ReadField label="State"         value={addressObj.state}        />
+                  <ReadField label="PIN Code"      value={addressObj.pincode}      />
+                </div>
+              </div>
+
+              {/* Section 3 – Primary Supplier Contact */}
+              <h3 style={secTitle}>Primary Supplier Contact</h3>
+              <ReadField label="Contact first name" value={firstName} />
+              <ReadField label="Contact last name"  value={lastName}  />
+              <TextBox   label="Contact email"      stateKey="contactEmail"  />
+              <TextBox   label="Mobile phone"       stateKey="mobilePhone"   />
+              <TextBox   label="Contact phone"      stateKey="contactPhone"  />
+
+              {/* Section 4 – Additional Information */}
+              <h3 style={secTitle}>Additional Information</h3>
+              <TextBox label="Please nominate the categories of goods and/or services the supplier organisation provides" stateKey="categories" />
+              <TextBox label="Please nominate the locations the supplier organisation can provide goods and/or services" stateKey="locations" />
+              <TextBox label="Vendor type"             stateKey="vendorType"  />
+              <TextBox label="Is supplier eligible for CE" stateKey="eligibleCE" />
+            </div>
+
+            {/* ── Additional Personal Details ── */}
+            <AdditionalTable icon="👤" title="Additional Personal Details" fields={personalFields} />
+
+            {/* ── Additional Company Details ── */}
+            <AdditionalTable icon="🏢" title="Additional Company Details"  fields={companyFields}  />
+
+            {/* ── Action button ── */}
+            <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '20px' }}>
+              <button onClick={() => router.push('/dashboard')} style={{ background: '#1e293b', color: '#fff', border: 'none', borderRadius: '8px', padding: '12px 36px', fontSize: '0.95rem', fontWeight: 600, cursor: 'pointer', transition: 'transform 0.1s, background 0.15s' }} onMouseOver={(e) => e.currentTarget.style.background = '#0f172a'} onMouseOut={(e) => e.currentTarget.style.background = '#1e293b'}>
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
