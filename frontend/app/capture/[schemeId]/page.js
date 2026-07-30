@@ -1078,7 +1078,7 @@ export default function CaptureFlowPage({ params }) {
 
             {/* ── Main questionnaire card ── */}
             <div style={card}>
-              <h2 style={{ fontSize: '1.3rem', fontWeight 700, color: '#0f172a', margin: '0 0 4px' }}>Supplier Registration Questionnaire</h2>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: '#0f172a', margin: '0 0 4px' }}>Supplier Registration Questionnaire</h2>
               <p style={{ color: '#64748b', fontSize: '0.85rem', margin: '0 0 28px' }}>Please complete the following details for the supplier onboarding request.</p>
 
               {/* Section 1 – Initial */}
@@ -1144,8 +1144,6 @@ export default function CaptureFlowPage({ params }) {
         </div>
       );
     }
-
-    const activeDocTypes = Object.keys(manifests);
 
     return (
       <div style={{
