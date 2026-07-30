@@ -12,6 +12,7 @@ Handles:
 import json
 import os
 import time
+import logging
 import traceback
 from typing import List, Dict, Any, Optional
 
@@ -24,6 +25,8 @@ from config import (
     USE_VERTEX, GOOGLE_APPLICATION_CREDENTIALS, VERTEX_LOCATION,
     GEMINI_API_KEY, DEFAULT_MODEL,
 )
+
+logger = logging.getLogger("agent-service")
 
 
 # ─── Gemini Client Singleton ───
@@ -336,6 +339,8 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
     internal_log = []
     tool_calls_results = []
 
+    logger.info(f"🗣️ [TURN START] Session: {session.session_id} | Turn #{session.turn_count} | User: '{user_message}'")
+
     # 1. Add user message to history
     session.conversation_history.append({"role": "user", "text": user_message})
 
@@ -369,6 +374,7 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
             config=config,
         )
     except Exception as e:
+        logger.error(f"❌ [GEMINI ERROR] Session: {session.session_id} | Error: {e}")
         internal_log.append({
             "step": "gemini_error",
             "error": str(e),
@@ -396,6 +402,7 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
     if not candidate or not candidate.content or not candidate.content.parts:
         error_text = "I didn't get a valid response. Could you rephrase that?"
         session.conversation_history.append({"role": "model", "text": error_text})
+        logger.warning(f"⚠️ [EMPTY RESPONSE] Session: {session.session_id}")
         return {
             "agent_response": error_text,
             "tool_calls": [],
@@ -418,6 +425,8 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
         tool_name = fc.name
         tool_args = dict(fc.args) if fc.args else {}
 
+        logger.info(f"🔧 [TOOL CALL] Session: {session.session_id} | Function: {tool_name}({json.dumps(tool_args)})")
+
         internal_log.append({
             "step": "function_call_received",
             "tool_name": tool_name,
@@ -435,6 +444,10 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
         t2 = time.time()
         tool_result = execute_tool(session, tool_name, tool_args)
         tool_latency = round((time.time() - t2) * 1000)
+
+        logger.info(f"⚙️ [TOOL EXEC] Session: {session.session_id} | Status: {tool_result['status']} | Msg: '{tool_result['message']}'")
+        if tool_result.get("signal"):
+            logger.info(f"📡 [SIGNAL EMITTED] Session: {session.session_id} | Signal: {tool_result['signal']['type']} -> {json.dumps(tool_result['signal']['payload'])}")
 
         internal_log.append({
             "step": "tool_executed",
@@ -466,6 +479,8 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
             })
             agent_text = tool_result["message"]
             session.conversation_history.append({"role": "model", "text": agent_text})
+
+            logger.info(f"🤖 [AGENT RESPONSE (CONFIRMATION NEEDED)] Session: {session.session_id} | Text: '{agent_text}'")
 
             return {
                 "agent_response": agent_text,
@@ -526,6 +541,7 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
 
         except Exception as e:
             agent_text = tool_result["message"]
+            logger.error(f"❌ [GEMINI FINAL TEXT ERROR] Session: {session.session_id} | Error: {e}")
             internal_log.append({
                 "step": "gemini_final_response_error",
                 "error": str(e),
