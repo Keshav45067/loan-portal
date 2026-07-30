@@ -11,30 +11,36 @@ def _ipv4_only_getaddrinfo(*args, **kwargs):
 socket.getaddrinfo = _ipv4_only_getaddrinfo
 
 """
-Agent Service — FastAPI server for the document capture agent.
-
-Endpoints:
-  POST /init     — Create a new agent session with mock data
-  POST /chat     — Send a message and get agent response with tool calls
-  GET  /session   — Get current session state
-  GET  /health   — Health check
+Agent Service — Dual gRPC (port 50059) and FastAPI HTTP (port 8090) server.
 """
 
+import json
 import asyncio
+import logging
+import grpc
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
 
-from config import AGENT_SERVICE_PORT
+from config import AGENT_SERVICE_PORT, AGENT_GRPC_PORT
 from session import create_session, get_session
 from agent import run_agent_turn
+
+# Import generated gRPC stubs
+try:
+    from generated import agent_pb2, agent_pb2_grpc
+    GRPC_AVAILABLE = True
+except ImportError:
+    GRPC_AVAILABLE = False
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("agent-service")
 
 # ─── FastAPI App ───
 
 app = FastAPI(
     title="Augmen Agent Service",
-    description="Agentic Document Capture Co-Pilot — Gemini Function Calling",
+    description="Agentic Document Capture Co-Pilot — gRPC & FastAPI Server",
     version="0.1.0",
 )
 
@@ -61,7 +67,13 @@ class ChatRequest(BaseModel):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "agent-service", "version": "0.1.0"}
+    return {
+        "status": "healthy",
+        "service": "agent-service",
+        "version": "0.1.0",
+        "grpc_port": AGENT_GRPC_PORT,
+        "http_port": AGENT_SERVICE_PORT
+    }
 
 
 @app.post("/init")
@@ -86,7 +98,7 @@ async def chat(body: ChatRequest):
     """Send a message to the agent and get a response."""
     session = get_session(body.session_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        session = create_session(scheme_id="sandbox-demo", session_id=body.session_id)
 
     if not body.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
@@ -112,14 +124,97 @@ async def get_session_state(session_id: str):
     }
 
 
-# ─── Entry Point ───
+# ─── gRPC Servicer Implementation ───
+
+if GRPC_AVAILABLE:
+    class AgentServiceServicer(agent_pb2_grpc.AgentServiceServicer):
+        async def InitSession(self, request, context):
+            try:
+                scheme_id = request.scheme_id or "sandbox-demo"
+                sess_id = request.session_id if request.session_id else None
+                session = create_session(scheme_id=scheme_id, session_id=sess_id)
+                if not session.manifests:
+                    return agent_pb2.InitSessionResponse(
+                        success=False,
+                        error=f"Failed to initialize scheme '{scheme_id}'"
+                    )
+                return agent_pb2.InitSessionResponse(
+                    success=True,
+                    session_id=session.session_id,
+                    json_session_state=json.dumps(session.to_dict())
+                )
+            except Exception as e:
+                logger.error(f"gRPC InitSession error: {e}")
+                return agent_pb2.InitSessionResponse(success=False, error=str(e))
+
+        async def RunTurn(self, request, context):
+            try:
+                session = get_session(request.session_id)
+                if not session:
+                    session = create_session(scheme_id="sandbox-demo", session_id=request.session_id)
+
+                result = await run_agent_turn(session, request.message)
+
+                tool_calls_pb = []
+                for tc in result.get("tool_calls", []):
+                    tool_calls_pb.append(agent_pb2.ToolCallInfo(
+                        tool_name=tc.get("tool_name", ""),
+                        json_arguments=json.dumps(tc.get("arguments", {})),
+                        status=tc.get("validation", {}).get("status", ""),
+                        message=tc.get("validation", {}).get("message", ""),
+                        json_signal=json.dumps(tc.get("signal") or {})
+                    ))
+
+                return agent_pb2.RunTurnResponse(
+                    success=True,
+                    agent_response=result.get("agent_response", ""),
+                    tool_calls=tool_calls_pb,
+                    json_session_state=json.dumps(result.get("session_state", {})),
+                    json_pending_confirmation=json.dumps(result.get("pending_confirmation") or {}),
+                    json_internal_log=json.dumps(result.get("internal_log", []))
+                )
+            except Exception as e:
+                logger.error(f"gRPC RunTurn error: {e}")
+                return agent_pb2.RunTurnResponse(success=False, error=str(e))
+
+        async def GetSessionState(self, request, context):
+            try:
+                session = get_session(request.session_id)
+                if not session:
+                    return agent_pb2.GetSessionStateResponse(success=False, error="Session not found")
+                return agent_pb2.GetSessionStateResponse(
+                    success=True,
+                    json_session_state=json.dumps(session.to_dict())
+                )
+            except Exception as e:
+                logger.error(f"gRPC GetSessionState error: {e}")
+                return agent_pb2.GetSessionStateResponse(success=False, error=str(e))
+
+
+async def serve_grpc():
+    if not GRPC_AVAILABLE:
+        logger.warning("gRPC stubs not generated. Skipping gRPC server.")
+        return
+
+    server = grpc.aio.server()
+    agent_pb2_grpc.add_AgentServiceServicer_to_server(AgentServiceServicer(), server)
+    listen_addr = f"0.0.0.0:{AGENT_GRPC_PORT}"
+    server.add_insecure_port(listen_addr)
+    logger.info(f"🚀 Agent gRPC Service listening on {listen_addr}")
+    await server.start()
+    await server.wait_for_termination()
+
+
+async def main():
+    import uvicorn
+    # Run gRPC server in background task alongside FastAPI
+    grpc_task = asyncio.create_task(serve_grpc())
+    
+    config = uvicorn.Config("server:app", host="0.0.0.0", port=AGENT_SERVICE_PORT, log_level="info")
+    server = uvicorn.Server(config)
+    await server.serve()
+    await grpc_task
+
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "server:app",
-        host="0.0.0.0",
-        port=AGENT_SERVICE_PORT,
-        reload=True,
-        log_level="info",
-    )
+    asyncio.run(main())

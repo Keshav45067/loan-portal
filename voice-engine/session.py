@@ -1430,27 +1430,36 @@ class RawAgentSession(VoiceSession):
             agent_response_text = ""
             agent_signals = []
 
-            # 1. Attempt agent-service call for function tool calls & signals
+            # 1. Query agent-service over native gRPC
             try:
-                import httpx
-                async with httpx.AsyncClient(timeout=15.0) as http_client:
-                    # Init agent session if needed
-                    await http_client.post(
-                        "http://localhost:8090/init",
-                        json={"scheme_id": "sandbox-demo"}
-                    )
-                    chat_res = await http_client.post(
-                        "http://localhost:8090/chat",
-                        json={"session_id": self.session_id, "message": transcribed_text}
-                    )
-                    if chat_res.status_code == 200:
-                        data = chat_res.json()
-                        agent_response_text = data.get("agent_response", "")
-                        for tc in data.get("tool_calls", []):
-                            if tc.get("signal"):
-                                agent_signals.append(tc["signal"])
+                if not hasattr(self, "_agent_stub") or self._agent_stub is None:
+                    import grpc
+                    from generated import agent_pb2, agent_pb2_grpc
+                    channel = grpc.aio.insecure_channel("localhost:50059")
+                    self._agent_stub = agent_pb2_grpc.AgentServiceStub(channel)
+
+                from generated import agent_pb2
+                # Init session
+                await self._agent_stub.InitSession(
+                    agent_pb2.InitSessionRequest(scheme_id="sandbox-demo", session_id=self.session_id)
+                )
+                
+                # Run turn
+                res = await self._agent_stub.RunTurn(
+                    agent_pb2.RunTurnRequest(session_id=self.session_id, message=transcribed_text)
+                )
+                if res.success:
+                    agent_response_text = res.agent_response
+                    for tc in res.tool_calls:
+                        if tc.json_signal and tc.json_signal != "{}":
+                            try:
+                                sig_obj = json.loads(tc.json_signal)
+                                if sig_obj:
+                                    agent_signals.append(sig_obj)
+                            except Exception:
+                                pass
             except Exception as agent_err:
-                logger.warning(f"Agent-service call fallback: {agent_err}", session_id=self.session_id)
+                logger.warning(f"gRPC Agent-service call fallback: {agent_err}", session_id=self.session_id)
 
             # 2. Emit control signals over gRPC output
             for sig in agent_signals:

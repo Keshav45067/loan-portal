@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package chayan.agent;
+
+option go_package = "github.com/ChayanAI/services/proto/agent";
+
+// Agent Service — Agentic Co-Pilot for Document Capture & Loan Processing.
+service AgentService {
+  // Initialize a new agent session with document manifests & mock state
+  rpc InitSession (InitSessionRequest) returns (InitSessionResponse);
+
+  // Execute one agent turn (user input -> Gemini function calling -> signals + audio text)
+  rpc RunTurn (RunTurnRequest) returns (RunTurnResponse);
+
+  // Query current session state
+  rpc GetSessionState (GetSessionStateRequest) returns (GetSessionStateResponse);
+}
+
+// ─── Messages ───
+
+message InitSessionRequest {
+  string scheme_id = 1;           // e.g. "sandbox-demo", "mudra-grocery"
+  string session_id = 2;          // Optional custom session ID
+}
+
+message InitSessionResponse {
+  bool success = 1;
+  string session_id = 2;
+  string json_session_state = 3;  // Serialized session state dict
+  string error = 4;
+}
+
+message RunTurnRequest {
+  string session_id = 1;
+  string message = 2;             // User speech transcription or text message
+}
+
+message ToolCallInfo {
+  string tool_name = 1;           // e.g. "switch_document_page", "update_extracted_field"
+  string json_arguments = 2;      // Tool call arguments as JSON string
+  string status = 3;              // "success", "needs_confirmation", "error", etc.
+  string message = 4;             // Human-readable tool result message
+  string json_signal = 5;         // UI control signal payload JSON
+}
+
+message RunTurnResponse {
+  bool success = 1;
+  string agent_response = 2;      // Spoken/text response for user
+  repeated ToolCallInfo tool_calls = 3;
+  string json_session_state = 4;
+  string json_pending_confirmation = 5;
+  string json_internal_log = 6;   // Debug log of turn steps
+  string error = 7;
+}
+
+message GetSessionStateRequest {
+  string session_id = 1;
+}
+
+message GetSessionStateResponse {
+  bool success = 1;
+  string json_session_state = 2;
+  string error = 3;
+}
