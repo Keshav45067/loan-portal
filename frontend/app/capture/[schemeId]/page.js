@@ -365,7 +365,6 @@ export default function CaptureFlowPage({ params }) {
       }));
     } else if (sigType === 'SWITCH_PAGE' || sigType === 'RESET_PAGE') {
       setPreviewUrl(null);
-      setPreviewFile(null);
       setProcessingDoc(false);
       setError(null);
       
@@ -760,7 +759,6 @@ export default function CaptureFlowPage({ params }) {
           
           setError(data.validation_error_text || data.error || 'Validation failed. Please try again.');
           setPreviewUrl(null);
-          setPreviewFile(null);
           
           if (data.next_page_id) {
               setState(prev => ({
