@@ -368,6 +368,15 @@ export default function CaptureFlowPage({ params }) {
       setPreviewFile(null);
       setProcessingDoc(false);
       setError(null);
+      
+      // Immediately sync critical state from signal payload to avoid stale state race conditions
+      if (payload?.doc_id) {
+        setState(prev => ({
+          ...prev,
+          docId: payload.doc_id,
+          pageId: payload.part_id || prev.pageId,
+        }));
+      }
       if (payload?.doc_title) {
         setStatusText(`Switched to ${payload.doc_title}`);
       }
@@ -787,7 +796,7 @@ export default function CaptureFlowPage({ params }) {
        // Update state for next step
       setState(prev => ({
           ...prev,
-          docId: data.next_document_id,
+          docId: data.next_document_id || data.processed_document_id || prev.docId,
           pageId: data.next_page_id,
       }));
       setPreviewUrl(null);

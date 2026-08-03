@@ -33,6 +33,12 @@ SCHEME_DOCUMENTS = {
         "doc_udyam_001",
         "doc_bank_statement_001",
     ],
+    "demo_business_kyc": [
+        "doc_aadhaar_002",
+        "doc_pan_001",
+        "doc_udyam_001",
+        "doc_gst_001",
+    ],
 }
 
 # ─── Mock Extracted Data ───
@@ -226,11 +232,15 @@ class AgentSession:
         return True
 
     def mark_completed(self, doc_id: str, part_id: str) -> bool:
-        """Mark a queue item as COMPLETED and advance to next pending document."""
+        """Mark a queue item as COMPLETED and advance to next pending document.
+        Only advances the queue if the completed item was the ACTIVE one —
+        prevents corrupting the active pointer when a different doc is marked completed."""
         item = self.get_queue_item(doc_id, part_id)
         if item:
+            was_active = (item["status"] == "ACTIVE")
             item["status"] = "COMPLETED"
-            self.advance_queue()
+            if was_active:
+                self.advance_queue()
             return True
         return False
 
@@ -266,6 +276,7 @@ class AgentSession:
         """Reset a completed page back to PENDING, clear its extracted data, and set it as ACTIVE."""
         item = self.get_queue_item(doc_id, part_id)
         if item:
+            item["status"] = "PENDING"  # Explicitly reset to PENDING before activating
             self.set_active(doc_id, part_id)
 
         # Clear extracted data that came from this part
@@ -295,10 +306,12 @@ class AgentSession:
     def find_doc_by_name(self, name: str) -> Optional[str]:
         """Fuzzy match a document by user-friendly name. Returns doc_id or None."""
         name_lower = name.lower().strip()
+        if len(name_lower) < 2:
+            return None
         for doc_id, manifest in self.manifests.items():
             title = manifest["title"].get("English", "").lower()
-            # Exact or substring match
-            if name_lower in title or title in name_lower:
+            # Exact or substring match (only if input is non-trivial)
+            if name_lower in title or (len(name_lower) >= 4 and title in name_lower):
                 return doc_id
             # Match common aliases
             aliases = {

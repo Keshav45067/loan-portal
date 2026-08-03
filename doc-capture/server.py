@@ -433,7 +433,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     validation_error_key="error_wrong_page",
                     validation_error_text=error_text + " (Incomplete PDF pages)",
                     next_page_id=request.page_id,
-                    next_document_id=request.document_id
+                    next_document_id=doc_id,
+                    processed_document_id=doc_id
                 )
             
             # PDF matched all parts, flow directly to extraction step.
@@ -476,7 +477,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     validation_error_key=val_error_key,
                     validation_error_text=error_text,
                     next_page_id=request.page_id,
-                    next_document_id=request.document_id
+                    next_document_id=doc_id,
+                    processed_document_id=doc_id
                 )
 
             # Decide and apply recovery actions
@@ -509,7 +511,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     validation_error_key=val_error_key,
                     validation_error_text=error_text,
                     next_page_id=request.page_id,
-                    next_document_id=request.document_id
+                    next_document_id=doc_id,
+                    processed_document_id=doc_id
                 )
                 
             part_id = quality_res.part_id
@@ -523,7 +526,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     validation_error_text=error_text,
                     next_page_id=request.page_id,
                     next_part_id=expected_part_id,
-                    next_document_id=request.document_id
+                    next_document_id=doc_id,
+                    processed_document_id=doc_id
                 )
                 
             # 4. GCS upload via Orchestrator (done in background thread)
@@ -533,11 +537,11 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             elif request.content_type == "image/png":
                 ext = "png"
                 
-            filename = f"{session.session_id}_{request.document_id}_{request.page_id}.{ext}"
+            filename = f"{session.session_id}_{doc_id}_{request.page_id}.{ext}"
             if request.filename:
                 orig_ext = request.filename.split(".")[-1]
                 if orig_ext:
-                    filename = f"{session.session_id}_{request.document_id}_{request.page_id}.{orig_ext}"
+                    filename = f"{session.session_id}_{doc_id}_{request.page_id}.{orig_ext}"
                     
             session.record_upload(request.page_id, filename)
             
@@ -545,10 +549,10 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             session.record_part_result(request.page_id, quality_res)
             
             # Clear this page from pending retakes if it was a retake
-            if part_id in session.pending_retakes.get(request.document_id, {}):
-                session.pending_retakes[request.document_id][part_id].discard(page_index)
-                if page_index in session.failed_reasons.get(request.document_id, {}).get(part_id, {}):
-                    del session.failed_reasons[request.document_id][part_id][page_index]
+            if part_id in session.pending_retakes.get(doc_id, {}):
+                session.pending_retakes[doc_id][part_id].discard(page_index)
+                if page_index in session.failed_reasons.get(doc_id, {}).get(part_id, {}):
+                    del session.failed_reasons[doc_id][part_id][page_index]
             
             # 6. Check if coverage complete
             if not session.is_coverage_complete():
@@ -565,7 +569,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     part_id=part_id,
                     next_page_id=next_page_id,
                     next_part_id=next_page_id,
-                    next_document_id=request.document_id
+                    next_document_id=doc_id,
+                    processed_document_id=doc_id
                 )
             
         # 7. Coverage complete -> run extraction
@@ -579,7 +584,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 next_part_id=pipeline_res["next_part_id"],
                 confirm_fields=pipeline_res["confirm_fields"],
                 extracted_fields_json=pipeline_res["extracted_fields_json"],
-                next_document_id=request.document_id
+                next_document_id=doc_id,
+                processed_document_id=doc_id
             )
         else:
             return pb2.ProcessDocResponse(
@@ -592,7 +598,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 part_id=pipeline_res["part_id"],
                 next_page_id=pipeline_res["next_page_id"],
                 next_part_id=pipeline_res["next_part_id"],
-                next_document_id=pipeline_res["next_document_id"]
+                next_document_id=pipeline_res["next_document_id"],
+                processed_document_id=doc_id
             )
 
     async def GetFAQPrompt(self, request, context):

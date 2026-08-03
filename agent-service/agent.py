@@ -411,106 +411,98 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
             "internal_log": internal_log,
         }
 
-    # Check if the model wants to call a function
-    function_call_part = None
-    text_part = None
-    for part in candidate.content.parts:
-        if part.function_call:
-            function_call_part = part
-        elif part.text:
-            text_part = part
+    # Check if the model wants to call function(s)
+    function_call_parts = [part for part in candidate.content.parts if part.function_call]
+    text_part = next((part for part in candidate.content.parts if part.text), None)
 
-    if function_call_part:
-        fc = function_call_part.function_call
-        tool_name = fc.name
-        tool_args = dict(fc.args) if fc.args else {}
+    if function_call_parts:
+        needs_confirmation_return = None
 
-        logger.info(f"🔧 [TOOL CALL] Session: {session.session_id} | Function: {tool_name}({json.dumps(tool_args)})")
+        for function_call_part in function_call_parts:
+            fc = function_call_part.function_call
+            tool_name = fc.name
+            tool_args = dict(fc.args) if fc.args else {}
 
-        internal_log.append({
-            "step": "function_call_received",
-            "tool_name": tool_name,
-            "arguments": tool_args,
-        })
+            logger.info(f"🔧 [TOOL CALL] Session: {session.session_id} | Function: {tool_name}({json.dumps(tool_args)})")
 
-        # Add model's function call to history
-        session.conversation_history.append({
-            "role": "model",
-            "text": None,
-            "function_calls": [{"name": tool_name, "args": tool_args}],
-        })
+            internal_log.append({
+                "step": "function_call_received",
+                "tool_name": tool_name,
+                "arguments": tool_args,
+            })
 
-        # 6. Execute tool (validate + signal)
-        t2 = time.time()
-        tool_result = execute_tool(session, tool_name, tool_args)
-        tool_latency = round((time.time() - t2) * 1000)
+            # Add model's function call to history
+            session.conversation_history.append({
+                "role": "model",
+                "text": None,
+                "function_calls": [{"name": tool_name, "args": tool_args}],
+            })
 
-        logger.info(f"⚙️ [TOOL EXEC] Session: {session.session_id} | Status: {tool_result['status']} | Msg: '{tool_result['message']}'")
-        if tool_result.get("signal"):
-            logger.info(f"📡 [SIGNAL EMITTED] Session: {session.session_id} | Signal: {tool_result['signal']['type']} -> {json.dumps(tool_result['signal']['payload'])}")
-            if tool_result["signal"].get("type") in ("SWITCH_PAGE", "RESET_PAGE"):
-                payload = tool_result["signal"]["payload"]
-                from tools import sync_doc_capture_page
-                await sync_doc_capture_page(session.session_id, payload.get("doc_id", ""), payload.get("part_id", ""))
+            # 6. Execute tool (validate + signal)
+            t2 = time.time()
+            tool_result = execute_tool(session, tool_name, tool_args)
+            tool_latency = round((time.time() - t2) * 1000)
 
-        internal_log.append({
-            "step": "tool_executed",
-            "tool_name": tool_name,
-            "result_status": tool_result["status"],
-            "result_message": tool_result["message"],
-            "signal": tool_result.get("signal"),
-            "elapsed_ms": tool_latency,
-        })
+            logger.info(f"⚙️ [TOOL EXEC] Session: {session.session_id} | Status: {tool_result['status']} | Msg: '{tool_result['message']}'")
+            if tool_result.get("signal"):
+                logger.info(f"📡 [SIGNAL EMITTED] Session: {session.session_id} | Signal: {tool_result['signal']['type']} -> {json.dumps(tool_result['signal']['payload'])}")
+                if tool_result["signal"].get("type") in ("SWITCH_PAGE", "RESET_PAGE"):
+                    payload = tool_result["signal"]["payload"]
+                    from tools import sync_doc_capture_page
+                    await sync_doc_capture_page(session.session_id, payload.get("doc_id", ""), payload.get("part_id", ""))
 
-        tool_calls_results.append({
-            "tool_name": tool_name,
-            "arguments": tool_args,
-            "validation": {
-                "status": tool_result["status"],
-                "message": tool_result["message"],
-            },
-            "signal": tool_result.get("signal"),
-        })
+            internal_log.append({
+                "step": "tool_executed",
+                "tool_name": tool_name,
+                "result_status": tool_result["status"],
+                "result_message": tool_result["message"],
+                "signal": tool_result.get("signal"),
+                "elapsed_ms": tool_latency,
+            })
 
-        # If the tool needs confirmation, clear any previous pending confirmation first
-        if tool_result["status"] == "needs_confirmation":
-            # pending_confirmation was set by the tool — don't call back to Gemini
-            # Just return the confirmation message as the agent response
+            tool_calls_results.append({
+                "tool_name": tool_name,
+                "arguments": tool_args,
+                "validation": {
+                    "status": tool_result["status"],
+                    "message": tool_result["message"],
+                },
+                "signal": tool_result.get("signal"),
+            })
+
+            # Append function response to history
             session.conversation_history.append({
                 "role": "function_response",
                 "name": tool_name,
-                "response": {"status": tool_result["status"], "message": tool_result["message"]},
+                "response": {
+                    "status": tool_result["status"],
+                    "message": tool_result["message"],
+                    "signal": tool_result.get("signal"),
+                },
             })
-            agent_text = tool_result["message"]
-            session.conversation_history.append({"role": "model", "text": agent_text})
 
-            logger.info(f"🤖 [AGENT RESPONSE (CONFIRMATION NEEDED)] Session: {session.session_id} | Text: '{agent_text}'")
+            # If tool needs confirmation, capture early return state
+            if tool_result["status"] == "needs_confirmation":
+                agent_text = tool_result["message"]
+                session.conversation_history.append({"role": "model", "text": agent_text})
+                logger.info(f"🤖 [AGENT RESPONSE (CONFIRMATION NEEDED)] Session: {session.session_id} | Text: '{agent_text}'")
+                needs_confirmation_return = {
+                    "agent_response": agent_text,
+                    "tool_calls": tool_calls_results,
+                    "session_state": session.to_dict(),
+                    "pending_confirmation": session.pending_confirmation,
+                    "internal_log": internal_log,
+                }
+                break
 
-            return {
-                "agent_response": agent_text,
-                "tool_calls": tool_calls_results,
-                "session_state": session.to_dict(),
-                "pending_confirmation": session.pending_confirmation,
-                "internal_log": internal_log,
-            }
+            if tool_result["status"] in ("success", "error", "validation_error", "ambiguous", "blocked"):
+                if tool_result["status"] == "success":
+                    session.pending_confirmation = None
 
-        # If tool succeeded or had a non-confirmation issue, clear pending confirmation
-        if tool_result["status"] in ("success", "error", "validation_error", "ambiguous", "blocked"):
-            if tool_result["status"] == "success":
-                session.pending_confirmation = None
+        if needs_confirmation_return:
+            return needs_confirmation_return
 
-        # 7. Send function response back to Gemini for final text
-        session.conversation_history.append({
-            "role": "function_response",
-            "name": tool_name,
-            "response": {
-                "status": tool_result["status"],
-                "message": tool_result["message"],
-                "signal": tool_result.get("signal"),
-            },
-        })
-
-        # Rebuild contents and call Gemini again for the user-facing text
+        # 7. Send function responses back to Gemini for final text
         contents = _build_contents(session.conversation_history)
 
         t3 = time.time()

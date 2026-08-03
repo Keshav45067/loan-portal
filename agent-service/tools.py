@@ -46,8 +46,8 @@ FIELD_VALIDATORS = {
         "message": "PAN must be in format ABCDE1234F (5 letters, 4 digits, 1 letter)",
     },
     "dob": {
-        "pattern": r"^\d{2}/\d{2}/\d{4}$",
-        "message": "Date of birth must be in DD/MM/YYYY format",
+        "pattern": r"^(\d{2}/\d{2}/\d{4}|\d{4}-\d{2}-\d{2})$",
+        "message": "Date of birth must be in DD/MM/YYYY or YYYY-MM-DD format",
     },
     "gender": {
         "values": ["male", "female", "other"],
@@ -369,10 +369,11 @@ def execute_answer_faq(
                 "policies": faq.get("policies", []),
             })
 
+    import json
+    faq_str = json.dumps(faq_context, indent=2) if faq_context else "No specific FAQ context available."
     return {
         "status": "success",
-        "message": f"FAQ context loaded for query: {user_query}",
-        "faq_context": faq_context,
+        "message": f"FAQ context loaded for query '{user_query}':\n{faq_str}",
         "signal": {
             "type": "FAQ_ANSWERED",
             "payload": {"query": user_query},

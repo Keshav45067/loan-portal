@@ -281,10 +281,12 @@ async def process_document(
                 from grpc_clients.generated import agent_pb2, agent_pb2_grpc
                 agent_channel = grpc.aio.insecure_channel("localhost:50059")
                 agent_stub = agent_pb2_grpc.AgentServiceStub(agent_channel)
+                # Use backend's processed_document_id (source of truth), NOT client's form param
+                sync_doc_id = res.processed_document_id or document_id
                 await agent_stub.SyncExtractedData(
                     agent_pb2.SyncExtractedDataRequest(
                         session_id=session_id,
-                        doc_id=document_id,
+                        doc_id=sync_doc_id,
                         part_id=res.part_id or page_id,
                         json_extracted_fields=res.extracted_fields_json,
                         page_complete=res.page_complete
@@ -305,7 +307,8 @@ async def process_document(
             "document_complete": res.document_complete,
             "all_complete": res.all_complete,
             "next_page_id": res.next_page_id,
-            "next_document_id": res.next_document_id
+            "next_document_id": res.next_document_id,
+            "processed_document_id": res.processed_document_id or document_id,
         }
     except Exception as e:
         logger.error(f"process_document failed: {e}", req_id=req_id)

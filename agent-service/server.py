@@ -194,12 +194,18 @@ if GRPC_AVAILABLE:
             try:
                 session = get_session(request.session_id)
                 if not session:
-                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id)
+                    logger.error(f"SyncExtractedData failed: Session {request.session_id} not found.")
+                    return agent_pb2.SyncExtractedDataResponse(success=False, error="Session not found")
 
                 if request.json_extracted_fields:
                     try:
                         fields = json.loads(request.json_extracted_fields)
-                        session.extracted_data.update(fields)
+                        for k, v in fields.items():
+                            existing = session.extracted_data.get(k)
+                            if existing and existing.get("manually_overridden"):
+                                logger.info(f"SyncExtractedData: Preserving manual override for field '{k}'")
+                                continue
+                            session.extracted_data[k] = v
                     except Exception as parse_err:
                         logger.error(f"Failed to parse json_extracted_fields: {parse_err}")
 
