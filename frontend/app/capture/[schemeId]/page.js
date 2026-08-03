@@ -369,16 +369,33 @@ export default function CaptureFlowPage({ params }) {
       setProcessingDoc(false);
       setError(null);
       
-      // Immediately sync critical state from signal payload to avoid stale state race conditions
+      if (payload?.doc_title) {
+        setStatusText(`Switched to ${payload.doc_title}`);
+      }
+
+      // 1. If payload contains enriched page_info directly, update state instantly without HTTP fetch
+      if (payload?.page_info) {
+        setState(prev => ({
+          ...prev,
+          docId: payload.doc_id || prev.docId,
+          pageId: payload.part_id || payload.page_info.page_id || prev.pageId,
+          docIndex: payload.page_info.document_index ?? prev.docIndex,
+          totalDocs: payload.page_info.total_documents ?? prev.totalDocs,
+          pageInfo: payload.page_info
+        }));
+        if (payload.page_info.uploads_count !== undefined) {
+          setLocalUploadsCount(payload.page_info.uploads_count);
+        }
+        return;
+      }
+
+      // 2. Fallback: if signal didn't contain page_info, fetch from API
       if (payload?.doc_id) {
         setState(prev => ({
           ...prev,
           docId: payload.doc_id,
           pageId: payload.part_id || prev.pageId,
         }));
-      }
-      if (payload?.doc_title) {
-        setStatusText(`Switched to ${payload.doc_title}`);
       }
       const savedToken = localStorage.getItem('token') || token;
       if (!savedToken) return;
@@ -391,8 +408,8 @@ export default function CaptureFlowPage({ params }) {
         if (infoData.success) {
           setState(prev => ({
             ...prev,
-            docId: infoData.document_id,
-            pageId: infoData.page_info?.page_id,
+            docId: payload?.doc_id || infoData.document_id,
+            pageId: payload?.part_id || infoData.page_info?.page_id || prev.pageId,
             docIndex: infoData.document_index,
             totalDocs: infoData.total_documents,
             pageInfo: infoData.page_info

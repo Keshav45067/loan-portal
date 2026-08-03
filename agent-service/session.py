@@ -240,23 +240,30 @@ class AgentSession:
             was_active = (item["status"] == "ACTIVE")
             item["status"] = "COMPLETED"
             if was_active:
-                self.advance_queue()
+                self.advance_queue(from_doc_id=doc_id, from_part_id=part_id)
             return True
         return False
 
-    def advance_queue(self) -> Optional[dict]:
+    def advance_queue(self, from_doc_id: Optional[str] = None, from_part_id: Optional[str] = None) -> Optional[dict]:
         """
         Advance the queue to the next pending document.
         Search strategy:
-        1. Search forward from current active item to end of queue.
+        1. Search forward from specified completed item (or current active item) to end of queue.
         2. If none found, wrap around to beginning of queue (index 0).
         3. If no pending items exist anywhere -> return None (all complete!).
         """
         active_idx = -1
-        for i, item in enumerate(self.document_queue):
-            if item["status"] == "ACTIVE":
-                active_idx = i
-                break
+        if from_doc_id and from_part_id:
+            for i, item in enumerate(self.document_queue):
+                if item["doc_id"] == from_doc_id and item["part_id"] == from_part_id:
+                    active_idx = i
+                    break
+
+        if active_idx == -1:
+            for i, item in enumerate(self.document_queue):
+                if item["status"] == "ACTIVE":
+                    active_idx = i
+                    break
 
         # Search forward from active_idx + 1
         for i in range(active_idx + 1, len(self.document_queue)):

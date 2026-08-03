@@ -15,23 +15,40 @@ from session import AgentSession, log_session_snapshot
 
 
 async def sync_doc_capture_page(session_id: str, doc_id: str, part_id: str):
-    """Sync active document page directly with doc-capture gRPC service."""
+    """Sync active document page directly with doc-capture gRPC service and return page_info dict."""
     try:
         import grpc
+        import json
         from config import DOC_CAPTURE_ADDR
         from generated import doc_capture_pb2, doc_capture_pb2_grpc
         channel = grpc.aio.insecure_channel(DOC_CAPTURE_ADDR)
         stub = doc_capture_pb2_grpc.DocumentCaptureStub(channel)
-        await stub.SwitchPage(
+        res = await stub.SwitchPage(
             doc_capture_pb2.SwitchPageRequest(
                 session_id=session_id,
                 document_id=doc_id,
                 page_id=part_id or ""
             )
         )
+        if res.success and res.HasField("current_page_info"):
+            pi = res.current_page_info
+            return {
+                "page_id": pi.page_id,
+                "page_name": pi.page_name,
+                "allow_multiple": pi.allow_multiple,
+                "ui_camera_overlay": pi.ui_camera_overlay,
+                "orientation": getattr(pi, "orientation", "landscape") or "landscape",
+                "intro_prompt": json.loads(pi.intro_prompt_json) if pi.intro_prompt_json else {},
+                "acceptable_formats": list(pi.acceptable_formats),
+                "max_file_size_mb": pi.max_file_size_mb,
+                "uploads_count": pi.uploads_count,
+                "document_index": res.current_document_index,
+                "total_documents": res.total_documents,
+            }
     except Exception as e:
         import logging
         logging.getLogger("agent-service").warning(f"Failed to sync SwitchPage with doc-capture: {e}")
+    return None
 
 
 # ─── Field Validation Rules ───
