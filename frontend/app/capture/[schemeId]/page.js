@@ -367,10 +367,6 @@ export default function CaptureFlowPage({ params }) {
       setPreviewUrl(null);
       setProcessingDoc(false);
       setError(null);
-      
-      if (payload?.doc_title) {
-        setStatusText(`Switched to ${payload.doc_title}`);
-      }
 
       // 1. If payload contains enriched page_info directly, update state instantly without HTTP fetch
       if (payload?.page_info) {
