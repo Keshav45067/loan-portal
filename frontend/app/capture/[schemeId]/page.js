@@ -772,16 +772,10 @@ export default function CaptureFlowPage({ params }) {
           setPreviewUrl(null);
           
           if (data.next_page_id) {
-              setState(prev => ({
-                  ...prev,
-                  docId: data.next_document_id || prev.docId,
-                  pageId: data.next_page_id,
-              }));
               setPreviewUrl(null);
-              
-              const targetDocId = data.next_document_id || prev.docId;
-              const targetPageId = data.next_page_id || prev.pageId;
-              // Need to re-fetch page info to update prompts and overlay
+              const targetDocId = data.next_document_id || '';
+              const targetPageId = data.next_page_id || '';
+              // Fetch authoritative state from backend
               const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${targetDocId}&page_id=${targetPageId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
               });
@@ -789,16 +783,13 @@ export default function CaptureFlowPage({ params }) {
               if (infoData.success) {
                   setState(prev => ({
                       ...prev,
-                      docId: infoData.document_id || targetDocId,
+                      docId: infoData.document_id,
                       pageId: infoData.page_info?.page_id || targetPageId,
                       pageInfo: infoData.page_info,
                       docIndex: infoData.document_index,
                       totalDocs: infoData.total_documents
                   }));
-                  
-                  if (infoData.page_info?.uploads_count !== undefined) {
-                      setLocalUploadsCount(infoData.page_info.uploads_count);
-                  }
+                  setLocalUploadsCount(infoData.page_info?.uploads_count || 0);
                   
                   if (voiceSessionRef.current) {
                       voiceSessionRef.current.sendControlSignal('update_page_context');
@@ -825,36 +816,26 @@ export default function CaptureFlowPage({ params }) {
           return;
       }
 
-      const nextDoc = data.next_document_id || data.processed_document_id;
-      const nextPage = data.next_page_id;
-
-       // Update state for next step
-      setState(prev => ({
-          ...prev,
-          docId: nextDoc || prev.docId,
-          pageId: nextPage || prev.pageId,
-      }));
+      // Backend is the single source of truth. Fetch the authoritative next-page state.
+      const nextDoc = data.next_document_id || '';
+      const nextPage = data.next_page_id || '';
       setPreviewUrl(null);
-      setLocalUploadsCount(prev => prev + 1);
-      
-      // Need to re-fetch page info to update prompts and overlay
-      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc || ''}&page_id=${nextPage || ''}`, {
+
+      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc}&page_id=${nextPage}`, {
           headers: { 'Authorization': `Bearer ${token}` }
       });
       const infoData = await infoRes.json();
       if (infoData.success) {
+          // Single authoritative setState from backend response
           setState(prev => ({
               ...prev,
-              docId: infoData.document_id || nextDoc || prev.docId,
-              pageId: infoData.page_info?.page_id || nextPage || prev.pageId,
+              docId: infoData.document_id,
+              pageId: infoData.page_info?.page_id || nextPage,
               pageInfo: infoData.page_info,
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
           }));
-          
-          if (infoData.page_info?.uploads_count !== undefined) {
-              setLocalUploadsCount(infoData.page_info.uploads_count);
-          }
+          setLocalUploadsCount(infoData.page_info?.uploads_count || 0);
           
           if (voiceSessionRef.current) {
               voiceSessionRef.current.sendControlSignal('update_page_context');
@@ -900,16 +881,9 @@ export default function CaptureFlowPage({ params }) {
           setError(data.validation_error_text || data.error || 'Validation failed. Please try again.');
           
           if (data.next_page_id) {
-              setState(prev => ({
-                  ...prev,
-                  docId: data.next_document_id || prev.docId,
-                  pageId: data.next_page_id,
-              }));
               setPreviewUrl(null);
-              
-              const targetDocId = data.next_document_id || prev.docId;
-              const targetPageId = data.next_page_id || prev.pageId;
-              // Need to re-fetch page info to update prompts and overlay
+              const targetDocId = data.next_document_id || '';
+              const targetPageId = data.next_page_id || '';
               const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${targetDocId}&page_id=${targetPageId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
               });
@@ -917,16 +891,13 @@ export default function CaptureFlowPage({ params }) {
               if (infoData.success) {
                   setState(prev => ({
                       ...prev,
-                      docId: infoData.document_id || targetDocId,
+                      docId: infoData.document_id,
                       pageId: infoData.page_info?.page_id || targetPageId,
                       pageInfo: infoData.page_info,
                       docIndex: infoData.document_index,
                       totalDocs: infoData.total_documents
                   }));
-                  
-                  if (infoData.page_info?.uploads_count !== undefined) {
-                      setLocalUploadsCount(infoData.page_info.uploads_count);
-                  }
+                  setLocalUploadsCount(infoData.page_info?.uploads_count || 0);
                   
                   if (voiceSessionRef.current) {
                       voiceSessionRef.current.sendControlSignal('update_page_context');
@@ -947,27 +918,20 @@ export default function CaptureFlowPage({ params }) {
           return;
       }
 
-      const nextDoc = data.current_document_id || data.next_document_id;
-      const nextPage = data.current_page_id || data.next_page_id;
-
-      // Update state for next step
-      setState(prev => ({
-          ...prev,
-          docId: nextDoc || prev.docId,
-          pageId: nextPage || prev.pageId,
-      }));
+      // Backend is the single source of truth. Fetch authoritative state.
+      const nextDoc = data.current_document_id || data.next_document_id || '';
+      const nextPage = data.current_page_id || data.next_page_id || '';
       setPreviewUrl(null);
       
-      // Need to re-fetch page info to update prompts and overlay
-      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc || ''}&page_id=${nextPage || ''}`, {
+      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc}&page_id=${nextPage}`, {
           headers: { 'Authorization': `Bearer ${token}` }
       });
       const infoData = await infoRes.json();
       if (infoData.success) {
           setState(prev => ({
               ...prev,
-              docId: infoData.document_id || nextDoc || prev.docId,
-              pageId: infoData.page_info?.page_id || nextPage || prev.pageId,
+              docId: infoData.document_id,
+              pageId: infoData.page_info?.page_id || nextPage,
               pageInfo: infoData.page_info,
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents

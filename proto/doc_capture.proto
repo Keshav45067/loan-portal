@@ -54,6 +54,8 @@ message CaptureSessionResponse {
 
 message PageInfoRequest {
   string session_id = 1;
+  string document_id = 2;  // Optional: align session to this doc before returning
+  string page_id = 3;      // Optional: align session to this page before returning
 }
 
 message PageInfoResponse {

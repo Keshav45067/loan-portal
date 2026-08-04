@@ -195,7 +195,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         session = session_manager.get_session(request.session_id)
         if not session:
             return pb2.PageInfoResponse(success=False, error="Session not found")
-            
+
+        # Align session to requested document_id/page_id if provided
+        if request.document_id and request.document_id in session.required_documents:
+            expected_part_id = request.page_id or None
+            session.set_active_document(request.document_id, expected_part_id)
+
         page = session.get_current_page()
         if not page:
             return pb2.PageInfoResponse(success=False, error="No current page")
