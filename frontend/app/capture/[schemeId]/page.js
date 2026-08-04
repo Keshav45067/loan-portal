@@ -1264,12 +1264,36 @@ export default function CaptureFlowPage({ params }) {
             </button>
           </div>
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', paddingBottom: '30px' }}>
+            <button
+              onClick={async () => {
+                localStorage.removeItem('session_id');
+                setState(prev => ({ ...prev, allComplete: false }));
+                setExtractedData(null);
+                await fetchCaptureState();
+              }}
+              style={{
+                background: 'rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '10px',
+                padding: '14px 24px',
+                fontSize: '0.92rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'transform 0.15s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              🔄 Re-scan / Start Over
+            </button>
             <button
               onClick={() => {
                 stopCamera();
                 if (voiceSessionRef.current) voiceSessionRef.current.disconnect();
+                localStorage.removeItem('session_id');
                 router.push('/dashboard');
               }}
               style={{

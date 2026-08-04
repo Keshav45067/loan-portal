@@ -212,6 +212,9 @@ if GRPC_AVAILABLE:
                 if request.page_complete and request.doc_id and request.part_id:
                     session.mark_completed(request.doc_id, request.part_id)
 
+                if request.all_complete:
+                    session.mark_all_completed()
+
                 from session import log_session_snapshot
                 log_session_snapshot(session, f"Document Uploaded & Processed ({request.doc_id} — {request.part_id})")
 

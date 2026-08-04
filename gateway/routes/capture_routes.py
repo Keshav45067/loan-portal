@@ -289,7 +289,8 @@ async def process_document(
                         doc_id=sync_doc_id,
                         part_id=res.part_id or page_id,
                         json_extracted_fields=res.extracted_fields_json,
-                        page_complete=res.page_complete
+                        page_complete=res.page_complete,
+                        all_complete=res.all_complete
                     )
                 )
             except Exception as agent_sync_err:

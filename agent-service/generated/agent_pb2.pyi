@@ -83,18 +83,20 @@ class GetSessionStateResponse(_message.Message):
     def __init__(self, success: _Optional[bool] = ..., json_session_state: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class SyncExtractedDataRequest(_message.Message):
-    __slots__ = ("session_id", "doc_id", "part_id", "json_extracted_fields", "page_complete")
+    __slots__ = ("session_id", "doc_id", "part_id", "json_extracted_fields", "page_complete", "all_complete")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     DOC_ID_FIELD_NUMBER: _ClassVar[int]
     PART_ID_FIELD_NUMBER: _ClassVar[int]
     JSON_EXTRACTED_FIELDS_FIELD_NUMBER: _ClassVar[int]
     PAGE_COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    ALL_COMPLETE_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     doc_id: str
     part_id: str
     json_extracted_fields: str
     page_complete: bool
-    def __init__(self, session_id: _Optional[str] = ..., doc_id: _Optional[str] = ..., part_id: _Optional[str] = ..., json_extracted_fields: _Optional[str] = ..., page_complete: _Optional[bool] = ...) -> None: ...
+    all_complete: bool
+    def __init__(self, session_id: _Optional[str] = ..., doc_id: _Optional[str] = ..., part_id: _Optional[str] = ..., json_extracted_fields: _Optional[str] = ..., page_complete: _Optional[bool] = ..., all_complete: _Optional[bool] = ...) -> None: ...
 
 class SyncExtractedDataResponse(_message.Message):
     __slots__ = ("success", "json_session_state", "error")

@@ -393,7 +393,20 @@ class AgentSession:
             ],
         }
 
+    def mark_all_completed(self):
+        """Mark all documents in the queue as COMPLETED."""
+        for item in self.document_queue:
+            item["status"] = "COMPLETED"
+
+    def is_all_complete(self) -> bool:
+        """Check if all documents in the queue are completed."""
+        if not self.document_queue:
+            return False
+        return all(item.get("status") == "COMPLETED" for item in self.document_queue)
+
     def _get_active_summary(self) -> Optional[str]:
+        if self.is_all_complete():
+            return "All Documents Captured (Final Data Review)"
         active = self.get_active_item()
         if active:
             return f"{active['doc_title']} — {active['part_name']}"

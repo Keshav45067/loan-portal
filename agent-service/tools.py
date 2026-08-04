@@ -227,13 +227,13 @@ def execute_update_extracted_field(
     2. Validate new_value against field-specific rules
     3. Update with manually_overridden flag
     """
-    # 1. Resolve field — try exact match first, then fuzzy
+    # 1. Resolve field — try exact match first, then fuzzy & sub-keys
     resolved_key = None
+    sub_key_match = None
+
     if field_key in session.extracted_data:
         resolved_key = field_key
     else:
-        # Fuzzy match: user might say "pincode" meaning "doc_aadhaar_address.pincode"
-        # Or "name" which could match multiple fields
         matches = []
         for existing_key in session.extracted_data:
             if field_key.lower() in existing_key.lower():
@@ -250,17 +250,35 @@ def execute_update_extracted_field(
                 ),
                 "signal": None,
             }
+        else:
+            # Check inside dict values for matching sub-keys (e.g., pincode in address object)
+            sub_matches = []
+            for existing_key, field_data in session.extracted_data.items():
+                val = field_data.get("value")
+                if isinstance(val, dict):
+                    for sub_k in val.keys():
+                        if field_key.lower() == sub_k.lower() or field_key.lower() in sub_k.lower():
+                            sub_matches.append((existing_key, sub_k))
+            
+            if len(sub_matches) == 1:
+                resolved_key, sub_key_match = sub_matches[0]
+            elif len(sub_matches) > 1:
+                match_names = [f"{parent}.{child}" for parent, child in sub_matches]
+                return {
+                    "status": "ambiguous",
+                    "message": f"Multiple fields match '{field_key}': {', '.join(match_names)}. Please specify which document address.",
+                    "signal": None
+                }
 
     if not resolved_key:
         available = list(session.extracted_data.keys())
         all_fields = session.get_all_field_keys()
-        # Check if field exists in schema but hasn't been extracted yet
         schema_only = [f for f in all_fields if f not in session.extracted_data]
         msg = f"Field '{field_key}' not found in extracted data."
         if available:
             msg += f" Currently extracted fields: {', '.join(available)}."
         if schema_only:
-            msg += f" Fields not yet extracted (document pending): {', '.join(schema_only)}."
+            msg += f" Fields not yet extracted: {', '.join(schema_only)}."
         return {
             "status": "error",
             "message": msg,
@@ -277,11 +295,22 @@ def execute_update_extracted_field(
         }
 
     # 3. Update
-    old_value = session.extracted_data[resolved_key]["value"]
-    session.extracted_data[resolved_key]["value"] = new_value
-    session.extracted_data[resolved_key]["manually_overridden"] = True
-    session.extracted_data[resolved_key]["override_reason"] = reason or "User correction"
-    session.extracted_data[resolved_key]["confidence"] = 1.0  # Manual = 100% confidence
+    if sub_key_match:
+        val_dict = session.extracted_data[resolved_key].get("value")
+        if not isinstance(val_dict, dict):
+            val_dict = {}
+        old_value = val_dict.get(sub_key_match)
+        val_dict[sub_key_match] = new_value
+        session.extracted_data[resolved_key]["value"] = val_dict
+        session.extracted_data[resolved_key]["manually_overridden"] = True
+        session.extracted_data[resolved_key]["override_reason"] = reason or "User correction"
+        session.extracted_data[resolved_key]["confidence"] = 1.0
+    else:
+        old_value = session.extracted_data[resolved_key]["value"]
+        session.extracted_data[resolved_key]["value"] = new_value
+        session.extracted_data[resolved_key]["manually_overridden"] = True
+        session.extracted_data[resolved_key]["override_reason"] = reason or "User correction"
+        session.extracted_data[resolved_key]["confidence"] = 1.0
 
     log_session_snapshot(session, f"Extracted Field Updated ({resolved_key} = '{new_value}')")
 
@@ -293,7 +322,7 @@ def execute_update_extracted_field(
             "payload": {
                 "field_key": resolved_key,
                 "old_value": old_value,
-                "new_value": new_value,
+                "new_value": session.extracted_data[resolved_key]["value"],
                 "manually_overridden": True,
                 "override_reason": reason or "User correction",
             },
