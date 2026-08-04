@@ -170,7 +170,18 @@ class CaptureSession:
         if not self.current_document_config:
             return None
         manifest = self.current_document_config
-        part = self.get_next_uncovered_part()
+        parts = manifest.get("parts", [])
+
+        # If current_page_index points to an uncovered part, honor it!
+        part = None
+        if 0 <= self.current_page_index < len(parts):
+            target_part = parts[self.current_page_index]
+            if not self.is_part_covered(target_part.get("id", "")):
+                part = target_part
+
+        if not part:
+            part = self.get_next_uncovered_part()
+
         if not part:
             return None
             
@@ -292,11 +303,21 @@ class CaptureSession:
         if self.is_coverage_complete():
             if doc_id:
                 self.completed_documents.add(doc_id)
-            self.current_document_index += 1
-            self._load_current_document()
+            
+            # Advance until we find a document that is NOT completed yet
+            while self.current_document_index < len(self.required_documents):
+                self.current_document_index += 1
+                self.current_page_index = 0
+                if self.current_document_index >= len(self.required_documents):
+                    break
+                self._load_current_document()
+                if not self.is_coverage_complete():
+                    break
+
             return True, True
         else:
             # Not fully complete, so we are staying on current document but requesting next part
+            self.current_page_index += 1
             return True, False
 
     def record_part_result(self, page_id: str, quality_res):

@@ -800,6 +800,8 @@ export default function CaptureFlowPage({ params }) {
       }
       
       if (data.all_complete) {
+          setPreviewUrl(null);
+          setProcessingDoc(false);
           setState(prev => ({ ...prev, allComplete: true }));
           return;
       }
