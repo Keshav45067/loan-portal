@@ -191,12 +191,10 @@ class CaptureSession:
         manifest = self.current_document_config
         parts = manifest.get("parts", [])
 
-        # If current_page_index points to an uncovered part, honor it!
+        # Honor current_page_index if valid
         part = None
         if 0 <= self.current_page_index < len(parts):
-            target_part = parts[self.current_page_index]
-            if not self.is_part_covered(target_part.get("id", "")):
-                part = target_part
+            part = parts[self.current_page_index]
 
         if not part:
             part = self.get_next_uncovered_part()
