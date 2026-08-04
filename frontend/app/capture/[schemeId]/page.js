@@ -1521,9 +1521,6 @@ export default function CaptureFlowPage({ params }) {
             )}
           </div>
 
-  {/* Live Extracted Details Panel */}
-  {renderLiveExtractedPanel()}
-
   {/* Text Message Input Bar for AI Voice Assistant */}
           <div style={{
             display: 'flex',
