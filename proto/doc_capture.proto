@@ -29,7 +29,8 @@ service DocumentCapture {
 message StartCaptureRequest {
   string scheme_id = 1;
   string session_id = 2;
-  string language = 3;            // "en", "hi", "te", etc.
+  string language = 3;            // "en", "hi", "fr", "ar", etc.
+  bool reset = 4;                 // Reset session back to starting state
 }
 
 message CaptureSessionResponse {

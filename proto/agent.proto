@@ -73,6 +73,7 @@ message SyncExtractedDataRequest {
   string json_extracted_fields = 4; // JSON object: {field_id: {value, confidence}}
   bool page_complete = 5;
   bool all_complete = 6;
+  bool reset = 7;
 }
 
 message SyncExtractedDataResponse {

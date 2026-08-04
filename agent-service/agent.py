@@ -233,8 +233,19 @@ CRITICAL INSTRUCTIONS FOR THIS STAGE:
    -> Ask for confirmation, and when confirmed call `reset_document_page` followed by `switch_document_page`.
 """
 
+    LANG_NAMES = {
+        "en": "English",
+        "hi": "Hindi (हिन्दी)",
+        "fr": "French (Français)",
+        "ar": "Arabic (العربية)"
+    }
+    target_lang_name = LANG_NAMES.get(session.language, "English")
+
     prompt = f"""You are a document capture assistant helping a user upload and verify their KYC documents for a loan application.
 You control the document upload interface through tool calls.
+
+## LANGUAGE INSTRUCTION
+- You MUST communicate with the user ONLY in {target_lang_name} ({session.language}). All your text responses must be fluently written in {target_lang_name}.
 
 ## YOUR PERSONALITY
 - Concise, friendly, and professional

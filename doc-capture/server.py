@@ -101,14 +101,46 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
     return system_prompt, context_prompt
 
 
+FALLBACK_PROMPTS = {
+    "error_blur": {
+        "en": "Image is too blurry. Please hold your phone steady for 2 seconds and capture in a well-lit room.",
+        "hi": "छवि बहुत धुंधली है। कृपया अपने फोन को 2 सेकंड के लिए स्थिर रखें और अच्छी रोशनी वाले कमरे में कैप्चर करें।",
+        "fr": "L'image est trop floue. Veuillez tenir votre téléphone fixe pendant 2 secondes et capturer dans une pièce bien éclairée.",
+        "ar": "الصورة ضبابية جداً. يرجى إمساك الهاتف بثبات لمدة ثانيتين والالتقاط في غرفة مضاءة جيداً."
+    },
+    "error_wrong_page": {
+        "en": "Wrong document page detected. Please flip the card and capture the correct side.",
+        "hi": "गलत दस्तावेज़ पृष्ठ पाया गया। कृपया कार्ड को पलटें और सही साइड कैप्चर करें।",
+        "fr": "Page de document incorrecte détectée. Veuillez retourner la carte et capturer le bon côté.",
+        "ar": "تم الكشف عن صفحة وثيقة خاطئة. يرجى قلب البطاقة والتقاط الجانب الصحيح."
+    },
+    "error_low_confidence": {
+        "en": "Text details are unreadable. Move to a brighter area, avoid camera shake, and ensure the document is flat.",
+        "hi": "अक्षरों का विवरण पढ़ा नहीं जा सका। अधिक रोशनी वाले स्थान पर जाएं, कैमरा हिलने से बचाएं और सुनिश्चित करें कि दस्तावेज़ सीधा और समतल है।",
+        "fr": "Les détails du texte sont illisibles. Déplacez-vous vers une zone plus lumineuse, évitez les secousses de l'appareil et assurez-vous que le document est à plat.",
+        "ar": "تفاصيل النص غير قراءة. انتقل إلى منطقة أكثر إشراقاً، وتجنب اهتزاز الكاميرا، وتأكد من أن الوثيقة مسطحة."
+    },
+    "error_low_light": {
+        "en": "Low light detected. Please enable flash or move to a brighter area.",
+        "hi": "कम रोशनी पाई गई। कृपया फ्लैश चालू करें या अधिक रोशनी वाले क्षेत्र में जाएं।",
+        "fr": "Faible luminosité détectée. Veuillez activer le flash ou vous déplacer vers une zone plus lumineuse.",
+        "ar": "تم الكشف عن إضاءة منخفضة. يرجى تفعيل الفلاش أو الانتقال إلى منطقة أكثر إشراقاً."
+    },
+    "error_default": {
+        "en": "Verification failed. Please upload a valid document.",
+        "hi": "सत्यापन विफल रहा। कृपया एक मान्य दस्तावेज़ अपलोड करें।",
+        "fr": "La vérification a échoué. Veuillez importer un document valide.",
+        "ar": "فشلت عملية التحقق. يرجى تحميل وثيقة صالحة."
+    }
+}
+
 def get_localized_prompt(manifest: dict, key: str, language: str) -> str:
     prompts = manifest.get("prompts", {})
     localized = prompts.get(key, {})
-    val = localized.get(language, localized.get("en", ""))
-    if not val and key == "error_low_light":
-        if language == "hi":
-            return "कम रोशनी पाई गई। कृपया फ्लैश चालू करें या अधिक रोशनी वाले क्षेत्र में जाएं।"
-        return "Low light detected. Please enable flash or move to a brighter area."
+    val = localized.get(language, "")
+    if not val:
+        fallback_dict = FALLBACK_PROMPTS.get(key, {})
+        val = fallback_dict.get(language, fallback_dict.get("en", localized.get("en", "")))
     return val
 
 
@@ -163,12 +195,20 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
 
     async def StartSession(self, request, context):
         req_id = extract_req_id(context)
-        logger.info(f"StartSession: scheme={request.scheme_id} lang={request.language}", req_id=req_id)
+        logger.info(f"StartSession: scheme={request.scheme_id} lang={request.language} reset={getattr(request, 'reset', False)}", req_id=req_id)
         
         try:
             session = session_manager.get_session(request.session_id)
             if not session:
                 session = session_manager.create_session(request.session_id, request.scheme_id, request.language)
+            elif getattr(request, 'reset', False):
+                session.reset()
+                if request.language:
+                    session.language = request.language
+
+            if request.language:
+                session.language = request.language
+
             if not session:
                 return pb2.CaptureSessionResponse(success=False, error="Failed to initialize session")
                 

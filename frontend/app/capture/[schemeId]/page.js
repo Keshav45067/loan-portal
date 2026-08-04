@@ -98,8 +98,19 @@ export default function CaptureFlowPage({ params }) {
   const unwrappedParams = use(params);
   const schemeId = unwrappedParams.schemeId;
   const searchParams = useSearchParams();
-  const language = searchParams.get('lang') || 'en';
+  const paramLang = searchParams.get('lang');
+  const [language, setLanguage] = useState(paramLang || 'en');
   const router = useRouter();
+
+  useEffect(() => {
+    if (paramLang) {
+      localStorage.setItem('language', paramLang);
+      setLanguage(paramLang);
+    } else {
+      const savedLang = localStorage.getItem('language') || 'en';
+      setLanguage(savedLang);
+    }
+  }, [paramLang]);
 
   const [token, setToken] = useState('');
   const [sessionId, setSessionId] = useState('');
@@ -1277,9 +1288,36 @@ export default function CaptureFlowPage({ params }) {
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', paddingBottom: '30px' }}>
             <button
               onClick={async () => {
-                localStorage.removeItem('session_id');
-                setState(prev => ({ ...prev, allComplete: false }));
+                stopCamera();
+                if (voiceSessionRef.current) {
+                  voiceSessionRef.current.disconnect();
+                  voiceSessionRef.current = null;
+                }
+                const savedToken = localStorage.getItem('token') || token;
+                const savedSessionId = localStorage.getItem('session_id') || sessionId;
+                if (savedToken && savedSessionId) {
+                  await fetch(`${API_BASE_URL}/api/capture/start`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${savedToken}`
+                    },
+                    body: JSON.stringify({ scheme_id: schemeId, language: language, reset: true })
+                  }).catch(err => console.error("Error resetting session:", err));
+                }
                 setExtractedData(null);
+                setPreviewUrl(null);
+                setState({
+                  docId: '',
+                  pageId: '',
+                  docIndex: 0,
+                  totalDocs: 0,
+                  pageIndex: 0,
+                  totalPages: 0,
+                  pageInfo: null,
+                  allComplete: false
+                });
+                setIsStarted(false);
                 await fetchCaptureState();
               }}
               style={{

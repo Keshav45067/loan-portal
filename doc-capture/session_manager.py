@@ -51,6 +51,24 @@ class CaptureSession:
         self.pending_retakes: Dict[str, Dict[str, Set[int]]] = {} # {doc_id: {part_id: {page_index, ...}}}
         self.failed_reasons: Dict[str, Dict[str, Dict[int, List[str]]]] = {} # {doc_id: {part_id: {page_index: [reasons]}}}
 
+    def reset(self):
+        """Reset capture session state completely for redo / start over."""
+        self.current_document_index = 0
+        self.current_page_index = 0
+        self.coverage_map.clear()
+        self.part_ocr_texts.clear()
+        self.part_results.clear()
+        self.uploaded_parts.clear()
+        self.document_extracted_data.clear()
+        self.completed_documents.clear()
+        self.completed_pages.clear()
+        self.page_uploads.clear()
+        self.variable_parts_completed.clear()
+        self.pending_retakes.clear()
+        self.failed_reasons.clear()
+        self.faq_history.clear()
+        self._load_current_document()
+
     def initialize(self) -> bool:
         """Load scheme and first document config."""
         scheme = config_loader.get_scheme(self.scheme_id)
@@ -254,6 +272,12 @@ class CaptureSession:
             ),
             "hi": ask_part_template.get("hi", "कृपया अपने {document_title} का {part_id} कैप्चर करें।").format(
                 part_id=part_title_hi, part_title=part_title_hi, document_title=document_title_hi
+            ),
+            "fr": ask_part_template.get("fr", "Veuillez capturer le {part_id} de votre {document_title}.").format(
+                part_id=part_title_en, part_title=part_title_en, document_title=document_title_en
+            ),
+            "ar": ask_part_template.get("ar", "يرجى التقاط {part_id} الخاص بـ {document_title}.").format(
+                part_id=part_title_en, part_title=part_title_en, document_title=document_title_en
             )
         }
         
@@ -264,6 +288,8 @@ class CaptureSession:
                 reasons_joined = ", ".join(reasons)
                 intro_prompts["en"] = f"Verification failed on page {page_index} due to unclear details in: {reasons_joined}. Please capture page {page_index} again."
                 intro_prompts["hi"] = f"अस्पष्ट विवरण ({reasons_joined}) के कारण पृष्ठ {page_index} का सत्यापन विफल रहा। कृपया पृष्ठ {page_index} को फिर से कैप्चर करें।"
+                intro_prompts["fr"] = f"Échec de la vérification à la page {page_index}. Veuillez recapturer la page {page_index}."
+                intro_prompts["ar"] = f"فشلت عملية التحقق في الصفحة {page_index}. يرجى التقاط الصفحة {page_index} مرة أخرى."
             
             # Fetch GCS/URL of the previously uploaded file
             prev_upload = self.page_uploads.get(doc_id, {}).get(part_id, {}).get(page_index, "")
@@ -271,9 +297,24 @@ class CaptureSession:
                 intro_prompts["previous_image_url"] = prev_upload
                 intro_prompts["failed_reasons"] = reasons
                 
-        success_prompts = lang_prompts.get("success", {"en": "Scanned successfully.", "hi": "सफलतापूर्वक स्कैन हो गया।"})
-        blur_prompts = lang_prompts.get("error_blur", {"en": "Image is blurry.", "hi": "छवि धुंधली है।"})
-        wrong_page_prompts = lang_prompts.get("error_wrong_page", {"en": "Wrong page.", "hi": "गलत पृष्ठ।"})
+        success_prompts = lang_prompts.get("success", {
+            "en": "Scanned successfully.",
+            "hi": "सफलतापूर्वक स्कैन हो गया।",
+            "fr": "Scanné avec succès.",
+            "ar": "تم المسح بنجاح."
+        })
+        blur_prompts = lang_prompts.get("error_blur", {
+            "en": "Image is blurry.",
+            "hi": "छवि धुंधली है।",
+            "fr": "L'image est floue. Veuillez reprendre une photo claire.",
+            "ar": "الصورة ضبابية. يرجى التقاط صورة واضحة."
+        })
+        wrong_page_prompts = lang_prompts.get("error_wrong_page", {
+            "en": "Wrong page.",
+            "hi": "गलत पृष्ठ।",
+            "fr": "Page incorrecte détectée.",
+            "ar": "تم الكشف عن صفحة خاطئة."
+        })
         
         # Get source configs
         sources = manifest.get("sources", [{}])

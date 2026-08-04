@@ -26,6 +26,7 @@ router = APIRouter(tags=["capture"])
 class StartCaptureRequest(BaseModel):
     scheme_id: str
     language: str
+    reset: Optional[bool] = False
 
 # --- REST Endpoints ---
 
@@ -40,13 +41,29 @@ async def start_capture_session(body: StartCaptureRequest, request: Request, aut
             doc_capture_pb2.StartCaptureRequest(
                 scheme_id=body.scheme_id,
                 session_id=session_id,
-                language=body.language
+                language=body.language,
+                reset=body.reset or False
             ),
             metadata=[("x-request-id", req_id)]
         )
         
         if not res.success:
             return {"success": False, "error": res.error}
+
+        if body.reset:
+            try:
+                import grpc
+                from grpc_clients.generated import agent_pb2, agent_pb2_grpc
+                agent_channel = grpc.aio.insecure_channel("localhost:50059")
+                agent_stub = agent_pb2_grpc.AgentServiceStub(agent_channel)
+                await agent_stub.SyncExtractedData(
+                    agent_pb2.SyncExtractedDataRequest(
+                        session_id=session_id,
+                        reset=True
+                    )
+                )
+            except Exception as reset_err:
+                logger.warning(f"Failed to reset agent-service: {reset_err}", req_id=req_id)
             
         page_info = None
         if res.HasField("current_page_info"):

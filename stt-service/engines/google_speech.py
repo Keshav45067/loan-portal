@@ -25,7 +25,8 @@ logger = get_logger("stt-service")
 # Language code mapping
 LANGUAGE_MAP = {
     "hi": "hi-IN",
-    "en": "en-IN",
+    "en": "en-US",
+    "fr": "fr-FR",
     "ar": "ar-SA",
     "kn": "kn-IN",
 }

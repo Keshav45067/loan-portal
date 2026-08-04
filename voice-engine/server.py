@@ -692,6 +692,10 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     if existing_session and isinstance(existing_session, RawAgentSession):
                         existing_session.system_prompt = start_data.system_prompt
                         existing_session.context_prompt = start_data.context_prompt
+                        if start_data.language and existing_session.language != start_data.language:
+                            logger.info(f"Updating RawAgentSession language: {existing_session.language} -> {start_data.language}", req_id=req_id)
+                            existing_session.language = start_data.language
+                            await existing_session.init()
                         session = existing_session
                         logger.info(f"Updated existing RawAgentSession prompts dynamically: {session_id}", req_id=req_id)
                     else:

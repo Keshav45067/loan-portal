@@ -212,6 +212,9 @@ if GRPC_AVAILABLE:
                 if request.page_complete and request.doc_id and request.part_id:
                     session.mark_completed(request.doc_id, request.part_id)
 
+                if getattr(request, 'reset', False):
+                    session.reset()
+
                 if request.all_complete:
                     session.mark_all_completed()
 

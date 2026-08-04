@@ -414,6 +414,13 @@ class AgentSession:
                     item["status"] = "ACTIVE"
                     break
 
+    def reset(self):
+        """Reset agent session state completely for redo / start over."""
+        self.extracted_data.clear()
+        self.pending_confirmation = None
+        self.pending_faq_question = None
+        self._init_queue()
+
     def mark_all_completed(self):
         """Mark all documents in the queue as COMPLETED."""
         for item in self.document_queue:
