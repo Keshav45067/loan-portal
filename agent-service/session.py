@@ -393,6 +393,27 @@ class AgentSession:
             ],
         }
 
+    def reconcile_state(self):
+        """Self-healing state reconciliation: ensure queue statuses match extracted data & completion."""
+        all_expects = []
+        for manifest in self.manifests.values():
+            all_expects.extend(manifest.get("expects", []))
+        
+        extracted_keys = set(self.extracted_data.keys())
+        if all_expects and all(k in extracted_keys for k in all_expects):
+            self.mark_all_completed()
+            return
+
+        if self.document_queue and all(item["status"] == "COMPLETED" for item in self.document_queue):
+            return
+
+        has_active = any(item["status"] == "ACTIVE" for item in self.document_queue)
+        if not has_active:
+            for item in self.document_queue:
+                if item["status"] == "PENDING":
+                    item["status"] = "ACTIVE"
+                    break
+
     def mark_all_completed(self):
         """Mark all documents in the queue as COMPLETED."""
         for item in self.document_queue:

@@ -715,6 +715,14 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 failed_pages_to_retake[(p_id, p_idx)] = set()
             failed_pages_to_retake[(p_id, p_idx)].add(label)
             
+        # Determine slots expected from currently uploaded parts
+        uploaded_part_ids = list(session.part_ocr_texts.get(doc_id, {}).keys())
+        provided_slots = set()
+        for p in doc_config.get("parts", []):
+            if p.get("id") in uploaded_part_ids:
+                for slot in p.get("provides", []):
+                    provided_slots.add(slot)
+
         for slot_res in extraction_res.filled:
             slot_def = config_loader.get_slot_def(slot_res.slot)
             if not slot_def:
@@ -747,14 +755,14 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                                     evidence=sub_ev
                                 )
                                 action = route_slot(dummy_res, sub_def, bands)
-                                if action == "retake":
+                                if action == "retake" and (not provided_slots or sub_field in provided_slots):
                                     evidence_page = sub_ev.get("page", "")
                                     add_failure(sub_field, evidence_page)
                                 elif action == "confirm":
                                     confirm_fields.append(sub_field)
             else:
                 action = route_slot(slot_res, slot_def, bands)
-                if action == "retake":
+                if action == "retake" and (not provided_slots or slot_res.slot in provided_slots):
                     evidence_page = slot_res.evidence.get("page", "")
                     add_failure(slot_res.slot, evidence_page)
                 elif action == "confirm":

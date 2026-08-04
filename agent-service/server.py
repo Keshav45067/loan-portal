@@ -215,6 +215,8 @@ if GRPC_AVAILABLE:
                 if request.all_complete:
                     session.mark_all_completed()
 
+                session.reconcile_state()
+
                 from session import log_session_snapshot
                 log_session_snapshot(session, f"Document Uploaded & Processed ({request.doc_id} — {request.part_id})")
 
