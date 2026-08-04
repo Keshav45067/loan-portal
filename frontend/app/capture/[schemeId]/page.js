@@ -992,25 +992,61 @@ export default function CaptureFlowPage({ params }) {
     return null;
   };
 
-  const formatExtractedValue = (value, fieldDef) => {
-    if (value === undefined || value === null || value === '') {
-      return <span style={{ color: '#64748b', fontStyle: 'italic' }}>Not Available</span>;
-    }
+  const handleFieldUpdate = (slotId, newValue, subKey = null) => {
+    setExtractedData(prev => {
+      const currentSlotObj = prev?.[slotId];
+      const currentVal = (currentSlotObj && typeof currentSlotObj === 'object' && currentSlotObj.value !== undefined)
+        ? currentSlotObj.value
+        : getValueWithFallback(slotId, prev);
 
-    const type = fieldDef?.type || 'text';
+      let finalVal;
+      if (subKey) {
+        const baseObj = (typeof currentVal === 'object' && currentVal !== null) ? currentVal : {};
+        finalVal = { ...baseObj, [subKey]: newValue };
+      } else {
+        finalVal = newValue;
+      }
 
-    if (type === 'object' && typeof value === 'object') {
-      const fields = fieldDef.fields || Object.keys(value);
+      return {
+        ...(prev || {}),
+        [slotId]: {
+          value: finalVal,
+          manually_overridden: true,
+          override_reason: 'User manual edit'
+        }
+      };
+    });
+  };
+
+  const formatExtractedValue = (value, fieldDef, slotId, isOverridden) => {
+    const type = fieldDef?.type || (typeof value === 'object' && value !== null ? 'object' : 'text');
+
+    if (type === 'object' && typeof value === 'object' && value !== null) {
+      const fields = fieldDef?.fields || Object.keys(value);
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
           {fields.map((fKey) => {
             const fVal = value[fKey];
-            if (fVal === undefined || fVal === null || fVal === '') return null;
             const subLabel = SUB_FIELD_LABELS[fKey] || formatKey(fKey);
             return (
-              <div key={fKey} style={{ display: 'flex', gap: '6px' }}>
-                <span style={{ color: '#94a3b8', fontWeight: 500 }}>{subLabel}:</span>
-                <span style={{ color: '#fff' }}>{String(fVal)}</span>
+              <div key={fKey} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ color: '#94a3b8', fontWeight: 500, width: '130px', flexShrink: 0, fontSize: '0.78rem' }}>{subLabel}:</span>
+                <input
+                  type="text"
+                  value={fVal !== null && fVal !== undefined ? String(fVal) : ''}
+                  placeholder="Type to edit..."
+                  onChange={(e) => handleFieldUpdate(slotId, e.target.value, fKey)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    background: isOverridden ? 'rgba(251, 191, 36, 0.08)' : '#0f172a',
+                    border: `1px solid ${isOverridden ? 'rgba(251, 191, 36, 0.4)' : '#334155'}`,
+                    borderRadius: '6px',
+                    color: isOverridden ? '#fbbf24' : '#fff',
+                    fontSize: '0.84rem',
+                    outline: 'none'
+                  }}
+                />
               </div>
             );
           })}
@@ -1018,37 +1054,24 @@ export default function CaptureFlowPage({ params }) {
       );
     }
 
-    if (type === 'array' && Array.isArray(value)) {
-      const itemsDef = fieldDef.items || {};
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}>
-          {value.map((item, idx) => {
-            if (typeof item === 'object' && item !== null) {
-              const fields = itemsDef.fields || Object.keys(item);
-              return (
-                <div key={idx} style={{ paddingLeft: '8px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div style={{ color: '#a7b4fc', fontWeight: 600, fontSize: '0.75rem', marginBottom: '2px' }}>Item {idx + 1}</div>
-                  {fields.map((fKey) => {
-                    const fVal = item[fKey];
-                    if (fVal === undefined || fVal === null || fVal === '') return null;
-                    const subLabel = SUB_FIELD_LABELS[fKey] || formatKey(fKey);
-                    return (
-                      <div key={fKey} style={{ display: 'flex', gap: '6px' }}>
-                        <span style={{ color: '#94a3b8', fontWeight: 500 }}>{subLabel}:</span>
-                        <span style={{ color: '#fff' }}>{String(fVal)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            }
-            return <div key={idx} style={{ color: '#fff' }}>- {String(item)}</div>;
-          })}
-        </div>
-      );
-    }
-
-    return <span style={{ fontFamily: 'monospace', color: '#fff' }}>{String(value)}</span>;
+    return (
+      <input
+        type="text"
+        value={value !== null && value !== undefined ? String(value) : ''}
+        placeholder="Type to edit..."
+        onChange={(e) => handleFieldUpdate(slotId, e.target.value)}
+        style={{
+          width: '100%',
+          padding: '8px 12px',
+          background: isOverridden ? 'rgba(251, 191, 36, 0.08)' : '#0f172a',
+          border: `1px solid ${isOverridden ? 'rgba(251, 191, 36, 0.4)' : '#334155'}`,
+          borderRadius: '8px',
+          color: isOverridden ? '#fbbf24' : '#fff',
+          fontSize: '0.88rem',
+          outline: 'none'
+        }}
+      />
+    );
   };
 
   const renderCompletedTable = () => {
@@ -1143,35 +1166,7 @@ export default function CaptureFlowPage({ params }) {
                             <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>{field.pageName}</div>
                           </td>
                           <td style={{ padding: '12px 14px' }}>
-                            {typeof field.value === 'object' && field.value !== null ? (
-                              formatExtractedValue(field.value, field.fieldDef)
-                            ) : (
-                              <input
-                                type="text"
-                                value={field.value !== null && field.value !== undefined ? String(field.value) : ''}
-                                onChange={(e) => {
-                                  const newVal = e.target.value;
-                                  setExtractedData(prev => ({
-                                    ...(prev || {}),
-                                    [field.slotId]: {
-                                      value: newVal,
-                                      manually_overridden: true,
-                                      override_reason: 'User manual edit'
-                                    }
-                                  }));
-                                }}
-                                style={{
-                                  width: '100%',
-                                  padding: '8px 12px',
-                                  background: field.isOverridden ? 'rgba(251, 191, 36, 0.08)' : '#0f172a',
-                                  border: `1px solid ${field.isOverridden ? 'rgba(251, 191, 36, 0.4)' : '#334155'}`,
-                                  borderRadius: '8px',
-                                  color: field.isOverridden ? '#fbbf24' : '#fff',
-                                  fontSize: '0.88rem',
-                                  outline: 'none'
-                                }}
-                              />
-                            )}
+                            {formatExtractedValue(field.value, field.fieldDef, field.slotId, field.isOverridden)}
                           </td>
                         </tr>
                       ))}
