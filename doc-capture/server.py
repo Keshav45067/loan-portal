@@ -558,26 +558,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 if page_index in session.failed_reasons.get(doc_id, {}).get(part_id, {}):
                     del session.failed_reasons[doc_id][part_id][page_index]
             
-            # 6. Check if coverage complete
-            if not session.is_coverage_complete():
-                # Advance part capture (not fully complete yet)
-                session.advance_page()
-                next_page = session.get_current_page()
-                next_page_id = next_page.get("page_id") if next_page else ""
-                
-                return pb2.ProcessDocResponse(
-                    success=True,
-                    page_complete=True,
-                    document_complete=False,
-                    all_complete=False,
-                    part_id=part_id,
-                    next_page_id=next_page_id,
-                    next_part_id=next_page_id,
-                    next_document_id=doc_id,
-                    processed_document_id=doc_id
-                )
+            # 6. Advance page capture
+            session.advance_page()
+            next_page = session.get_current_page()
+            next_page_id = next_page.get("page_id") if next_page else ""
             
-        # 7. Coverage complete -> run extraction
+        # 7. Run extraction for all currently uploaded parts
         pipeline_res = await self._execute_extraction_flow(session, doc_config, doc_id, part_id, req_id)
         if not pipeline_res["success"]:
             return pb2.ProcessDocResponse(
@@ -596,13 +582,13 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 success=True,
                 extracted_fields_json=pipeline_res["extracted_fields_json"],
                 page_complete=True,
-                document_complete=pipeline_res["document_complete"],
-                all_complete=pipeline_res["all_complete"],
+                document_complete=session.is_coverage_complete(),
+                all_complete=session.is_all_complete(),
                 confirm_fields=pipeline_res["confirm_fields"],
-                part_id=pipeline_res["part_id"],
-                next_page_id=pipeline_res["next_page_id"],
-                next_part_id=pipeline_res["next_part_id"],
-                next_document_id=pipeline_res["next_document_id"],
+                part_id=part_id,
+                next_page_id=next_page_id,
+                next_part_id=next_page_id,
+                next_document_id=session.get_current_document_id(),
                 processed_document_id=doc_id
             )
 
