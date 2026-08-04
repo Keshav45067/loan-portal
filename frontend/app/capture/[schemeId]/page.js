@@ -779,14 +779,18 @@ export default function CaptureFlowPage({ params }) {
               }));
               setPreviewUrl(null);
               
+              const targetDocId = data.next_document_id || prev.docId;
+              const targetPageId = data.next_page_id || prev.pageId;
               // Need to re-fetch page info to update prompts and overlay
-              const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+              const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${targetDocId}&page_id=${targetPageId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
               });
               const infoData = await infoRes.json();
               if (infoData.success) {
                   setState(prev => ({
                       ...prev,
+                      docId: infoData.document_id || targetDocId,
+                      pageId: infoData.page_info?.page_id || targetPageId,
                       pageInfo: infoData.page_info,
                       docIndex: infoData.document_index,
                       totalDocs: infoData.total_documents
@@ -821,23 +825,28 @@ export default function CaptureFlowPage({ params }) {
           return;
       }
 
+      const nextDoc = data.next_document_id || data.processed_document_id;
+      const nextPage = data.next_page_id;
+
        // Update state for next step
       setState(prev => ({
           ...prev,
-          docId: data.next_document_id || data.processed_document_id || prev.docId,
-          pageId: data.next_page_id,
+          docId: nextDoc || prev.docId,
+          pageId: nextPage || prev.pageId,
       }));
       setPreviewUrl(null);
       setLocalUploadsCount(prev => prev + 1);
       
       // Need to re-fetch page info to update prompts and overlay
-      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc || ''}&page_id=${nextPage || ''}`, {
           headers: { 'Authorization': `Bearer ${token}` }
       });
       const infoData = await infoRes.json();
       if (infoData.success) {
           setState(prev => ({
               ...prev,
+              docId: infoData.document_id || nextDoc || prev.docId,
+              pageId: infoData.page_info?.page_id || nextPage || prev.pageId,
               pageInfo: infoData.page_info,
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
@@ -898,14 +907,18 @@ export default function CaptureFlowPage({ params }) {
               }));
               setPreviewUrl(null);
               
+              const targetDocId = data.next_document_id || prev.docId;
+              const targetPageId = data.next_page_id || prev.pageId;
               // Need to re-fetch page info to update prompts and overlay
-              const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+              const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${targetDocId}&page_id=${targetPageId}`, {
                   headers: { 'Authorization': `Bearer ${token}` }
               });
               const infoData = await infoRes.json();
               if (infoData.success) {
                   setState(prev => ({
                       ...prev,
+                      docId: infoData.document_id || targetDocId,
+                      pageId: infoData.page_info?.page_id || targetPageId,
                       pageInfo: infoData.page_info,
                       docIndex: infoData.document_index,
                       totalDocs: infoData.total_documents
@@ -934,22 +947,27 @@ export default function CaptureFlowPage({ params }) {
           return;
       }
 
+      const nextDoc = data.current_document_id || data.next_document_id;
+      const nextPage = data.current_page_id || data.next_page_id;
+
       // Update state for next step
       setState(prev => ({
           ...prev,
-          docId: data.current_document_id,
-          pageId: data.current_page_id,
+          docId: nextDoc || prev.docId,
+          pageId: nextPage || prev.pageId,
       }));
       setPreviewUrl(null);
       
       // Need to re-fetch page info to update prompts and overlay
-      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+      const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${nextDoc || ''}&page_id=${nextPage || ''}`, {
           headers: { 'Authorization': `Bearer ${token}` }
       });
       const infoData = await infoRes.json();
       if (infoData.success) {
           setState(prev => ({
               ...prev,
+              docId: infoData.document_id || nextDoc || prev.docId,
+              pageId: infoData.page_info?.page_id || nextPage || prev.pageId,
               pageInfo: infoData.page_info,
               docIndex: infoData.document_index,
               totalDocs: infoData.total_documents
