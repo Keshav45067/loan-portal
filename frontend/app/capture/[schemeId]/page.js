@@ -1521,7 +1521,7 @@ export default function CaptureFlowPage({ params }) {
             )}
           </div>
 
-  {/* Text Message Input Bar for AI Voice Assistant */}
+          {/* Text Message Input Bar for AI Voice Assistant */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
