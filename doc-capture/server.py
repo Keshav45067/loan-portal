@@ -166,7 +166,9 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         logger.info(f"StartSession: scheme={request.scheme_id} lang={request.language}", req_id=req_id)
         
         try:
-            session = session_manager.create_session(request.session_id, request.scheme_id, request.language)
+            session = session_manager.get_session(request.session_id)
+            if not session:
+                session = session_manager.create_session(request.session_id, request.scheme_id, request.language)
             if not session:
                 return pb2.CaptureSessionResponse(success=False, error="Failed to initialize session")
                 

@@ -247,37 +247,38 @@ export default function CaptureFlowPage({ params }) {
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      setState({
-        docId: data.current_document_id,
-        pageId: data.current_page_id,
-        docIndex: data.current_document_index,
-        totalDocs: data.total_documents,
-        pageIndex: data.current_page_index,
-        totalPages: data.total_pages,
-        pageInfo: data.current_page_info,
-        allComplete: data.all_complete
+      setState(prev => {
+        if (prev.allComplete) return prev;
+        return {
+          docId: data.current_document_id,
+          pageId: data.current_page_id,
+          docIndex: data.current_document_index,
+          totalDocs: data.total_documents,
+          pageIndex: data.current_page_index,
+          totalPages: data.total_pages,
+          pageInfo: data.current_page_info,
+          allComplete: data.all_complete
+        };
       });
       setLocalUploadsCount(data.current_page_info?.uploads_count || 0);
 
       // 2. Load scheme manifests if not loaded yet
-      if (Object.keys(manifests).length === 0) {
-        const schemeRes = await fetch(`${API_BASE_URL}/api/capture/scheme-docs/${schemeId}`, {
-          headers: { 'Authorization': `Bearer ${savedToken}` }
-        });
-        const schemeData = await schemeRes.json();
-        if (schemeData.manifests) {
-          setManifests(schemeData.manifests);
-        }
-        if (schemeData.fields_registry) {
-          setFieldsRegistry(schemeData.fields_registry);
-        }
+      const schemeRes = await fetch(`${API_BASE_URL}/api/capture/scheme-docs/${schemeId}`, {
+        headers: { 'Authorization': `Bearer ${savedToken}` }
+      });
+      const schemeData = await schemeRes.json();
+      if (schemeData.manifests) {
+        setManifests(schemeData.manifests);
+      }
+      if (schemeData.fields_registry) {
+        setFieldsRegistry(schemeData.fields_registry);
       }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [schemeId, language, token, manifests]);
+  }, [schemeId, language, token]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');

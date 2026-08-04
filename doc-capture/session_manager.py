@@ -291,7 +291,10 @@ class CaptureSession:
         }
 
     def is_all_complete(self) -> bool:
-        return self.current_document_index >= len(self.required_documents)
+        """Check if all required documents in the scheme are completed."""
+        if not self.required_documents:
+            return False
+        return len(self.completed_documents) >= len(self.required_documents)
         
     def advance_page(self) -> Tuple[bool, bool]:
         """Advance to next part or document. Returns (page_advanced, document_advanced)."""
@@ -304,15 +307,27 @@ class CaptureSession:
             if doc_id:
                 self.completed_documents.add(doc_id)
             
-            # Advance until we find a document that is NOT completed yet
-            while self.current_document_index < len(self.required_documents):
-                self.current_document_index += 1
-                self.current_page_index = 0
-                if self.current_document_index >= len(self.required_documents):
+            if self.is_all_complete():
+                self.current_document_index = len(self.required_documents)
+                return True, True
+
+            # Advance forward, wrapping around if needed, to find next pending document
+            start_idx = self.current_document_index
+            total = len(self.required_documents)
+            found_next = False
+
+            for step in range(1, total + 1):
+                check_idx = (start_idx + step) % total
+                candidate_doc_id = self.required_documents[check_idx]
+                if candidate_doc_id not in self.completed_documents:
+                    self.current_document_index = check_idx
+                    self.current_page_index = 0
+                    self._load_current_document()
+                    found_next = True
                     break
-                self._load_current_document()
-                if not self.is_coverage_complete():
-                    break
+
+            if not found_next:
+                self.current_document_index = len(self.required_documents)
 
             return True, True
         else:
