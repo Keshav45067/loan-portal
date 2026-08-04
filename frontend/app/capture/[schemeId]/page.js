@@ -371,7 +371,7 @@ export default function CaptureFlowPage({ params }) {
       setExtractedData(prev => ({
         ...(prev || {}),
         [payload.field_key]: {
-          value: payload.new_value,
+          value: parseObjIfNeeded(payload.new_value),
           manually_overridden: true,
           override_reason: payload.override_reason || 'Agent override'
         }
@@ -981,6 +981,29 @@ export default function CaptureFlowPage({ params }) {
     }
   };
 
+  const parseObjIfNeeded = (val) => {
+    if (!val) return val;
+    if (typeof val === 'object') return val;
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed.startsWith('{')) {
+        try {
+          return JSON.parse(trimmed);
+        } catch (e) {
+          try {
+            const jsonStr = trimmed
+              .replace(/'/g, '"')
+              .replace(/None/g, 'null')
+              .replace(/True/g, 'true')
+              .replace(/False/g, 'false');
+            return JSON.parse(jsonStr);
+          } catch (err) {}
+        }
+      }
+    }
+    return val;
+  };
+
   const getPageNameForSlot = (slotId, manifest) => {
     if (!manifest || !manifest.parts) return "Document Details";
     const part = manifest.parts.find(p => p.provides && p.provides.includes(slotId));
@@ -1009,9 +1032,10 @@ export default function CaptureFlowPage({ params }) {
   const handleFieldUpdate = (slotId, newValue, subKey = null) => {
     setExtractedData(prev => {
       const currentSlotObj = prev?.[slotId];
-      const currentVal = (currentSlotObj && typeof currentSlotObj === 'object' && currentSlotObj.value !== undefined)
+      const currentValRaw = (currentSlotObj && typeof currentSlotObj === 'object' && currentSlotObj.value !== undefined)
         ? currentSlotObj.value
         : getValueWithFallback(slotId, prev);
+      const currentVal = parseObjIfNeeded(currentValRaw);
 
       let finalVal;
       if (subKey) {
@@ -1054,7 +1078,8 @@ export default function CaptureFlowPage({ params }) {
     });
   };
 
-  const formatExtractedValue = (value, fieldDef, slotId, isOverridden) => {
+  const formatExtractedValue = (rawValue, fieldDef, slotId, isOverridden) => {
+    const value = parseObjIfNeeded(rawValue);
     const type = fieldDef?.type || (typeof value === 'object' && value !== null ? 'object' : 'text');
 
     if (type === 'object' && typeof value === 'object' && value !== null) {
