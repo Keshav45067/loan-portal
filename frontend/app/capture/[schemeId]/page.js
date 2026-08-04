@@ -273,12 +273,24 @@ export default function CaptureFlowPage({ params }) {
       if (schemeData.fields_registry) {
         setFieldsRegistry(schemeData.fields_registry);
       }
+
+      // 3. Load application extracted data if session_id is available
+      const savedSessionId = localStorage.getItem('session_id') || sessionId;
+      if (savedSessionId) {
+        const appRes = await fetch(`${API_BASE_URL}/api/applications/${savedSessionId}`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        const appDataJson = await appRes.json();
+        if (appDataJson && appDataJson.extracted_data) {
+          setExtractedData(appDataJson.extracted_data);
+        }
+      }
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [schemeId, language, token]);
+  }, [schemeId, language, token, sessionId]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
@@ -1007,14 +1019,36 @@ export default function CaptureFlowPage({ params }) {
         finalVal = newValue;
       }
 
-      return {
-        ...(prev || {}),
-        [slotId]: {
-          value: finalVal,
-          manually_overridden: true,
-          override_reason: 'User manual edit'
-        }
+      const updatedObj = {
+        value: finalVal,
+        manually_overridden: true,
+        override_reason: 'User manual edit'
       };
+
+      const newExtractedData = {
+        ...(prev || {}),
+        [slotId]: updatedObj
+      };
+
+      const savedToken = localStorage.getItem('token') || token;
+      const savedSessionId = localStorage.getItem('session_id') || sessionId;
+      if (savedSessionId && savedToken) {
+        fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${savedToken}`
+          },
+          body: JSON.stringify({
+            session_id: savedSessionId,
+            fields: {
+              [slotId]: updatedObj
+            }
+          })
+        }).catch(err => console.error("Error saving manual edit:", err));
+      }
+
+      return newExtractedData;
     });
   };
 
@@ -1071,6 +1105,98 @@ export default function CaptureFlowPage({ params }) {
           outline: 'none'
         }}
       />
+    );
+  };
+
+  const renderLiveExtractedPanel = () => {
+    if (!isStarted || state.allComplete) return null;
+
+    const activeDocTypes = Object.keys(manifests);
+    if (activeDocTypes.length === 0) return null;
+
+    const allFields = [];
+    activeDocTypes.forEach((docType) => {
+      const manifest = manifests[docType];
+      if (!manifest) return;
+      const expects = manifest.expects || [];
+      expects.forEach((slotId) => {
+        const fieldDef = fieldsRegistry ? fieldsRegistry[slotId] : null;
+        const label = fieldDef?.label?.English || formatKey(slotId);
+        const valObj = extractedData ? extractedData[slotId] : null;
+        const rawVal = valObj && typeof valObj === 'object' && valObj.value !== undefined ? valObj.value : getValueWithFallback(slotId, extractedData);
+        const isOverridden = valObj?.manually_overridden || false;
+
+        allFields.push({
+          docTitle: manifest.title?.English || formatKey(docType),
+          slotId,
+          label,
+          value: rawVal,
+          isOverridden,
+          fieldDef
+        });
+      });
+    });
+
+    const extractedCount = Object.keys(extractedData || {}).length;
+
+    return (
+      <div style={{
+        width: '100%',
+        maxWidth: '600px',
+        background: 'rgba(15, 23, 42, 0.88)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '16px',
+        padding: '12px 16px',
+        marginBottom: '10px',
+        maxHeight: isPanelExpanded ? '320px' : '48px',
+        overflowY: isPanelExpanded ? 'auto' : 'hidden',
+        transition: 'max-height 0.3s ease-in-out',
+        pointerEvents: 'auto',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+      }} className={styles.interactive}>
+        {/* Header Bar */}
+        <div 
+          onClick={() => setIsPanelExpanded(!isPanelExpanded)} 
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', fontWeight: 600, color: '#60a5fa' }}>
+            <span>📋</span>
+            <span>Extracted Details & Manual Edit</span>
+            <span style={{ fontSize: '0.75rem', color: '#93c5fd', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid rgba(59, 130, 246, 0.4)', padding: '2px 8px', borderRadius: '999px' }}>
+              {extractedCount} Extracted
+            </span>
+          </div>
+          <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>
+            {isPanelExpanded ? '▲ Collapse' : '▼ Click to Edit Details'}
+          </span>
+        </div>
+
+        {/* Expanded Fields List with Text inputs */}
+        {isPanelExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            {allFields.length === 0 ? (
+              <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>No fields extracted yet. Upload a document to view and edit details.</p>
+            ) : (
+              allFields.map((field, idx) => (
+                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#cbd5e1' }}>
+                      {field.label} <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 400 }}>({field.docTitle})</span>
+                    </span>
+                    {field.isOverridden && (
+                      <span style={{ background: 'rgba(251, 191, 36, 0.18)', color: '#fbbf24', border: '1px solid rgba(251, 191, 36, 0.3)', fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', borderRadius: '4px' }}>
+                        EDITED
+                      </span>
+                    )}
+                  </div>
+                  {formatExtractedValue(field.value, field.fieldDef, field.slotId, field.isOverridden)}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -1434,7 +1560,10 @@ export default function CaptureFlowPage({ params }) {
             )}
           </div>
 
-          {/* Text Message Input Bar for AI Voice Assistant */}
+  {/* Live Extracted Details Panel */}
+  {renderLiveExtractedPanel()}
+
+  {/* Text Message Input Bar for AI Voice Assistant */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
