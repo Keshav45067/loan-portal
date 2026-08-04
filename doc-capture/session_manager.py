@@ -114,8 +114,7 @@ class CaptureSession:
         if doc_id in self.required_documents:
             idx = self.required_documents.index(doc_id)
             self.current_document_index = idx
-            self.current_document_config = config_loader.get_manifest(doc_id)
-            self._ensure_doc_state(doc_id)
+            self._load_current_document()
             
             if part_id and self.current_document_config:
                 parts = self.current_document_config.get("parts", [])
