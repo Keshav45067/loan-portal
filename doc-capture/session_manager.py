@@ -109,6 +109,25 @@ class CaptureSession:
             return self.required_documents[self.current_document_index]
         return ""
 
+    def set_active_document(self, doc_id: str, part_id: Optional[str] = None) -> bool:
+        """Explicitly switch the session active document and page index."""
+        if doc_id in self.required_documents:
+            idx = self.required_documents.index(doc_id)
+            self.current_document_index = idx
+            self.current_document_config = config_loader.get_doc_config(doc_id)
+            self._ensure_doc_state(doc_id)
+            
+            if part_id and self.current_document_config:
+                parts = self.current_document_config.get("parts", [])
+                for p_idx, p in enumerate(parts):
+                    if p.get("id") == part_id:
+                        self.current_page_index = p_idx
+                        break
+            else:
+                self.current_page_index = 0
+            return True
+        return False
+
     def get_next_uncovered_part(self) -> Optional[dict]:
         """Returns the first part in the current manifest that is not covered."""
         if not self.current_document_config:

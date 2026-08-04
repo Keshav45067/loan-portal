@@ -409,7 +409,9 @@ export default function CaptureFlowPage({ params }) {
       if (!savedToken) return;
 
       try {
-        const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}`, {
+        const targetDocId = payload?.doc_id || '';
+        const targetPartId = payload?.part_id || '';
+        const infoRes = await fetch(`${API_BASE_URL}/api/capture/page-info?session_id=${sessionId}&document_id=${targetDocId}&page_id=${targetPartId}`, {
           headers: { 'Authorization': `Bearer ${savedToken}` }
         });
         const infoData = await infoRes.json();

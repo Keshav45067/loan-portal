@@ -81,12 +81,16 @@ async def start_capture_session(body: StartCaptureRequest, request: Request, aut
         return {"success": False, "error": str(e)}
 
 @router.get("/api/capture/page-info")
-async def get_page_info(session_id: str, request: Request, auth: dict = Depends(require_auth)):
+async def get_page_info(session_id: str, request: Request, document_id: Optional[str] = None, page_id: Optional[str] = None, auth: dict = Depends(require_auth)):
     req_id = request.state.req_id
     try:
         stub = request.app.state.doc_capture_stub
         res = await stub.GetPageInfo(
-            doc_capture_pb2.PageInfoRequest(session_id=session_id),
+            doc_capture_pb2.PageInfoRequest(
+                session_id=session_id,
+                document_id=document_id or "",
+                page_id=page_id or ""
+            ),
             metadata=[("x-request-id", req_id)]
         )
         if not res.success:

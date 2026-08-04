@@ -321,11 +321,13 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not session:
             return pb2.ProcessDocResponse(success=False, error="Session not found")
             
-        # 1. Use session's active document ID (handles live page switches gracefully)
+        # 1. Align session active document with requested document_id
+        if request.document_id and request.document_id in session.required_documents:
+            if request.document_id != session.get_current_document_id():
+                logger.info(f"ProcessDocument: Client requested doc='{request.document_id}', switching active session doc to '{request.document_id}'", req_id=req_id)
+                session.set_active_document(request.document_id, request.page_id)
+
         doc_id = session.get_current_document_id()
-        if request.document_id and request.document_id != doc_id:
-            logger.warning(f"ProcessDocument: Client sent doc='{request.document_id}' but active session doc is '{doc_id}'. Aligning with active session doc.", req_id=req_id)
-            
         doc_config = session.current_document_config
         expected_part_id, page_index = parse_page_id(request.page_id)
         
