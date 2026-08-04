@@ -5,6 +5,7 @@ Bridges REST endpoints to the DocCapture gRPC service, and WebSocket to Voice En
 
 import asyncio
 import json
+from typing import Optional, Dict, List, Any
 from fastapi import APIRouter, Request, Depends, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
