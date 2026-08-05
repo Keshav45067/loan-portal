@@ -649,13 +649,16 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
 
     async def GetFAQPrompt(self, request, context):
         session = session_manager.get_session(request.session_id)
+        req_lang = getattr(request, "language", "")
+        logger.info(f"🌐 [DOC-CAPTURE GetFAQPrompt] session_id='{request.session_id}' | req_language='{req_lang}' | current_session_lang='{session.language if session else 'NONE'}'")
         if not session:
             return pb2.FAQPromptResponse(success=False, error="Session not found")
 
-        if getattr(request, "language", ""):
-            session.language = request.language
+        if req_lang:
+            session.language = req_lang
 
         sys_prompt, ctx_prompt = build_faq_system_prompt(session)
+        logger.info(f"🌐 [DOC-CAPTURE GetFAQPrompt RESULT] session.language='{session.language}' | sys_prompt_sample='{sys_prompt[:120]}...'")
         return pb2.FAQPromptResponse(success=True, system_prompt=sys_prompt, context_prompt=ctx_prompt)
 
     async def GetSchemeConfig(self, request, context):

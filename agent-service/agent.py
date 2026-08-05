@@ -295,6 +295,7 @@ You control the document upload interface through tool calls.
 - Be proactive: after switching documents, briefly tell user what to do next.
 - If a tool call fails validation, explain the error clearly to the user.
 """
+    logger.info(f"🌐 [AGENT-SERVICE SYSTEM PROMPT BUILT] session.language='{session.language}' | target_lang_name='{target_lang_name}' | system_prompt_sample='{prompt[:250]}...'")
     return prompt
 
 

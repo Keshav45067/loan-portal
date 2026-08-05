@@ -472,9 +472,11 @@ async def capture_voice_websocket(websocket: WebSocket):
 
         session_id = payload.get("session_id")
         language = init_data.get("language", "en")
+        logger.info(f"🌐 [GATEWAY CAPTURE-VOICE INIT] session_id='{session_id}' | language='{language}' | raw_init_language='{init_data.get('language')}'", req_id=req_id)
         
         # 1. Fetch system and context prompts from doc-capture service
         doc_capture_stub = websocket.app.state.doc_capture_stub
+        logger.info(f"🌐 [GATEWAY GetFAQPrompt REQUEST] session_id='{session_id}' | language='{language}'", req_id=req_id)
         faq_res = await doc_capture_stub.GetFAQPrompt(
             doc_capture_pb2.FAQPromptRequest(session_id=session_id, language=language),
             metadata=[("x-request-id", req_id)]
@@ -482,6 +484,7 @@ async def capture_voice_websocket(websocket: WebSocket):
         
         system_prompt = faq_res.system_prompt if faq_res.success else "You are a helpful assistant."
         context_prompt = faq_res.context_prompt if faq_res.success else ""
+        logger.info(f"🌐 [GATEWAY GetFAQPrompt RESPONSE] success={faq_res.success} | sys_prompt_sample='{system_prompt[:100]}...'", req_id=req_id)
         
         # Send connected confirmation
         await websocket.send_json({
@@ -496,6 +499,7 @@ async def capture_voice_websocket(websocket: WebSocket):
         grpc_queue = asyncio.Queue()
         
         # Start message
+        logger.info(f"🌐 [GATEWAY RawAgentInput AGENT_START] session_id='{session_id}' | language='{language}'", req_id=req_id)
         start_req = voice_engine_pb2.RawAgentInput(
             agent_start=voice_engine_pb2.AgentStart(
                 session_id=session_id,

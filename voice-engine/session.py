@@ -1442,6 +1442,7 @@ class RawAgentSession(VoiceSession):
         t_turn_start = time.perf_counter()
 
         try:
+            logger.info(f"🌐 [VOICE-ENGINE RawAgentSession TURN START] session_id='{self.session_id}' | self.language='{self.language}' | user_text='{transcribed_text}'")
             agent_response_text = ""
             agent_signals = []
 
@@ -1454,6 +1455,7 @@ class RawAgentSession(VoiceSession):
                     self._agent_stub = agent_pb2_grpc.AgentServiceStub(channel)
                     target_scheme = self.scheme_id if (hasattr(self, 'scheme_id') and self.scheme_id and self.scheme_id != "raw_agent") else "demo_business_kyc"
                     # Init session ONCE per voice connection
+                    logger.info(f"🌐 [VOICE-ENGINE gRPC CALL InitSession] session_id='{self.session_id}' | language='{self.language}' | target_scheme='{target_scheme}'")
                     await self._agent_stub.InitSession(
                         agent_pb2.InitSessionRequest(
                             scheme_id=target_scheme,
@@ -1463,6 +1465,7 @@ class RawAgentSession(VoiceSession):
                     )
                 
                 # Run turn
+                logger.info(f"🌐 [VOICE-ENGINE gRPC CALL RunTurn] session_id='{self.session_id}' | language='{self.language}' | message='{transcribed_text}'")
                 res = await self._agent_stub.RunTurn(
                     agent_pb2.RunTurnRequest(
                         session_id=self.session_id,
@@ -1472,6 +1475,7 @@ class RawAgentSession(VoiceSession):
                 )
                 if res.success:
                     agent_response_text = res.agent_response
+                    logger.info(f"🌐 [VOICE-ENGINE gRPC RunTurn RESPONSE] success=True | agent_response='{agent_response_text}'")
                     for tc in res.tool_calls:
                         if tc.json_signal and tc.json_signal != "{}":
                             try:

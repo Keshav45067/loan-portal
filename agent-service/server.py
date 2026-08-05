@@ -133,6 +133,7 @@ if GRPC_AVAILABLE:
                 scheme_id = request.scheme_id or "demo_business_kyc"
                 sess_id = request.session_id if request.session_id else None
                 lang = getattr(request, "language", "") or "en"
+                logger.info(f"🌐 [AGENT-SERVICE InitSession gRPC] session_id='{sess_id}' | raw_request_lang='{getattr(request, 'language', '')}' | resolved_lang='{lang}'")
                 session = create_session(scheme_id=scheme_id, session_id=sess_id, language=lang)
                 if not session.manifests:
                     return agent_pb2.InitSessionResponse(
@@ -152,11 +153,13 @@ if GRPC_AVAILABLE:
             try:
                 session = get_session(request.session_id)
                 req_lang = getattr(request, "language", "")
+                logger.info(f"🌐 [AGENT-SERVICE RunTurn gRPC] session_id='{request.session_id}' | raw_request_lang='{req_lang}' | existing_session_found={session is not None}")
                 if not session:
                     session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=req_lang or "en")
                 elif req_lang:
                     session.language = req_lang
 
+                logger.info(f"🌐 [AGENT-SERVICE RunTurn CALLING RUN_AGENT_TURN] session.language='{session.language}' | message='{request.message}'")
                 result = await run_agent_turn(session, request.message)
 
                 tool_calls_pb = []
