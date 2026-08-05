@@ -37,11 +37,16 @@ class GraphWalker:
             applicant_name: For {name} template interpolation
             language: Selected language code (e.g. hi, en, te)
         """
+        self._scheme_config = graph_data
         self._nodes: Dict[str, dict] = graph_data.get("nodes", {})
         self._start_node_id: str = graph_data.get("start_node_id", "START")
         self._context_map: Dict[str, list] = graph_data.get("context_map", {})
-        self._name = applicant_name or ("आप" if language == "hi" else "you" if language == "en" else "మీరు")
         self._language = language
+
+        # Config-driven default applicant placeholder (Zero Hardcoding)
+        default_placeholders = graph_data.get("default_applicant_placeholder", {})
+        fallback_name = default_placeholders.get(language) or default_placeholders.get("hi") or "Applicant"
+        self._name = applicant_name or fallback_name
 
         self._inactivity_defaults: Dict[str, any] = graph_data.get("inactivity_defaults", {})
 
@@ -377,52 +382,45 @@ class GraphWalker:
                     pass
         flat.update(parsed_flat)
         
-        # Friendly gender translation for Hindi voice output
-        gender_val = flat.get("gender")
-        if gender_val and isinstance(gender_val, str):
-            g_upper = gender_val.strip().upper()
-            if g_upper in ("MALE", "M"):
-                flat["gender"] = "पुरुष"
-            elif g_upper in ("FEMALE", "F"):
-                flat["gender"] = "महिला"
-            elif g_upper in ("TRANSGENDER", "T"):
-                flat["gender"] = "ट्रांसजेंडर"
-                
-        # Aadhaar last four digits helper
-        aadhaar_val = flat.get("aadhaar_number")
-        if aadhaar_val and isinstance(aadhaar_val, str):
-            clean_num = ''.join(c for c in aadhaar_val if c.isdigit())
-            if len(clean_num) >= 4:
-                flat["aadhaar_last_four"] = clean_num[-4:]
-            else:
-                flat["aadhaar_last_four"] = clean_num
-                
-        # PAN last four digits helper
-        pan_val = flat.get("pan_number")
-        if pan_val and isinstance(pan_val, str):
-            if len(pan_val) >= 4:
-                flat["pan_last_four"] = pan_val[-4:]
-            else:
-                flat["pan_last_four"] = pan_val
+        # Import config_resolver for zero-hardcode resolution
+        import sys, os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from shared import config_resolver
+
+        # Dynamic enum translation using YAML config rules
+        enum_trans_config = self._scheme_config.get("enum_translations", {})
+        for enum_field, trans_rules in enum_trans_config.items():
+            val = flat.get(enum_field)
+            if val is not None:
+                flat[enum_field] = config_resolver.translate_enum(enum_field, val, self._language, self._scheme_config)
+
+        # Dynamic derived placeholders (e.g. aadhaar_last_four, pan_last_four) via YAML rules
+        derived_config = self._scheme_config.get("derived_placeholders", {})
+        for derived_key in derived_config.keys():
+            formatted = config_resolver.format_derived_placeholder(derived_key, flat, self._scheme_config)
+            if formatted:
+                flat[derived_key] = formatted
+
+        # Primary applicant name key from scheme config
+        primary_name_key = self._scheme_config.get("primary_applicant_key", "applicant_name")
+        resolved_name = config_resolver.resolve_applicant_name(flat, self._scheme_config) or self._name
 
         # Replace dynamic placeholders
         import re
         placeholders = re.findall(r"\{([^}]+)\}", res)
         for ph in placeholders:
-            if ph in ("name", "applicant_name", "full_name"):
-                name_val = flat.get(ph) or flat.get("applicant_name") or flat.get("doc_aadhaar_name") or flat.get("name") or self._name
-                if name_val and str(name_val).strip() not in ("", "None", "Null", "Not Available", "Not Provided", "उपलब्ध नहीं"):
-                    res = res.replace(f"{{{ph}}}", str(name_val))
-                else:
-                    res = res.replace(f"{{{ph}}}", self._name)
+            if ph == primary_name_key or ph in ("name", "applicant_name", "full_name"):
+                res = res.replace(f"{{{ph}}}", resolved_name)
                 continue
-            val = flat.get(ph)
+
+            val = config_resolver.resolve_canonical_field(ph, flat, self._scheme_config)
             if val is not None and str(val).strip() not in ("", "None", "Null", "Not Available", "Not Provided", "not_available"):
                 res = res.replace(f"{{{ph}}}", str(val))
             else:
-                fallback_text = "उपलब्ध नहीं" if self._language == "hi" else "Not Available"
+                fallback_placeholders = self._scheme_config.get("default_applicant_placeholder", {})
+                fallback_text = fallback_placeholders.get(self._language) or ("उपलब्ध नहीं" if self._language == "hi" else "Not Available")
                 res = res.replace(f"{{{ph}}}", fallback_text)
-        
+
         return res
 
     def _evaluate_edges(self, edges: list, state: dict) -> Optional[str]:

@@ -862,10 +862,6 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         
         try:
             flat_data = session.get_all_extracted_data()
-            for k, v in list(flat_data.items()):
-                if k in ("doc_aadhaar_name", "holder.full_name", "full_name", "name") and v:
-                    flat_data["applicant_name"] = v
-                    flat_data["name"] = v
             logger.info(f"_execute_extraction_flow: upserting extracted data to app orchestrator: {json.dumps(flat_data)}")
             await self.orch_stub.UpsertExtractedData(
                 app_orchestrator_pb2.UpsertDataRequest(

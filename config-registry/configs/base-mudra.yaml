@@ -673,6 +673,114 @@ documents_required:
   - type: workplace_video
     required: true
 
+# ─── Dynamic Field Extraction & Resolution Schema (Zero Hardcoding) ───
+primary_applicant_key: "applicant_name"
+default_applicant_placeholder:
+  hi: "आवेदक"
+  en: "Applicant"
+  fr: "Demandeur"
+  ar: "المتقدم"
+
+extraction_mappings:
+  applicant_name:
+    sources:
+      - "applicant_name"
+      - "full_name"
+      - "name"
+      - "name_of_the_applicant"
+      - "corrected_name"
+      - "doc_aadhaar_name"
+      - "extractions.AADHAAR_FRONT.holder.full_name"
+      - "extractions.AADHAR_FRONT.holder.full_name"
+      - "extractions.PAN.holder.full_name"
+      - "extractions.VOTER_FRONT.holder.full_name"
+      - "holder.full_name"
+      - "holder.name"
+
+  aadhaar_number:
+    sources:
+      - "aadhaar_number"
+      - "doc_aadhaar_number"
+      - "extractions.AADHAAR_FRONT.aadhaar_number"
+      - "extractions.AADHAAR_BACK.aadhaar_number"
+      - "extractions.AADHAR_FRONT.aadhaar_number"
+
+  pan_number:
+    sources:
+      - "pan_number"
+      - "doc_pan_number"
+      - "extractions.PAN.pan_number"
+
+  date_of_birth:
+    sources:
+      - "date_of_birth"
+      - "dob"
+      - "extractions.AADHAAR_FRONT.holder.date_of_birth"
+      - "extractions.PAN.holder.date_of_birth"
+
+  father_name:
+    sources:
+      - "father_name"
+      - "fathers_name"
+      - "extractions.PAN.holder.fathers_name"
+      - "extractions.VOTER_FRONT.holder.father_or_spouse_name"
+
+  gender:
+    sources:
+      - "gender"
+      - "holder.gender"
+      - "extractions.AADHAAR_FRONT.holder.gender"
+      - "extractions.VOTER_FRONT.holder.gender"
+
+  business_type:
+    sources:
+      - "business_type"
+      - "type_of_business"
+      - "extractions.udyam.enterprise.type_of_enterprise"
+
+enum_translations:
+  gender:
+    MALE:
+      hi: "पुरुष"
+      en: "Male"
+      fr: "Homme"
+      ar: "ذكر"
+    M:
+      hi: "पुरुष"
+      en: "Male"
+      fr: "Homme"
+      ar: "ذكر"
+    FEMALE:
+      hi: "महिला"
+      en: "Female"
+      fr: "Femme"
+      ar: "أنثى"
+    F:
+      hi: "महिला"
+      en: "Female"
+      fr: "Femme"
+      ar: "أنثى"
+    TRANSGENDER:
+      hi: "ट्रांसजेंडर"
+      en: "Transgender"
+      fr: "Transgenre"
+      ar: "متحول جنسياً"
+    T:
+      hi: "ट्रांसजेंडर"
+      en: "Transgender"
+      fr: "Transgenre"
+      ar: "متحول جنسياً"
+
+derived_placeholders:
+  aadhaar_last_four:
+    source_key: "aadhaar_number"
+    type: "last_n_digits"
+    n: 4
+  pan_last_four:
+    source_key: "pan_number"
+    type: "last_n_chars"
+    n: 4
+
 # ─── DB Column Mapping ───
 db_mapping:
   full_name: applicant_name

@@ -472,15 +472,13 @@ class VoiceSession:
                                  last_node=last_node,
                                  keys_count=len(data))
                     
-                    holder_dict = data.get("holder") if isinstance(data.get("holder"), dict) else {}
-                    ext_name = (
-                        data.get("applicant_name") or 
-                        data.get("name") or 
-                        data.get("full_name") or
-                        holder_dict.get("full_name") or
-                        holder_dict.get("name")
-                    )
-                    if ext_name and ext_name != "आवेदक":
+                    # Config-driven applicant name resolution (Zero Hardcoding)
+                    import sys, os
+                    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+                    from shared import config_resolver
+
+                    ext_name = config_resolver.resolve_applicant_name(data, getattr(self, "_graph_data", {}))
+                    if ext_name:
                         self.applicant_name = ext_name
                         self._walker._name = ext_name
         except Exception as e:
@@ -590,20 +588,15 @@ class VoiceSession:
             )
             return
 
-        # Sync applicant name if it was extracted (e.g. from Aadhaar)
-        if not self.applicant_name or self.applicant_name == "आवेदक":
-            holder_dict = self._walker.extracted_data.get("holder") if isinstance(self._walker.extracted_data.get("holder"), dict) else {}
-            extracted_name = (
-                self._walker.extracted_data.get("full_name") or 
-                self._walker.extracted_data.get("name") or
-                self._walker.extracted_data.get("applicant_name") or
-                holder_dict.get("full_name") or
-                holder_dict.get("name")
-            )
-            if extracted_name:
-                logger.info(f"Syncing extracted applicant name: '{extracted_name}'", session_id=self.session_id)
-                self.applicant_name = extracted_name
-                self._walker._name = extracted_name
+        # Sync applicant name dynamically from extracted data via config_resolver (Zero Hardcoding)
+        import sys, os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from shared import config_resolver
+
+        extracted_name = config_resolver.resolve_applicant_name(self._walker.extracted_data, getattr(self, "_graph_data", {})) if self._walker else None
+        if extracted_name:
+            self.applicant_name = extracted_name
+            self._walker._name = extracted_name
 
         current_node = self._walker.current_node
         if current_node is None:
@@ -1248,20 +1241,21 @@ class VoiceSession:
         extracted_data_str = json.dumps(self._walker.extracted_data if self._walker else {}, ensure_ascii=False, indent=2)
         targets_str = json.dumps(target_instructions, ensure_ascii=False, indent=2)
 
-        if self.applicant_name and self.applicant_name != "आवेदक":
+        import sys, os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from shared import config_resolver
+
+        graph_cfg = getattr(self, "_graph_data", {})
+        extracted_name = config_resolver.resolve_applicant_name(self._walker.extracted_data, graph_cfg) if self._walker else None
+        if extracted_name:
+            self.applicant_name = extracted_name
+            name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
+        elif self.applicant_name and self.applicant_name not in ("Applicant", "आवेदक", "Demandeur", "المتقدم"):
             name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
         else:
-            extracted_name = self._walker.extracted_data.get("full_name") or self._walker.extracted_data.get("name") if self._walker else None
-            if extracted_name and extracted_name != "आवेदक":
-                self.applicant_name = extracted_name
-                name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
-            else:
-                if self.language == "hi":
-                    name_instruction = "You are talking to the applicant. Their name is not known yet. Do NOT use placeholder names like 'आवेदक' or 'आवेदक जी'. Address them politely without using a name."
-                elif self.language == "te":
-                    name_instruction = "You are talking to the applicant. Their name is not known yet. Address them politely without using a name."
-                else:
-                    name_instruction = "You are talking to the applicant. Their name is not known yet. Address them politely as 'sir/ma'am' or just speak without a name. Do NOT use Hindi words like 'Aavedak ji' or 'Aavedak'."
+            fallback_placeholders = graph_cfg.get("default_applicant_placeholder", {})
+            default_ph = fallback_placeholders.get(self.language) or "Applicant"
+            name_instruction = f"You are talking to the applicant. Their name is not known yet. Do NOT use placeholder names like '{default_ph}'. Address them politely without using a name."
 
         return (
             f"{name_instruction}\n"

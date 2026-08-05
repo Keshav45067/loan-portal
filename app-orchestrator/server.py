@@ -274,46 +274,18 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             mapped_fields[mapped_k] = v
         all_fields.update(mapped_fields)
 
-        # Re-populate/fallback field names
-        applicant_name_val = all_fields.get("applicant_name")
-        if not applicant_name_val or applicant_name_val == "Applicant":
-            def get_nested(d, keys):
-                for k in keys:
-                    if isinstance(d, dict):
-                        d = d.get(k)
-                    elif isinstance(d, str):
-                        try:
-                            d = json.loads(d).get(k)
-                        except:
-                            return None
-                    else:
-                        return None
-                return d
+        # Config-driven applicant name and field resolution (Zero Hardcoding)
+        import sys, os
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+        from shared import config_resolver
 
-            # Extract AADHAAR_FRONT from extractions namespace first
-            extractions = all_fields.get("extractions", {})
-            if isinstance(extractions, str):
-                try: extractions = json.loads(extractions)
-                except: extractions = {}
-            
-            aadhaar_ext = extractions.get("AADHAAR_FRONT") or extractions.get("AADHAR_FRONT") or {}
-            aadhaar_name = get_nested(aadhaar_ext, ["holder", "full_name"])
-            
-            holder_name = get_nested(all_fields, ["holder", "full_name"])
-            pan_name = get_nested(extractions.get("PAN") or {}, ["holder", "full_name"])
-            
-            resolved_name = (
-                aadhaar_name or
-                holder_name or
-                pan_name or
-                all_fields.get("name") or
-                all_fields.get("full_name") or
-                "Applicant"
-            )
+        resolved_name = config_resolver.resolve_applicant_name(all_fields, config)
+        if resolved_name:
             all_fields["applicant_name"] = resolved_name
 
-        if "business_type" not in all_fields:
-            all_fields["business_type"] = all_fields.get("type_of_business") or "other"
+        resolved_biz = config_resolver.resolve_canonical_field("business_type", all_fields, config)
+        if resolved_biz:
+            all_fields["business_type"] = resolved_biz
 
         # If mudra, run general financial calculations
         if is_mudra_scheme:
