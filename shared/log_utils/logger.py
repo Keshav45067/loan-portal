@@ -80,14 +80,16 @@ class StructuredFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
 
-        # Add optional fields if present
-        for field in ["session_id", "node_id", "method", "latency_ms",
-                      "document_type", "scheme_id", "application_id",
-                      "engine", "language", "model", "error", "details",
-                      "raw_output"]:
-            value = getattr(record, field, None)
-            if value is not None:
-                log_entry[field] = value
+        # Include any custom extra fields attached to the LogRecord
+        standard_attrs = {
+            "args", "asctime", "created", "exc_info", "exc_text", "filename",
+            "funcName", "levelname", "levelno", "lineno", "module", "msecs",
+            "msg", "name", "pathname", "process", "processName", "relativeCreated",
+            "stack_info", "thread", "threadName", "req_id", "message"
+        }
+        for key, val in record.__dict__.items():
+            if key not in standard_attrs and val is not None:
+                log_entry[key] = val
 
         # Add exception info if present
         if record.exc_info and record.exc_info[0]:
