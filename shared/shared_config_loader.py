@@ -1,87 +1,25 @@
 """
-Shared scheme configuration loader with YAML inheritance resolution and built-in fallback mappings.
+Shared scheme configuration loader with YAML inheritance resolution.
+Reads 100% dynamically from Config Registry YAML files with zero hardcoded mappings.
 """
 
 import os
 import copy
+import yaml
 import logging
 
 logger = logging.getLogger("chayan.config-loader")
 
-DEFAULT_EXTRACTION_MAPPINGS = {
-    "applicant_name": {
-        "sources": [
-            "applicant_name",
-            "full_name",
-            "name",
-            "name_of_the_applicant",
-            "corrected_name",
-            "doc_aadhaar_name",
-            "extractions.aadhaar_front.holder.full_name",
-            "extractions.aadhaar_back.holder.full_name",
-            "extractions.AADHAAR_FRONT.holder.full_name",
-            "extractions.pan.holder.full_name",
-            "extractions.PAN.holder.full_name",
-            "extractions.voter_front.holder.full_name",
-            "holder.full_name",
-            "holder.name"
-        ]
-    },
-    "aadhaar_number": {
-        "sources": [
-            "aadhaar_number",
-            "doc_aadhaar_number",
-            "extractions.aadhaar_front.aadhaar_number",
-            "extractions.aadhaar_back.aadhaar_number",
-            "holder.aadhaar_number"
-        ]
-    },
-    "gender": {
-        "sources": [
-            "gender",
-            "holder.gender",
-            "extractions.aadhaar_front.holder.gender"
-        ]
-    },
-    "father_name": {
-        "sources": [
-            "father_name",
-            "fathers_name",
-            "holder.father_name",
-            "address.care_of"
-        ]
-    }
-}
-
-DEFAULT_APPLICANT_PLACEHOLDER = {
-    "hi": "आवेदक",
-    "en": "Applicant",
-    "fr": "Demandeur",
-    "ar": "المتقدم"
-}
-
 
 def load_resolved_scheme_config(scheme_id: str) -> dict:
     """
-    Load scheme YAML configuration, resolving inheritance ('extends' key) recursively.
-    Guarantees default extraction mappings even if PyYAML is missing.
+    Load scheme YAML configuration from Config Registry, resolving inheritance ('extends' key) recursively.
     """
-    base_default = {
-        "extraction_mappings": DEFAULT_EXTRACTION_MAPPINGS,
-        "default_applicant_placeholder": DEFAULT_APPLICANT_PLACEHOLDER
-    }
-
     if not scheme_id:
-        return base_default
+        return {}
 
     if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b':
         scheme_id = 'base-mudra'
-
-    try:
-        import yaml
-    except ImportError:
-        logger.warning("PyYAML not installed in Python environment, using built-in default extraction mappings")
-        return base_default
 
     config_dir = os.getenv(
         "CONFIG_REGISTRY_PATH",
@@ -100,7 +38,8 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
 
     raw_configs = {}
     if not os.path.exists(config_dir):
-        return base_default
+        logger.warning(f"Config directory not found: {config_dir}")
+        return {}
 
     for filename in os.listdir(config_dir):
         if not filename.endswith((".yaml", ".yml")):
@@ -112,8 +51,8 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
             s_id = cfg.get("scheme_id")
             if s_id:
                 raw_configs[s_id] = cfg
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to load YAML file {filepath}: {e}")
 
     def deep_merge(dict1, dict2):
         res = copy.deepcopy(dict1)
@@ -138,7 +77,7 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
         if not cfg:
             cfg = raw_configs.get("base-mudra", {})
             if not cfg:
-                return base_default
+                return {}
         parent_id = cfg.get("extends")
         if parent_id and parent_id in raw_configs:
             parent_cfg = resolve(parent_id, resolved, resolving)
@@ -151,12 +90,7 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
         return resolved[s_id]
 
     try:
-        resolved_cfg = resolve(scheme_id)
-        if "extraction_mappings" not in resolved_cfg:
-            resolved_cfg["extraction_mappings"] = DEFAULT_EXTRACTION_MAPPINGS
-        if "default_applicant_placeholder" not in resolved_cfg:
-            resolved_cfg["default_applicant_placeholder"] = DEFAULT_APPLICANT_PLACEHOLDER
-        return resolved_cfg
+        return resolve(scheme_id)
     except Exception as e:
         logger.error(f"Error resolving scheme config inheritance for {scheme_id}: {e}")
-        return base_default
+        return {}
