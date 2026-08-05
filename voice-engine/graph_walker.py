@@ -134,14 +134,10 @@ class GraphWalker:
         """
         if extracted_data:
             self._extracted_data.update(extracted_data)
-            # Resolve and restore applicant name dynamically from extracted data
-            import sys, os
-            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-            from shared import config_resolver
-            resolved_name = config_resolver.resolve_applicant_name(self._extracted_data, self._scheme_config)
-            if resolved_name:
-                self._name = resolved_name
-                logger.info(f"Restored applicant_name in GraphWalker: '{self._name}'")
+            import json
+            logger.info("🔍 [STAGE 3 - GRAPHWALKER RESTORE_STATE]",
+                         extracted_keys=list(self._extracted_data.keys()),
+                         extracted_full=json.dumps(self._extracted_data, ensure_ascii=False))
 
         if last_node and last_node in self._nodes and last_node != "END":
             self._current_node_id = last_node
@@ -199,55 +195,46 @@ class GraphWalker:
             dict: Next node info, or None if interview is complete
         """
         if self._completed:
+            logger.warning("Attempted to advance completed graph")
             return None
 
-        current_node = self.current_node
-        if not current_node:
-            self._completed = True
-            return None
+        current_node = self._nodes.get(self._current_node_id, {})
 
-        # Store extracted data
+        # Record extractions into walker state
         if extracted_fields:
             self._extracted_data.update(extracted_fields)
+            logger.info("GraphWalker state updated",
+                         node_id=self._current_node_id,
+                         new_fields=list(extracted_fields.keys()))
 
-        # Record turn history
-        self._turn_history.append({
-            "node_id": self._current_node_id,
-            "step": self._step_number,
-            "extracted": extracted_fields or {},
-            "routing_decision": routing_decision,
-        })
-
-        # Evaluate edges to find next node
+        # Select edge
+        edges = current_node.get("edges", [])
         state = {**self._extracted_data}
         if routing_decision:
             state["routing_decision"] = routing_decision
 
-        next_node_id = self._evaluate_edges(current_node.get("edges", []), state)
+        next_node_id = self._evaluate_edges(edges, state)
 
-        if not next_node_id:
-            # No edges = end of interview
+        if not next_node_id or next_node_id == "END":
             self._completed = True
-            logger.info("Graph completed",
-                         node_id=self._current_node_id,
-                         details={"total_steps": self._step_number,
-                                  "total_fields": len(self._extracted_data)})
+            logger.info("Interview completed",
+                         final_node=self._current_node_id,
+                         turns_taken=self._step_number)
             return None
 
-        # Move to next node
         self._current_node_id = next_node_id
         self._step_number += 1
 
-        next_node = self._nodes.get(next_node_id, {})
+        next_node = self._nodes.get(self._current_node_id, {})
         text = self._interpolate(self._get_node_text(next_node))
 
-        logger.info("Advanced to node",
-                     node_id=next_node_id,
-                     details={"step": self._step_number,
-                              "targets": next_node.get("targets", [])})
+        logger.info("Advanced to next node",
+                     prev_node=current_node.get("node_id", self._current_node_id),
+                     next_node=self._current_node_id,
+                     step=self._step_number)
 
         return {
-            "node_id": next_node_id,
+            "node_id": self._current_node_id,
             "text": text,
             "type": next_node.get("type", "voice-qa"),
             "document_id": next_node.get("document_id", ""),
@@ -355,78 +342,51 @@ class GraphWalker:
         if not template:
             return ""
         
+        import json
         res = template
         
-        # Flatten extracted data
+        # Flatten extracted data for key resolution
         flat = {}
-        # First, add all top-level keys that have truthy or non-empty values
-        for k, v in self._extracted_data.items():
-            if not isinstance(v, dict):
-                if v is not None and v != "":
-                    flat[k] = v
+        def recursive_flatten(d, prefix=""):
+            if not isinstance(d, dict):
+                return
+            for k, v in d.items():
+                full_key = f"{prefix}.{k}" if prefix else k
+                if isinstance(v, dict):
+                    recursive_flatten(v, full_key)
+                elif v is not None and v != "":
+                    flat[full_key] = v
+                    if k not in flat or flat[k] is None or flat[k] == "":
+                        flat[k] = v
 
-        # Then, add nested keys (don't overwrite top-level if top-level already has a value)
-        for k, v in self._extracted_data.items():
-            if isinstance(v, dict):
-                for sub_k, sub_v in v.items():
-                    flat[f"{k}.{sub_k}"] = sub_v
-                    if sub_k not in flat or flat[sub_k] is None or flat[sub_k] == "":
-                        flat[sub_k] = sub_v
+        recursive_flatten(self._extracted_data)
 
-        # Parse string-serialized dictionaries (fallback support)
-        parsed_flat = {}
-        for k, v in flat.items():
+        # Parse any string-serialized JSONs
+        for k, v in list(flat.items()):
             if isinstance(v, str) and (v.startswith('{') or v.startswith('[')):
                 try:
-                    import ast
-                    parsed_v = ast.literal_eval(v)
-                    if isinstance(parsed_v, dict):
-                        for sub_k, sub_v in parsed_v.items():
-                            parsed_flat[f"{k}.{sub_k}"] = sub_v
-                            if sub_k not in parsed_flat:
-                                parsed_flat[sub_k] = sub_v
+                    parsed = json.loads(v)
+                    if isinstance(parsed, dict):
+                        recursive_flatten(parsed, k)
                 except Exception:
                     pass
-        flat.update(parsed_flat)
-        
-        # Import config_resolver for zero-hardcode resolution
-        import sys, os
-        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-        from shared import config_resolver
 
-        # Dynamic enum translation using YAML config rules
-        enum_trans_config = self._scheme_config.get("enum_translations", {})
-        for enum_field, trans_rules in enum_trans_config.items():
-            val = flat.get(enum_field)
-            if val is not None:
-                flat[enum_field] = config_resolver.translate_enum(enum_field, val, self._language, self._scheme_config)
-
-        # Dynamic derived placeholders (e.g. aadhaar_last_four, pan_last_four) via YAML rules
-        derived_config = self._scheme_config.get("derived_placeholders", {})
-        for derived_key in derived_config.keys():
-            formatted = config_resolver.format_derived_placeholder(derived_key, flat, self._scheme_config)
-            if formatted:
-                flat[derived_key] = formatted
-
-        # Primary applicant name key from scheme config
-        primary_name_key = self._scheme_config.get("primary_applicant_key", "applicant_name")
-        resolved_name = config_resolver.resolve_applicant_name(flat, self._scheme_config) or self._name
-
-        # Replace dynamic placeholders
         import re
         placeholders = re.findall(r"\{([^}]+)\}", res)
         for ph in placeholders:
-            if ph == primary_name_key or ph in ("name", "applicant_name", "full_name"):
-                res = res.replace(f"{{{ph}}}", resolved_name)
-                continue
-
-            val = config_resolver.resolve_canonical_field(ph, flat, self._scheme_config)
-            if val is not None and str(val).strip() not in ("", "None", "Null", "Not Available", "Not Provided", "not_available"):
+            val = flat.get(ph)
+            if val is not None and str(val).strip() not in ("", "None", "Null", "Not Available", "Not Provided"):
                 res = res.replace(f"{{{ph}}}", str(val))
             else:
-                fallback_placeholders = self._scheme_config.get("default_applicant_placeholder", {})
-                fallback_text = fallback_placeholders.get(self._language) or ("उपलब्ध नहीं" if self._language == "hi" else "Not Available")
-                res = res.replace(f"{{{ph}}}", fallback_text)
+                fallback = "Applicant" if self._language == "en" else "आवेदक"
+                res = res.replace(f"{{{ph}}}", fallback)
+
+        logger.info("🔍 [STAGE 4 - GRAPHWALKER INTERPOLATION]",
+                     template=template,
+                     placeholders=placeholders,
+                     flat_keys=list(flat.keys()),
+                     flat_sample=json.dumps(flat, ensure_ascii=False)[:300],
+                     result=res)
 
         return res
 

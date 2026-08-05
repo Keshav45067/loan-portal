@@ -1049,11 +1049,15 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     return pb2.ExtractedData(application_id=request.application_id, json_data="{}", last_node="")
 
                 session_id, phone, data, last_node = row
-                data = data or {}
-
                 # Ensure phone is in data
                 if phone and "phone" not in data:
                     data["phone"] = phone
+
+                logger.info("🔍 [STAGE 1 - DB FETCH] GetExtractedData fetched state",
+                            session_id=session_id,
+                            last_node=last_node,
+                            top_keys=list(data.keys()),
+                            raw_json_sample=json.dumps(data, ensure_ascii=False)[:300])
 
                 # On-the-fly derived fields calculation for Mudra schemes if they are missing
                 scheme_id = data.get("scheme_id", "")

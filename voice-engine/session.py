@@ -465,10 +465,15 @@ class VoiceSession:
                 import json
                 data = json.loads(resp.json_data) if resp.json_data else {}
                 last_node = getattr(resp, "last_node", "")
+                logger.info("🔍 [STAGE 2 - VOICE SYNC] GetExtractedData payload received",
+                             session_id=self.session_id,
+                             last_node=last_node,
+                             data_keys=list(data.keys()),
+                             json_sample=json.dumps(data, ensure_ascii=False)[:300])
+
                 if self._walker:
                     self._walker.restore_state(last_node, data)
                     
-                    # Config-driven applicant name resolution (Zero Hardcoding)
                     import sys, os
                     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
                     from shared import config_resolver
@@ -479,12 +484,11 @@ class VoiceSession:
                         self.applicant_name = ext_name
                         self._walker._name = ext_name
 
-                    logger.info("📦 DB State Fetched from PostgreSQL user_data table",
+                    logger.info("🔍 [STAGE 2 - VOICE SYNC COMPLETE]",
                                  session_id=self.session_id,
                                  last_node=last_node,
-                                 total_keys=len(data),
-                                 fetched_keys=list(data.keys()),
-                                 resolved_applicant_name=self.applicant_name)
+                                 resolved_applicant_name=self.applicant_name,
+                                 walker_name=self._walker._name)
         except Exception as e:
             logger.error(f"Failed to sync extracted data: {e}", session_id=self.session_id)
 
