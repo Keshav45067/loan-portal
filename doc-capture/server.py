@@ -46,6 +46,18 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
     system_parts = []
     context_parts = []
     
+    LANG_NAMES = {
+        "en": "English",
+        "hi": "Hindi (हिन्दी)",
+        "fr": "French (Français)",
+        "ar": "Arabic (العربية)"
+    }
+    lang_name = LANG_NAMES.get(getattr(session, "language", "en"), "English")
+    system_parts.append(
+        f"CRITICAL LANGUAGE INSTRUCTION: You MUST communicate with the user ONLY in {lang_name} ({getattr(session, 'language', 'en')}). "
+        f"All your text responses must be fluently written in {lang_name}."
+    )
+
     # 1. Scheme FAQ context
     scheme_faq = session.scheme_config.get("faq_context", {})
     if scheme_faq.get("system_prompt"):
@@ -639,7 +651,10 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         session = session_manager.get_session(request.session_id)
         if not session:
             return pb2.FAQPromptResponse(success=False, error="Session not found")
-            
+
+        if getattr(request, "language", ""):
+            session.language = request.language
+
         sys_prompt, ctx_prompt = build_faq_system_prompt(session)
         return pb2.FAQPromptResponse(success=True, system_prompt=sys_prompt, context_prompt=ctx_prompt)
 

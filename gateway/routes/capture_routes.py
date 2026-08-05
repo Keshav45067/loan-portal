@@ -476,7 +476,7 @@ async def capture_voice_websocket(websocket: WebSocket):
         # 1. Fetch system and context prompts from doc-capture service
         doc_capture_stub = websocket.app.state.doc_capture_stub
         faq_res = await doc_capture_stub.GetFAQPrompt(
-            doc_capture_pb2.FAQPromptRequest(session_id=session_id),
+            doc_capture_pb2.FAQPromptRequest(session_id=session_id, language=language),
             metadata=[("x-request-id", req_id)]
         )
         
@@ -538,7 +538,7 @@ async def capture_voice_websocket(websocket: WebSocket):
                                 if signal == "update_page_context":
                                     try:
                                         faq_res = await doc_capture_stub.GetFAQPrompt(
-                                            doc_capture_pb2.FAQPromptRequest(session_id=session_id),
+                                            doc_capture_pb2.FAQPromptRequest(session_id=session_id, language=language),
                                             metadata=[("x-request-id", req_id)]
                                         )
                                         if faq_res.success:

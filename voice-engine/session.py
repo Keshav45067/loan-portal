@@ -1517,13 +1517,22 @@ class RawAgentSession(VoiceSession):
                             )
             else:
                 # Fallback to direct LLM stream if agent-service returned no text
+                LANG_NAMES = {
+                    "en": "English",
+                    "hi": "Hindi (हिन्दी)",
+                    "fr": "French (Français)",
+                    "ar": "Arabic (العربية)"
+                }
+                lang_label = LANG_NAMES.get(self.language, "English")
+                sys_inst = f"CRITICAL LANGUAGE INSTRUCTION: You MUST communicate with the user ONLY in {lang_label} ({self.language}). All your text responses must be fluently written in {lang_label}.\n\n{self.system_prompt}"
+
                 user_prompt = f"Context:\n{self.context_prompt}\n\nUser's message:\n{transcribed_text}"
                 stream = self._llm_stub.GenerateStream(
                     llm_pb2.GenerateRequest(
                         prompt=user_prompt,
                         model="gemini-2.5-flash",
                         temperature=0.3,
-                        system_instruction=self.system_prompt,
+                        system_instruction=sys_inst,
                         disable_thinking=True,
                         thinking_budget=0,
                     ),

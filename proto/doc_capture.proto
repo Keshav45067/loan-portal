@@ -172,6 +172,7 @@ message PageSummary {
 
 message FAQPromptRequest {
   string session_id = 1;
+  string language = 2;
 }
 
 message FAQPromptResponse {
