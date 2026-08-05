@@ -15,7 +15,7 @@ fi
 BASE_DIR="/var/www/augmen/testing-services"
 
 echo "🔨 Compiling protobuf stubs..."
-SERVICES=("doc-capture" "config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator" "gateway")
+SERVICES=("agent-service" "doc-capture" "config-registry" "llm-service" "stt-service" "tts-service" "voice-engine" "doc-intelligence" "app-orchestrator" "gateway")
 
 for SERVICE in "${SERVICES[@]}"; do
     if [ -f "${BASE_DIR}/${SERVICE}/Makefile" ]; then
