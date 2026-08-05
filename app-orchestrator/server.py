@@ -933,7 +933,9 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         else:
                             onboarding_val = bool(onboarding_val)
 
-                    if onboarding_val is False:
+                    # Check if explicit reset/redo process is requested
+                    reset_docs = fields.get("reset_documents") is True or fields.get("reset_all") is True
+                    if reset_docs:
                         meta_keys = ["scheme_id", "created_at", "updated_at", "phone", "cadre_id", "panchayat", "application_id", "rseti", "status"]
                         existing_data = {k: existing_data[k] for k in meta_keys if k in existing_data}
                         existing_data["completion_status"] = "NEW"
