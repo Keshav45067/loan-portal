@@ -134,6 +134,14 @@ class GraphWalker:
         """
         if extracted_data:
             self._extracted_data.update(extracted_data)
+            # Resolve and restore applicant name dynamically from extracted data
+            import sys, os
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+            from shared import config_resolver
+            resolved_name = config_resolver.resolve_applicant_name(self._extracted_data, self._scheme_config)
+            if resolved_name:
+                self._name = resolved_name
+                logger.info(f"Restored applicant_name in GraphWalker: '{self._name}'")
 
         if last_node and last_node in self._nodes and last_node != "END":
             self._current_node_id = last_node
@@ -347,8 +355,7 @@ class GraphWalker:
         if not template:
             return ""
         
-        # Always replace name
-        res = template.replace("{name}", self._name)
+        res = template
         
         # Flatten extracted data
         flat = {}
