@@ -208,7 +208,8 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                     nudge_count_map[target_node_id] = nudge_count
 
                     current_node = session.walker.current_node or {}
-                    question_text = session.walker.get_prompt() or current_node.get("text_template", "")
+                    node_info = session.walker.get_node_info() if session.walker else {}
+                    question_text = node_info.get("text", "") or current_node.get("text_template", "")
                     nudge_guideline = policy.get("nudge_guideline", "")
 
                     logger.info(f"Inactivity timeout fired for node '{target_node_id}' (attempt {nudge_count}/{policy.get('max_nudges', 2)})", session_id=session_id)
