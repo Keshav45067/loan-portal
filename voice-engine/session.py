@@ -433,8 +433,25 @@ class VoiceSession:
         logger.info("Session initialized",
                      session_id=self.session_id)
 
+    async def update_last_node(self, node_id: str):
+        """Update last_node column in DB via App Orchestrator."""
+        if not self._orchestrator_stub:
+            return
+        try:
+            from generated import app_orchestrator_pb2
+            await self._orchestrator_stub.UpdateLastNode(
+                app_orchestrator_pb2.UpdateLastNodeRequest(
+                    application_id=self.session_id,
+                    last_node=node_id or ""
+                ),
+                metadata=[("x-request-id", self.req_id)]
+            )
+            logger.info("Updated last_node in DB", session_id=self.session_id, last_node=node_id)
+        except Exception as e:
+            logger.warning(f"Failed to update last_node in DB: {e}", session_id=self.session_id)
+
     async def _sync_extracted_data(self):
-        """Fetch historical extracted data from DB via App Orchestrator."""
+        """Fetch historical extracted data and last_node position from DB via App Orchestrator."""
         if not self._orchestrator_stub:
             logger.warning("Orchestrator stub not available, skipping data sync", session_id=self.session_id)
             return
@@ -444,15 +461,17 @@ class VoiceSession:
                 app_orchestrator_pb2.AppIdRequest(application_id=self.session_id),
                 metadata=[("x-request-id", self.req_id)]
             )
-            if resp and resp.json_data:
+            if resp:
                 import json
-                data = json.loads(resp.json_data)
-                if data and self._walker:
-                    self._walker._extracted_data.update(data)
-                    logger.info("Successfully synced extracted data from DB",
+                data = json.loads(resp.json_data) if resp.json_data else {}
+                last_node = getattr(resp, "last_node", "")
+                if self._walker:
+                    self._walker.restore_state(last_node, data)
+                    logger.info("Successfully synced extracted data & restored state from DB",
                                  session_id=self.session_id,
-                                 keys=list(data.keys()))
-                    # Extract and sync applicant name from historical data
+                                 last_node=last_node,
+                                 keys_count=len(data))
+                    
                     holder_dict = data.get("holder") if isinstance(data.get("holder"), dict) else {}
                     ext_name = (
                         data.get("applicant_name") or 
@@ -496,7 +515,7 @@ class VoiceSession:
 
     async def start(self) -> dict:
         """
-        Start the interview. Returns the first question.
+        Start or resume the interview. Returns the active question node info.
 
         Returns:
             dict: {node_id, text, targets, has_routing, routing_prompt}
@@ -507,7 +526,10 @@ class VoiceSession:
         first_node = self._walker.start()
         self._total_turns += 1
 
-        logger.info("Interview started",
+        if first_node and first_node.get("node_id"):
+            asyncio.create_task(self.update_last_node(first_node["node_id"]))
+
+        logger.info("Interview started / resumed",
                      session_id=self.session_id,
                      node_id=first_node["node_id"],
                      details={"text": first_node["text"][:80]})
@@ -644,6 +666,11 @@ class VoiceSession:
                 routing_decision="NONE",
             )
             self._total_turns += 1
+
+            if next_node:
+                asyncio.create_task(self.update_last_node(next_node["node_id"]))
+            else:
+                asyncio.create_task(self.update_last_node(""))
 
             if next_node:
                 yield pb2.VoiceOutput(
@@ -868,6 +895,11 @@ class VoiceSession:
             )
 
             self._total_turns += 1
+
+            if next_node:
+                asyncio.create_task(self.update_last_node(next_node["node_id"]))
+            else:
+                asyncio.create_task(self.update_last_node(""))
 
             if next_node:
                 # Send progress

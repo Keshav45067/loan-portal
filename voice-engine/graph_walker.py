@@ -122,23 +122,45 @@ class GraphWalker:
         lang_key = f"text_template_{self._language}"
         return node.get(lang_key, "") or node.get("text_template_en", "") or node.get("text_template", "")
 
+    def restore_state(self, last_node: Optional[str], extracted_data: dict = None):
+        """
+        Restore interview position to last_node and load historical extracted data.
+        If last_node is null/empty or not in nodes, starts from beginning.
+        """
+        if extracted_data:
+            self._extracted_data.update(extracted_data)
+
+        if last_node and last_node in self._nodes and last_node != "END":
+            self._current_node_id = last_node
+            node_ids = list(self._nodes.keys())
+            if last_node in node_ids:
+                self._step_number = node_ids.index(last_node) + 1
+            else:
+                self._step_number = 1
+            self._completed = False
+            logger.info("Restored GraphWalker to last_node", last_node=last_node, step_number=self._step_number)
+        else:
+            self._current_node_id = None
+
     # ─── Core Operations ───
 
     def start(self) -> dict:
         """
-        Start the interview. Returns the first node info.
+        Start or resume the interview. Returns the active node info.
 
         Returns:
             dict: {node_id, text, targets, has_routing, routing_prompt}
         """
-        self._current_node_id = self._start_node_id
-        self._step_number = 1
+        if not self._current_node_id or self._current_node_id not in self._nodes:
+            self._current_node_id = self._start_node_id
+            self._step_number = 1
 
         node = self._nodes.get(self._current_node_id, {})
         text = self._interpolate(self._get_node_text(node))
 
-        logger.info("Graph started",
+        logger.info("Graph started or resumed",
                      node_id=self._current_node_id,
+                     step_number=self._step_number,
                      details={"total_nodes": len(self._nodes)})
 
         return {

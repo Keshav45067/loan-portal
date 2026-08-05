@@ -24,6 +24,7 @@ service ApplicationOrchestrator {
   // ─── Data Operations ───
   rpc UpsertExtractedData (UpsertDataRequest) returns (UpsertDataResponse);
   rpc GetExtractedData (AppIdRequest) returns (ExtractedData);
+  rpc UpdateLastNode (UpdateLastNodeRequest) returns (UpdateLastNodeResponse);
 
   // ─── Financial Calculations ───
   rpc CalculateFinancials (FinancialCalcRequest) returns (FinancialCalcResponse);
@@ -155,6 +156,17 @@ message UpsertDataResponse {
 message ExtractedData {
   string application_id = 1;
   string json_data = 2;          // All extracted data as JSON string
+  string last_node = 3;          // Current interview node ID (if mid-interview, else empty/null)
+}
+
+message UpdateLastNodeRequest {
+  string application_id = 1;
+  string last_node = 2;          // Node ID, or empty string to set NULL
+}
+
+message UpdateLastNodeResponse {
+  bool success = 1;
+  string error = 2;
 }
 
 // ─── Financial Calculation Messages ───

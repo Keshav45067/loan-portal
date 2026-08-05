@@ -1062,15 +1062,19 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         logger.info("GetExtractedData", req_id=req_id, application_id=request.application_id)
         try:
             with get_db_cursor(self._db_pool) as cur:
+                try:
+                    cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
+                except Exception:
+                    pass
                 cur.execute(
-                    "SELECT id, phone, data FROM user_data WHERE id = %s OR data->>'application_id' = %s",
+                    "SELECT id, phone, data, last_node FROM user_data WHERE id = %s OR data->>'application_id' = %s",
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
                 if not row:
-                    return pb2.ExtractedData(application_id=request.application_id, json_data="{}")
+                    return pb2.ExtractedData(application_id=request.application_id, json_data="{}", last_node="")
 
-                session_id, phone, data = row
+                session_id, phone, data, last_node = row
                 data = data or {}
 
                 # Ensure phone is in data
@@ -1087,14 +1091,12 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     logger.info("Mudra derived fields calculation in GetExtractedData. Calculating on the fly...", session_id=session_id)
                     from calculations import calculate_derived_fields
                     try:
-                        # Gather current data
                         all_fields = {}
                         all_fields.update(data)
                         if phone:
                             all_fields["phone"] = phone
                             all_fields["mobile_number"] = phone
                         
-                        # Read current mudra_user_data row if exists
                         cur.execute("SELECT * FROM mudra_user_data WHERE user_id = %s", (session_id,))
                         m_row = cur.fetchone()
                         if m_row:
@@ -1103,7 +1105,6 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                                 if name in ("id", "user_id", "created_at", "updated_at"):
                                     continue
                                 if val is not None and val != "":
-                                    # Prevent database zero/null values from clobbering valid voice/GCS values
                                     is_db_zero = str(val).strip() in ("0", "0.0", "None", "Null")
                                     voice_val = all_fields.get(name)
                                     is_voice_valid = voice_val is not None and str(voice_val).strip() not in ("0", "0.0", "Not Available", "NA", "")
@@ -1112,7 +1113,6 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                                         continue
                                     all_fields[name] = val
                         
-                        # Load config db mapping
                         config = load_resolved_scheme_config(scheme_id)
                         db_mapping = config.get("db_mapping", {}) if config else {}
                         mapped_fields = {}
@@ -1121,54 +1121,12 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             mapped_fields[mapped_k] = v
                         all_fields.update(mapped_fields)
                         
-                        applicant_name_val = all_fields.get("applicant_name")
-                        if not applicant_name_val or applicant_name_val == "Applicant":
-                            def get_nested(d, keys):
-                                for k in keys:
-                                    if isinstance(d, dict):
-                                        d = d.get(k)
-                                    elif isinstance(d, str):
-                                        try:
-                                            d = json.loads(d).get(k)
-                                        except:
-                                            return None
-                                    else:
-                                        return None
-                                return d
-                            
-                            # Extract AADHAAR_FRONT from extractions namespace first
-                            extractions = all_fields.get("extractions", {})
-                            if isinstance(extractions, str):
-                                try: extractions = json.loads(extractions)
-                                except: extractions = {}
-                            
-                            aadhaar_ext = extractions.get("AADHAAR_FRONT") or extractions.get("AADHAR_FRONT") or {}
-                            aadhaar_name = get_nested(aadhaar_ext, ["holder", "full_name"])
-                            
-                            holder_name = get_nested(all_fields, ["holder", "full_name"])
-                            pan_name = get_nested(extractions.get("PAN") or {}, ["holder", "full_name"])
-                            
-                            resolved_name = (
-                                aadhaar_name or
-                                holder_name or
-                                pan_name or
-                                all_fields.get("name") or
-                                all_fields.get("full_name") or
-                                "Applicant"
-                            )
-                            all_fields["applicant_name"] = resolved_name
-
-                        if "business_type" not in all_fields:
-                            all_fields["business_type"] = all_fields.get("type_of_business") or "other"
-                            
                         derived = calculate_derived_fields(all_fields)
                         all_fields.update(derived)
                         
-                        # Update local data
                         for k, v in all_fields.items():
                             data[k] = v
                             
-                        # Save back to database JSON
                         cur.execute(
                             "UPDATE user_data SET data = %s::json WHERE id = %s",
                             (json.dumps(data, ensure_ascii=False), session_id)
@@ -1187,10 +1145,31 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 return pb2.ExtractedData(
                     application_id=request.application_id,
                     json_data=json.dumps(data, ensure_ascii=False),
+                    last_node=str(last_node or "")
                 )
         except Exception as e:
             logger.error(f"GetExtractedData failed: {e}", req_id=req_id)
-            return pb2.ExtractedData(application_id=request.application_id, json_data="{}")
+            return pb2.ExtractedData(application_id=request.application_id, json_data="{}", last_node="")
+
+    async def UpdateLastNode(self, request, context):
+        req_id = extract_req_id(context)
+        app_id = request.application_id
+        target_node = request.last_node.strip() if request.last_node and request.last_node.strip() not in ("", "null", "None", "NULL") else None
+        try:
+            with get_db_cursor(self._db_pool) as cur:
+                try:
+                    cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
+                except Exception:
+                    pass
+                cur.execute(
+                    "UPDATE user_data SET last_node = %s WHERE id = %s OR data->>'application_id' = %s",
+                    (target_node, app_id, app_id)
+                )
+                logger.info(f"UpdateLastNode: app_id={app_id} last_node={target_node}", req_id=req_id)
+                return pb2.UpdateLastNodeResponse(success=True)
+        except Exception as e:
+            logger.error(f"UpdateLastNode failed: {e}", req_id=req_id)
+            return pb2.UpdateLastNodeResponse(success=False, error=str(e))
 
     # ─── Financial Calculations ───
 
