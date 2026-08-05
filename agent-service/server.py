@@ -132,7 +132,8 @@ if GRPC_AVAILABLE:
             try:
                 scheme_id = request.scheme_id or "demo_business_kyc"
                 sess_id = request.session_id if request.session_id else None
-                session = create_session(scheme_id=scheme_id, session_id=sess_id)
+                lang = getattr(request, "language", "") or "hi"
+                session = create_session(scheme_id=scheme_id, session_id=sess_id, language=lang)
                 if not session.manifests:
                     return agent_pb2.InitSessionResponse(
                         success=False,
@@ -150,8 +151,9 @@ if GRPC_AVAILABLE:
         async def RunTurn(self, request, context):
             try:
                 session = get_session(request.session_id)
+                lang = getattr(request, "language", "") or "hi"
                 if not session:
-                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id)
+                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=lang)
 
                 result = await run_agent_turn(session, request.message)
 

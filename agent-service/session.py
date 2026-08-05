@@ -125,9 +125,10 @@ def load_manifest(doc_id: str) -> Optional[dict]:
 class AgentSession:
     """In-memory state for a single agent session."""
 
-    def __init__(self, session_id: str, scheme_id: str):
+    def __init__(self, session_id: str, scheme_id: str, language: str = "hi"):
         self.session_id = session_id
         self.scheme_id = scheme_id
+        self.language = language or "hi"
 
         # Document manifests: {doc_id: manifest_dict}
         self.manifests: Dict[str, dict] = {}
@@ -446,11 +447,11 @@ class AgentSession:
 _sessions: Dict[str, AgentSession] = {}
 
 
-def create_session(scheme_id: str, session_id: Optional[str] = None) -> AgentSession:
+def create_session(scheme_id: str, session_id: Optional[str] = None, language: str = "hi") -> AgentSession:
     """Create and initialize a new agent session."""
     if not session_id:
         session_id = str(uuid.uuid4())
-    session = AgentSession(session_id=session_id, scheme_id=scheme_id)
+    session = AgentSession(session_id=session_id, scheme_id=scheme_id, language=language)
     session.initialize()
     _sessions[session_id] = session
     log_session_snapshot(session, f"Session Created / Initialized ({scheme_id})")
