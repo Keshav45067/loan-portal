@@ -12,7 +12,8 @@ from typing import Dict, List, Any, Optional
 def resolve_json_path(data: dict, path: str) -> Any:
     """
     Evaluates arbitrary dot-notation JSON paths in a nested dictionary/JSON.
-    Example: 'extractions.AADHAAR_FRONT.holder.full_name'
+    Supports case-insensitive key matching.
+    Example: 'extractions.AADHAAR_FRONT.holder.full_name' matches 'extractions.aadhaar_front.holder.full_name'
     """
     if not data or not isinstance(data, dict) or not path:
         return None
@@ -20,15 +21,30 @@ def resolve_json_path(data: dict, path: str) -> Any:
     parts = path.split(".")
     curr = data
     for part in parts:
-        if isinstance(curr, dict) and part in curr:
-            curr = curr[part]
+        if isinstance(curr, dict):
+            if part in curr:
+                curr = curr[part]
+            else:
+                part_lower = part.lower()
+                matched_key = next((k for k in curr.keys() if str(k).lower() == part_lower), None)
+                if matched_key is not None:
+                    curr = curr[matched_key]
+                else:
+                    return None
         elif isinstance(curr, str):
-            # Attempt to parse stringified JSON if needed
             try:
                 import json
                 parsed = json.loads(curr)
-                if isinstance(parsed, dict) and part in parsed:
-                    curr = parsed[part]
+                if isinstance(parsed, dict):
+                    if part in parsed:
+                        curr = parsed[part]
+                    else:
+                        part_lower = part.lower()
+                        matched_key = next((k for k in parsed.keys() if str(k).lower() == part_lower), None)
+                        if matched_key is not None:
+                            curr = parsed[matched_key]
+                        else:
+                            return None
                 else:
                     return None
             except Exception:
