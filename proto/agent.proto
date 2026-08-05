@@ -24,6 +24,7 @@ service AgentService {
 message InitSessionRequest {
   string scheme_id = 1;           // e.g. "sandbox-demo", "mudra-grocery"
   string session_id = 2;          // Optional custom session ID
+  string language = 3;            // "en", "hi", "fr", "ar", etc.
 }
 
 message InitSessionResponse {
@@ -36,6 +37,7 @@ message InitSessionResponse {
 message RunTurnRequest {
   string session_id = 1;
   string message = 2;             // User speech transcription or text message
+  string language = 3;            // "en", "hi", "fr", "ar", etc.
 }
 
 message ToolCallInfo {

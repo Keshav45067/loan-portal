@@ -7,14 +7,16 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class StartCaptureRequest(_message.Message):
-    __slots__ = ("scheme_id", "session_id", "language")
+    __slots__ = ("scheme_id", "session_id", "language", "reset")
     SCHEME_ID_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     LANGUAGE_FIELD_NUMBER: _ClassVar[int]
+    RESET_FIELD_NUMBER: _ClassVar[int]
     scheme_id: str
     session_id: str
     language: str
-    def __init__(self, scheme_id: _Optional[str] = ..., session_id: _Optional[str] = ..., language: _Optional[str] = ...) -> None: ...
+    reset: bool
+    def __init__(self, scheme_id: _Optional[str] = ..., session_id: _Optional[str] = ..., language: _Optional[str] = ..., reset: _Optional[bool] = ...) -> None: ...
 
 class CaptureSessionResponse(_message.Message):
     __slots__ = ("success", "error", "session_id", "current_document_id", "current_page_id", "current_document_index", "total_documents", "current_page_index", "total_pages", "current_page_info", "all_complete")
@@ -43,10 +45,14 @@ class CaptureSessionResponse(_message.Message):
     def __init__(self, success: _Optional[bool] = ..., error: _Optional[str] = ..., session_id: _Optional[str] = ..., current_document_id: _Optional[str] = ..., current_page_id: _Optional[str] = ..., current_document_index: _Optional[int] = ..., total_documents: _Optional[int] = ..., current_page_index: _Optional[int] = ..., total_pages: _Optional[int] = ..., current_page_info: _Optional[_Union[PageInfo, _Mapping]] = ..., all_complete: _Optional[bool] = ...) -> None: ...
 
 class PageInfoRequest(_message.Message):
-    __slots__ = ("session_id",)
+    __slots__ = ("session_id", "document_id", "page_id")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    DOCUMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_ID_FIELD_NUMBER: _ClassVar[int]
     session_id: str
-    def __init__(self, session_id: _Optional[str] = ...) -> None: ...
+    document_id: str
+    page_id: str
+    def __init__(self, session_id: _Optional[str] = ..., document_id: _Optional[str] = ..., page_id: _Optional[str] = ...) -> None: ...
 
 class PageInfoResponse(_message.Message):
     __slots__ = ("success", "error", "page_info", "document_id", "document_name", "document_index", "total_documents")

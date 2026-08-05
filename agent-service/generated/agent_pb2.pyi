@@ -7,12 +7,14 @@ from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class InitSessionRequest(_message.Message):
-    __slots__ = ("scheme_id", "session_id")
+    __slots__ = ("scheme_id", "session_id", "language")
     SCHEME_ID_FIELD_NUMBER: _ClassVar[int]
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     scheme_id: str
     session_id: str
-    def __init__(self, scheme_id: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
+    language: str
+    def __init__(self, scheme_id: _Optional[str] = ..., session_id: _Optional[str] = ..., language: _Optional[str] = ...) -> None: ...
 
 class InitSessionResponse(_message.Message):
     __slots__ = ("success", "session_id", "json_session_state", "error")
@@ -27,12 +29,14 @@ class InitSessionResponse(_message.Message):
     def __init__(self, success: _Optional[bool] = ..., session_id: _Optional[str] = ..., json_session_state: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class RunTurnRequest(_message.Message):
-    __slots__ = ("session_id", "message")
+    __slots__ = ("session_id", "message", "language")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     message: str
-    def __init__(self, session_id: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+    language: str
+    def __init__(self, session_id: _Optional[str] = ..., message: _Optional[str] = ..., language: _Optional[str] = ...) -> None: ...
 
 class ToolCallInfo(_message.Message):
     __slots__ = ("tool_name", "json_arguments", "status", "message", "json_signal")
@@ -83,20 +87,22 @@ class GetSessionStateResponse(_message.Message):
     def __init__(self, success: _Optional[bool] = ..., json_session_state: _Optional[str] = ..., error: _Optional[str] = ...) -> None: ...
 
 class SyncExtractedDataRequest(_message.Message):
-    __slots__ = ("session_id", "doc_id", "part_id", "json_extracted_fields", "page_complete", "all_complete")
+    __slots__ = ("session_id", "doc_id", "part_id", "json_extracted_fields", "page_complete", "all_complete", "reset")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     DOC_ID_FIELD_NUMBER: _ClassVar[int]
     PART_ID_FIELD_NUMBER: _ClassVar[int]
     JSON_EXTRACTED_FIELDS_FIELD_NUMBER: _ClassVar[int]
     PAGE_COMPLETE_FIELD_NUMBER: _ClassVar[int]
     ALL_COMPLETE_FIELD_NUMBER: _ClassVar[int]
+    RESET_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     doc_id: str
     part_id: str
     json_extracted_fields: str
     page_complete: bool
     all_complete: bool
-    def __init__(self, session_id: _Optional[str] = ..., doc_id: _Optional[str] = ..., part_id: _Optional[str] = ..., json_extracted_fields: _Optional[str] = ..., page_complete: _Optional[bool] = ..., all_complete: _Optional[bool] = ...) -> None: ...
+    reset: bool
+    def __init__(self, session_id: _Optional[str] = ..., doc_id: _Optional[str] = ..., part_id: _Optional[str] = ..., json_extracted_fields: _Optional[str] = ..., page_complete: _Optional[bool] = ..., all_complete: _Optional[bool] = ..., reset: _Optional[bool] = ...) -> None: ...
 
 class SyncExtractedDataResponse(_message.Message):
     __slots__ = ("success", "json_session_state", "error")

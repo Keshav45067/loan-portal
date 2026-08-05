@@ -151,9 +151,11 @@ if GRPC_AVAILABLE:
         async def RunTurn(self, request, context):
             try:
                 session = get_session(request.session_id)
-                lang = getattr(request, "language", "") or "hi"
+                req_lang = getattr(request, "language", "")
                 if not session:
-                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=lang)
+                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=req_lang or "hi")
+                elif req_lang:
+                    session.language = req_lang
 
                 result = await run_agent_turn(session, request.message)
 

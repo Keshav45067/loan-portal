@@ -1455,12 +1455,20 @@ class RawAgentSession(VoiceSession):
                     target_scheme = self.scheme_id if (hasattr(self, 'scheme_id') and self.scheme_id and self.scheme_id != "raw_agent") else "demo_business_kyc"
                     # Init session ONCE per voice connection
                     await self._agent_stub.InitSession(
-                        agent_pb2.InitSessionRequest(scheme_id=target_scheme, session_id=self.session_id)
+                        agent_pb2.InitSessionRequest(
+                            scheme_id=target_scheme,
+                            session_id=self.session_id,
+                            language=self.language
+                        )
                     )
                 
                 # Run turn
                 res = await self._agent_stub.RunTurn(
-                    agent_pb2.RunTurnRequest(session_id=self.session_id, message=transcribed_text)
+                    agent_pb2.RunTurnRequest(
+                        session_id=self.session_id,
+                        message=transcribed_text,
+                        language=self.language
+                    )
                 )
                 if res.success:
                     agent_response_text = res.agent_response

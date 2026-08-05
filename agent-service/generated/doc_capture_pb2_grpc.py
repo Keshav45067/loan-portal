@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-import doc_capture_pb2 as doc__capture__pb2
+from . import doc_capture_pb2 as doc__capture__pb2
 
 GRPC_GENERATED_VERSION = '1.83.0'
 GRPC_VERSION = grpc.__version__
