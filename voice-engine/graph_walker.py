@@ -373,12 +373,29 @@ class GraphWalker:
 
         import re
         placeholders = re.findall(r"\{([^}]+)\}", res)
+        extraction_mappings = self._scheme_config.get("extraction_mappings", {})
+        ignored_placeholders = {"applicant", "आवेदक", "demandeur", "المتقدم", "none", "null", "not available", "not_available"}
+
         for ph in placeholders:
-            val = flat.get(ph)
-            if val is not None and str(val).strip() not in ("", "None", "Null", "Not Available", "Not Provided"):
-                res = res.replace(f"{{{ph}}}", str(val))
+            field_cfg = extraction_mappings.get(ph, {})
+            sources = field_cfg.get("sources", [ph]) if isinstance(field_cfg, dict) else [ph]
+            if ph not in sources:
+                sources = list(sources) + [ph]
+
+            val = None
+            for src in sources:
+                candidate = flat.get(src)
+                if candidate is not None:
+                    candidate_str = str(candidate).strip()
+                    if candidate_str and candidate_str.lower() not in ignored_placeholders:
+                        val = candidate_str
+                        break
+
+            if val is not None:
+                res = res.replace(f"{{{ph}}}", val)
             else:
-                fallback = "Applicant" if self._language == "en" else "आवेदक"
+                fallback_map = self._scheme_config.get("default_applicant_placeholder", {})
+                fallback = fallback_map.get(self._language) or ("Applicant" if self._language == "en" else "आवेदक")
                 res = res.replace(f"{{{ph}}}", fallback)
 
         logger.info("🔍 [STAGE 4 - GRAPHWALKER INTERPOLATION]",
