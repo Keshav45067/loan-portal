@@ -467,20 +467,24 @@ class VoiceSession:
                 last_node = getattr(resp, "last_node", "")
                 if self._walker:
                     self._walker.restore_state(last_node, data)
-                    logger.info("Successfully synced extracted data & restored state from DB",
-                                 session_id=self.session_id,
-                                 last_node=last_node,
-                                 keys_count=len(data))
                     
                     # Config-driven applicant name resolution (Zero Hardcoding)
                     import sys, os
                     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
                     from shared import config_resolver
 
-                    ext_name = config_resolver.resolve_applicant_name(data, getattr(self, "_graph_data", {}))
+                    graph_cfg = getattr(self, "_graph_data", {})
+                    ext_name = config_resolver.resolve_applicant_name(data, graph_cfg)
                     if ext_name:
                         self.applicant_name = ext_name
                         self._walker._name = ext_name
+
+                    logger.info("📦 DB State Fetched from PostgreSQL user_data table",
+                                 session_id=self.session_id,
+                                 last_node=last_node,
+                                 total_keys=len(data),
+                                 fetched_keys=list(data.keys()),
+                                 resolved_applicant_name=self.applicant_name)
         except Exception as e:
             logger.error(f"Failed to sync extracted data: {e}", session_id=self.session_id)
 
@@ -507,6 +511,7 @@ class VoiceSession:
         Set graph data directly (used in v1 until Config Registry is wired).
         In production, this is fetched via gRPC in init().
         """
+        self._graph_data = graph_data or {}
         self._walker = GraphWalker(graph_data, self.applicant_name, self.language)
         self._field_instructions = field_instructions or {}
         self._media_config = media_config or {}
