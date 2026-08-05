@@ -574,7 +574,7 @@ export default function InterviewPage() {
           headers: { 'Authorization': `Bearer ${savedToken}` }
         });
         const data = await res.json();
-        const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', localStorage.getItem('applicant_name') || '');
+        const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
 
         setReviewFields(fieldsMap);
         setShowReviewModal(true);
@@ -683,7 +683,7 @@ export default function InterviewPage() {
         token,
         sessionId,
         applicationId,
-        applicantName: localStorage.getItem('applicant_name') || 'Applicant',
+        applicantName: '',
         schemeId: schemeId,
         language: selectedLanguage,
         wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/voice`,
@@ -730,7 +730,7 @@ export default function InterviewPage() {
                 headers: { 'Authorization': `Bearer ${savedToken}` }
               });
               const data = await res.json();
-              const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', localStorage.getItem('applicant_name') || '');
+              const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
 
               setReviewFields(fieldsMap);
               setShowReviewModal(true);
