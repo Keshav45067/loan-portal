@@ -860,20 +860,23 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         page_advanced, doc_advanced = session.advance_page()
         next_page = session.get_current_page()
         
-        if doc_advanced:
-            try:
-                flat_data = session.get_all_extracted_data()
-                logger.info(f"_execute_extraction_flow: upserting extracted data to app orchestrator: {json.dumps(flat_data)}")
-                await self.orch_stub.UpsertExtractedData(
-                    app_orchestrator_pb2.UpsertDataRequest(
-                        application_id=session.session_id,
-                        source="doc-capture",
-                        json_fields=json.dumps(flat_data, ensure_ascii=False)
-                    ),
-                    timeout=5.0
-                )
-            except Exception as db_err:
-                logger.error(f"Failed to upsert extracted data to App Orchestrator: {db_err}")
+        try:
+            flat_data = session.get_all_extracted_data()
+            for k, v in list(flat_data.items()):
+                if k in ("doc_aadhaar_name", "holder.full_name", "full_name", "name") and v:
+                    flat_data["applicant_name"] = v
+                    flat_data["name"] = v
+            logger.info(f"_execute_extraction_flow: upserting extracted data to app orchestrator: {json.dumps(flat_data)}")
+            await self.orch_stub.UpsertExtractedData(
+                app_orchestrator_pb2.UpsertDataRequest(
+                    application_id=session.session_id,
+                    source="doc-capture",
+                    json_fields=json.dumps(flat_data, ensure_ascii=False)
+                ),
+                timeout=5.0
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to upsert extracted data to App Orchestrator: {db_err}")
                 
         return {
             "success": True,

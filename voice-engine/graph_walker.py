@@ -409,14 +409,19 @@ class GraphWalker:
         import re
         placeholders = re.findall(r"\{([^}]+)\}", res)
         for ph in placeholders:
-            if ph == "name":
+            if ph in ("name", "applicant_name", "full_name"):
+                name_val = flat.get(ph) or flat.get("applicant_name") or flat.get("doc_aadhaar_name") or flat.get("name") or self._name
+                if name_val and str(name_val).strip() not in ("", "None", "Null", "Not Available", "Not Provided", "उपलब्ध नहीं"):
+                    res = res.replace(f"{{{ph}}}", str(name_val))
+                else:
+                    res = res.replace(f"{{{ph}}}", self._name)
                 continue
             val = flat.get(ph)
-            if val is not None and val != "":
+            if val is not None and str(val).strip() not in ("", "None", "Null", "Not Available", "Not Provided", "not_available"):
                 res = res.replace(f"{{{ph}}}", str(val))
             else:
-                # Use a friendly empty fallback
-                res = res.replace(f"{{{ph}}}", "उपलब्ध नहीं")
+                fallback_text = "उपलब्ध नहीं" if self._language == "hi" else "Not Available"
+                res = res.replace(f"{{{ph}}}", fallback_text)
         
         return res
 

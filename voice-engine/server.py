@@ -300,15 +300,24 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                             current_node_id=first_node["node_id"],
                         )
                     )
-                    if first_node.get("type") == "capture":
+                    node_type = first_node.get("type", "voice-qa")
+                    if node_type in ("capture", "video_capture", "manual_filling_prompt"):
                         yield pb2.VoiceOutput(
                             node_change=pb2.NodeChange(
-                                node_type="capture",
+                                node_type=node_type,
                                 document_id=first_node.get("document_id", "")
                             )
                         )
                     else:
-                        # Synthesize and stream first question audio via TTS (sentence-chunked)
+                        yield pb2.VoiceOutput(
+                            node_change=pb2.NodeChange(
+                                node_type="voice-qa",
+                                document_id=""
+                            )
+                        )
+
+                    # Synthesize and stream first question audio via TTS for ALL node types (including capture)
+                    if first_node.get("text", "").strip():
                         yield pb2.VoiceOutput(
                             status=pb2.StatusUpdate(status="speaking")
                         )
@@ -331,9 +340,9 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                                     )
                         yield pb2.VoiceOutput(audio_end=True)
 
-                        yield pb2.VoiceOutput(
-                            status=pb2.StatusUpdate(status="listening")
-                        )
+                    yield pb2.VoiceOutput(
+                        status=pb2.StatusUpdate(status="listening")
+                    )
 
                 # ─── Audio Chunk ───
                 elif input_type == "audio_chunk":
