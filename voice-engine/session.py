@@ -420,6 +420,19 @@ class VoiceSession:
                 except Exception:
                     self._system_voice_messages = {}
                 
+            # Merge raw YAML scheme config to get extraction_mappings and placeholders
+            try:
+                import sys, os
+                sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+                from shared.shared_config_loader import load_resolved_scheme_config
+                raw_scheme = load_resolved_scheme_config(self.scheme_id)
+                if raw_scheme:
+                    for k, v in raw_scheme.items():
+                        if k not in graph_data:
+                            graph_data[k] = v
+            except Exception as load_err:
+                logger.warning(f"Failed to load raw scheme config: {load_err}")
+
             self.set_graph(graph_data, field_instructions, media_config)
             await self._sync_extracted_data()
             

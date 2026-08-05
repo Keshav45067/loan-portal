@@ -383,19 +383,23 @@ class GraphWalker:
                 sources = list(sources) + [ph]
 
             val = None
+            matched_src = None
             for src in sources:
                 candidate = flat.get(src)
                 if candidate is not None:
                     candidate_str = str(candidate).strip()
                     if candidate_str and candidate_str.lower() not in ignored_placeholders:
                         val = candidate_str
+                        matched_src = src
                         break
 
             if val is not None:
+                logger.info(f"🎯 [PLACEHOLDER MATCHED] {{{ph}}} -> '{val}' from source key '{matched_src}'")
                 res = res.replace(f"{{{ph}}}", val)
             else:
                 fallback_map = self._scheme_config.get("default_applicant_placeholder", {})
                 fallback = fallback_map.get(self._language) or ("Applicant" if self._language == "en" else "आवेदक")
+                logger.info(f"⚠️ [PLACEHOLDER FALLBACK] {{{ph}}} not found in evaluated sources {sources}, using fallback '{fallback}'")
                 res = res.replace(f"{{{ph}}}", fallback)
 
         logger.info("🔍 [STAGE 4 - GRAPHWALKER INTERPOLATION]",
