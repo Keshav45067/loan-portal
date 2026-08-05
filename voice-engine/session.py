@@ -473,22 +473,10 @@ class VoiceSession:
 
                 if self._walker:
                     self._walker.restore_state(last_node, data)
-                    
-                    import sys, os
-                    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-                    from shared import config_resolver
-
-                    graph_cfg = getattr(self, "_graph_data", {})
-                    ext_name = config_resolver.resolve_applicant_name(data, graph_cfg)
-                    if ext_name:
-                        self.applicant_name = ext_name
-                        self._walker._name = ext_name
-
                     logger.info("🔍 [STAGE 2 - VOICE SYNC COMPLETE]",
                                  session_id=self.session_id,
                                  last_node=last_node,
-                                 resolved_applicant_name=self.applicant_name,
-                                 walker_name=self._walker._name)
+                                 total_keys=len(data))
         except Exception as e:
             logger.error(f"Failed to sync extracted data: {e}", session_id=self.session_id)
 
@@ -596,16 +584,6 @@ class VoiceSession:
                 )
             )
             return
-
-        # Sync applicant name dynamically from extracted data via config_resolver (Zero Hardcoding)
-        import sys, os
-        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-        from shared import config_resolver
-
-        extracted_name = config_resolver.resolve_applicant_name(self._walker.extracted_data, getattr(self, "_graph_data", {})) if self._walker else None
-        if extracted_name:
-            self.applicant_name = extracted_name
-            self._walker._name = extracted_name
 
         current_node = self._walker.current_node
         if current_node is None:
@@ -1250,21 +1228,10 @@ class VoiceSession:
         extracted_data_str = json.dumps(self._walker.extracted_data if self._walker else {}, ensure_ascii=False, indent=2)
         targets_str = json.dumps(target_instructions, ensure_ascii=False, indent=2)
 
-        import sys, os
-        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-        from shared import config_resolver
-
-        graph_cfg = getattr(self, "_graph_data", {})
-        extracted_name = config_resolver.resolve_applicant_name(self._walker.extracted_data, graph_cfg) if self._walker else None
-        if extracted_name:
-            self.applicant_name = extracted_name
-            name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
-        elif self.applicant_name and self.applicant_name not in ("Applicant", "आवेदक", "Demandeur", "المتقدم"):
+        if self.applicant_name and self.applicant_name not in ("Applicant", "आवेदक", "Demandeur", "المتقدم"):
             name_instruction = f"You are talking to the applicant. Their name is: {self.applicant_name}."
         else:
-            fallback_placeholders = graph_cfg.get("default_applicant_placeholder", {})
-            default_ph = fallback_placeholders.get(self.language) or "Applicant"
-            name_instruction = f"You are talking to the applicant. Their name is not known yet. Do NOT use placeholder names like '{default_ph}'. Address them politely without using a name."
+            name_instruction = "You are talking to the applicant. Address them politely without using a name."
 
         return (
             f"{name_instruction}\n"
