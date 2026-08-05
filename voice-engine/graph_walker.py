@@ -127,6 +127,11 @@ class GraphWalker:
         lang_key = f"text_template_{self._language}"
         return node.get(lang_key, "") or node.get("text_template_en", "") or node.get("text_template", "")
 
+    def get_prompt(self, node: Optional[dict] = None) -> str:
+        """Return localized, interpolated question text for current or given node."""
+        target_node = node or self.current_node or {}
+        return self._interpolate(self._get_node_text(target_node))
+
     def restore_state(self, last_node: Optional[str], extracted_data: dict = None):
         """
         Restore interview position to last_node and load historical extracted data.
