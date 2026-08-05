@@ -596,6 +596,10 @@ export default function InterviewPage() {
     const savedSessionId = localStorage.getItem('session_id');
     const savedApplicationId = localStorage.getItem('application_id');
     let savedSchemeId = localStorage.getItem('scheme_id');
+    const savedLanguage = localStorage.getItem('selected_language') || localStorage.getItem('language') || 'en';
+    if (savedLanguage) {
+      setSelectedLanguage(savedLanguage);
+    }
     if (!savedSchemeId || !savedSchemeId.includes('mudra') || savedSchemeId.includes('sbi')) {
       savedSchemeId = 'mudra-grocery';
       localStorage.setItem('scheme_id', 'mudra-grocery');
@@ -1755,6 +1759,7 @@ export default function InterviewPage() {
                     if (!isStarted) {
                       setSelectedLanguage(lang.code);
                       localStorage.setItem('selected_language', lang.code);
+                      localStorage.setItem('language', lang.code);
                     }
                   }}
                   style={{
