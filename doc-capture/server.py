@@ -210,14 +210,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         logger.info(f"StartSession: scheme={request.scheme_id} lang={request.language} reset={getattr(request, 'reset', False)}", req_id=req_id)
         
         try:
-            session = session_manager.get_session(request.session_id)
-            if not session:
-                session = session_manager.create_session(request.session_id, request.scheme_id, request.language)
-            elif getattr(request, 'reset', False):
-                session.reset()
-                if request.language:
-                    session.language = request.language
-
+            # /capture ALWAYS initializes a fresh session — zero DB fetching or state resuming
+            session = session_manager.create_session(request.session_id, request.scheme_id, request.language)
             if request.language:
                 session.language = request.language
 
