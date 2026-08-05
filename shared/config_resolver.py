@@ -39,6 +39,12 @@ def resolve_json_path(data: dict, path: str) -> Any:
     return curr
 
 
+IGNORED_PLACEHOLDER_VALUES = {
+    "", "none", "null", "not_available", "not available", "not provided",
+    "applicant", "आवेदक", "demandeur", "المتقدم", "applicant ji", "आवेदक जी"
+}
+
+
 def resolve_canonical_field(canonical_key: str, data: dict, scheme_config: dict) -> Optional[Any]:
     """
     Resolves any canonical field from data using the active scheme_config's extraction_mappings.
@@ -58,8 +64,8 @@ def resolve_canonical_field(canonical_key: str, data: dict, scheme_config: dict)
         val = resolve_json_path(data, path)
         if val is not None:
             val_str = str(val).strip()
-            # Ignore empty/invalid values
-            if val_str and val_str not in ("", "None", "Null", "not_available", "Not Available", "Not Provided"):
+            # Ignore empty, null, or placeholder values like 'Applicant'
+            if val_str and val_str.lower() not in IGNORED_PLACEHOLDER_VALUES:
                 return val
 
     return None
