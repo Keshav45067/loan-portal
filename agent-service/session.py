@@ -125,10 +125,10 @@ def load_manifest(doc_id: str) -> Optional[dict]:
 class AgentSession:
     """In-memory state for a single agent session."""
 
-    def __init__(self, session_id: str, scheme_id: str, language: str = "hi"):
+    def __init__(self, session_id: str, scheme_id: str, language: str = "en"):
         self.session_id = session_id
         self.scheme_id = scheme_id
-        self.language = language or "hi"
+        self.language = language or "en"
 
         # Document manifests: {doc_id: manifest_dict}
         self.manifests: Dict[str, dict] = {}
@@ -168,18 +168,20 @@ class AgentSession:
         # Load mock completed pages ONLY for sandbox-demo
         completed_pages = MOCK_COMPLETED_PAGES if self.scheme_id == "sandbox-demo" else {}
 
+        lang_key = "Hindi" if self.language == "hi" else ("French" if self.language == "fr" else ("Arabic" if self.language == "ar" else "English"))
+
         for doc_id in doc_ids:
             manifest = load_manifest(doc_id)
             if not manifest:
                 continue
 
             self.manifests[doc_id] = manifest
-            doc_title = manifest["title"].get("English", doc_id)
+            doc_title = manifest.get("title", {}).get(lang_key, manifest.get("title", {}).get("English", doc_id))
             doc_completed = completed_pages.get(doc_id, set())
 
             for part in manifest.get("parts", []):
                 part_id = part["id"]
-                part_name = part["name"].get("English", part_id)
+                part_name = part.get("name", {}).get(lang_key, part.get("name", {}).get("English", part_id))
                 status = "COMPLETED" if part_id in doc_completed else "PENDING"
 
                 self.document_queue.append({
@@ -447,7 +449,7 @@ class AgentSession:
 _sessions: Dict[str, AgentSession] = {}
 
 
-def create_session(scheme_id: str, session_id: Optional[str] = None, language: str = "hi") -> AgentSession:
+def create_session(scheme_id: str, session_id: Optional[str] = None, language: str = "en") -> AgentSession:
     """Create and initialize a new agent session."""
     if not session_id:
         session_id = str(uuid.uuid4())

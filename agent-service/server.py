@@ -132,7 +132,7 @@ if GRPC_AVAILABLE:
             try:
                 scheme_id = request.scheme_id or "demo_business_kyc"
                 sess_id = request.session_id if request.session_id else None
-                lang = getattr(request, "language", "") or "hi"
+                lang = getattr(request, "language", "") or "en"
                 session = create_session(scheme_id=scheme_id, session_id=sess_id, language=lang)
                 if not session.manifests:
                     return agent_pb2.InitSessionResponse(
@@ -153,7 +153,7 @@ if GRPC_AVAILABLE:
                 session = get_session(request.session_id)
                 req_lang = getattr(request, "language", "")
                 if not session:
-                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=req_lang or "hi")
+                    session = create_session(scheme_id="demo_business_kyc", session_id=request.session_id, language=req_lang or "en")
                 elif req_lang:
                     session.language = req_lang
 

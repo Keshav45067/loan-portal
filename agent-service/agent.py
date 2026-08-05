@@ -364,7 +364,7 @@ async def run_agent_turn(session: AgentSession, user_message: str) -> dict:
     internal_log = []
     tool_calls_results = []
 
-    logger.info(f"🗣️ [TURN START] Session: {session.session_id} | Turn #{session.turn_count} | User: '{user_message}'")
+    logger.info(f"🗣️ [TURN START] Session: {session.session_id} | Turn #{session.turn_count} | Language: '{session.language}' | User: '{user_message}'")
 
     # 1. Add user message to history
     session.conversation_history.append({"role": "user", "text": user_message})
