@@ -415,15 +415,17 @@ class CaptureSession:
         # Track completed pages/parts for backward compatibility
         self.completed_pages[doc_id].add(part_id)
 
-    def record_extraction(self, page_id: str, fields_dict: dict):
+    def record_extraction(self, page_id: str, fields_dict: dict, doc_id: Optional[str] = None):
         """Save flat extracted fields for backward compatibility."""
-        doc_id = self.get_current_document_id()
-        if not doc_id:
+        target_doc_id = doc_id or self.get_current_document_id()
+        if not target_doc_id:
             return
+        if target_doc_id not in self.document_extracted_data:
+            self.document_extracted_data[target_doc_id] = {}
             
         # Deep merge extracted values into self.document_extracted_data
         for k, v in fields_dict.items():
-            self.document_extracted_data[doc_id][k] = copy.deepcopy(v)
+            self.document_extracted_data[target_doc_id][k] = copy.deepcopy(v)
 
     def mark_page_complete(self, page_id: str):
         # Mapped to record_part_result. Kept for gRPC service compatibility

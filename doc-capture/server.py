@@ -868,7 +868,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 "next_document_id": doc_id
             }
             
-        session.record_extraction(part_id, flat_extracted_dict)
+        session.record_extraction(part_id, flat_extracted_dict, doc_id=doc_id)
         page_advanced, doc_advanced = session.advance_page()
         next_page = session.get_current_page()
         
@@ -896,7 +896,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             "part_id": part_id,
             "next_page_id": next_page.get("page_id") if next_page else "",
             "next_part_id": next_page.get("page_id") if next_page else "",
-            "next_document_id": session.get_current_document_id()
+            "next_document_id": session.get_current_document_id(),
+            "processed_document_id": doc_id
         }
 
 async def serve():
