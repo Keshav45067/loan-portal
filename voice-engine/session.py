@@ -1443,9 +1443,19 @@ class RawAgentSession(VoiceSession):
         self._status = "active"
 
     async def init(self):
-        """Override parent init to skip config loading and walker setup."""
+        """Override parent init to load system voice messages while skipping walker setup."""
         set_req_id(self.req_id)
         self._status = "active"
+        try:
+            import sys, os
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+            from shared.shared_config_loader import load_resolved_scheme_config
+            raw_scheme = load_resolved_scheme_config("base-mudra")
+            if raw_scheme and "system_voice_messages" in raw_scheme:
+                self._system_voice_messages = raw_scheme["system_voice_messages"]
+                logger.info(f"Loaded system_voice_messages for RawAgentSession: {list(self._system_voice_messages.keys())}")
+        except Exception as e:
+            logger.warning(f"Failed to load system_voice_messages for RawAgentSession: {e}")
         logger.info("Raw agent session initialized", session_id=self.session_id)
 
     async def process_turn_streaming(self, transcribed_text: str):
