@@ -1266,6 +1266,14 @@ class VoiceSession:
         """Play processing audio message from YAML config."""
         svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
         text = svm.get("processing") or "Your document is processing. Please wait."
+        logger.info(
+            f"🌐 [CAPTURE SYSTEM VOICE DIAGNOSTIC - PROCESSING] session_id='{self.session_id}' | "
+            f"self.language='{self.language}' | "
+            f"svm_keys={list(self._system_voice_messages.keys())} | "
+            f"resolved_svm_keys={list(svm.keys())} | "
+            f"final_text='{text}'",
+            session_id=self.session_id
+        )
         
         # Yield transcription for display
         yield pb2.VoiceOutput(
@@ -1314,6 +1322,13 @@ class VoiceSession:
         
         template = svm.get("success_template") or "Details from your {doc_name} have been extracted."
         text = template.replace("{doc_name}", doc_name)
+        logger.info(
+            f"🌐 [CAPTURE SYSTEM VOICE DIAGNOSTIC - SUCCESS] session_id='{self.session_id}' | "
+            f"self.language='{self.language}' | "
+            f"svm_keys={list(self._system_voice_messages.keys())} | "
+            f"final_text='{text}'",
+            session_id=self.session_id
+        )
         
         # Yield transcription for display
         yield pb2.VoiceOutput(
