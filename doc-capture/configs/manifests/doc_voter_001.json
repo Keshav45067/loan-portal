@@ -1,0 +1,129 @@
+{
+  "document_id": "doc_voter_001",
+  "title": {
+    "English": "Voter ID Card",
+    "Hindi": "वोटर आईडी कार्ड"
+  },
+  "proves": [
+    "identity",
+    "address"
+  ],
+  "required_when": "always",
+  "expects": [
+    "doc_voter_number",
+    "doc_voter_name",
+    "doc_voter_father_name",
+    "doc_voter_gender",
+    "doc_voter_dob",
+    "doc_voter_address"
+  ],
+  "parts": [
+    {
+      "id": "front",
+      "name": {
+        "English": "Front Side",
+        "Hindi": "सामने का हिस्सा"
+      },
+      "title": {
+        "English": "front side of voter id",
+        "Hindi": "वोटर आईडी का अगला हिस्सा"
+      },
+      "anchors": [
+        "COMMISSION",
+        "INDIA",
+        "IDENTITY",
+        "ELECTION",
+        "EPIC",
+        "Name",
+        "Father"
+      ],
+      "provides": [
+        "doc_voter_number",
+        "doc_voter_name",
+        "doc_voter_father_name",
+        "doc_voter_gender",
+        "doc_voter_dob"
+      ],
+      "orientation": "landscape",
+      "spotting": false
+    },
+    {
+      "id": "back",
+      "name": {
+        "English": "Back Side",
+        "Hindi": "पीछे का हिस्सा"
+      },
+      "title": {
+        "English": "back side of voter id",
+        "Hindi": "वोटर आईडी का पिछला हिस्सा"
+      },
+      "anchors": [
+        "Address",
+        "Electoral",
+        "Registration",
+        "Officer",
+        "पता",
+        "निर्वाचन"
+      ],
+      "provides": [
+        "doc_voter_address"
+      ],
+      "orientation": "landscape",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
+  ],
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
+  "quality": {
+    "min_box_confidence": 0.40,
+    "min_anchor_hits": 1,
+    "blur_var_min": 100
+  },
+  "preprocessing": [
+    "auto_deskew",
+    "remove_glare",
+    "enhance_contrast"
+  ],
+  "prompts": {
+    "ask_part": {
+      "en": "Please capture the {part_id} of your {document_title}.",
+      "hi": "कृपया अपने {document_title} का {part_id} कैप्चर करें।"
+    },
+    "success": {
+      "en": "Voter ID scan successful.",
+      "hi": "वोटर आईडी स्कैन सफल रहा।"
+    },
+    "error_blur": {
+      "en": "The image is blurry. Please hold the camera steady and try again.",
+      "hi": "छवि धुंधली है। कृपया कैमरे को स्थिर रखें और फिर से प्रयास करें।"
+    },
+    "error_wrong_page": {
+      "en": "This does not look like the expected side of the Voter ID. Please check and try again.",
+      "hi": "यह वोटर आईडी का अपेक्षित हिस्सा नहीं लग रहा है। कृपया जाँचें और फिर से प्रयास करें।"
+    },
+    "error_low_confidence": {
+      "en": "Some details are not readable. Please recapture the photo in better lighting.",
+      "hi": "कुछ विवरण पढ़े नहीं जा रहे हैं। कृपया बेहतर रोशनी में फिर से फोटो लें।"
+    }
+  },
+  "checks": []
+}

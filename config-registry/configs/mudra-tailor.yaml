@@ -31,6 +31,8 @@ interview_graph:
     DOC_UDYAM:
       type: "capture"
       document_id: "udyam"
+      manifest_id: doc_udyam_001
+      page_id: certificate
       edges:
         - condition: "always"
           next: "Q_STATUS"

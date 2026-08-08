@@ -175,6 +175,8 @@ interview_graph:
     DOC_SELFIE:
       type: "capture"
       document_id: "selfie"
+      manifest_id: selfie
+      page_id: selfie
       text_template: "कृपया अपनी एक सेल्फी लें।"
       text_template_en: "Please take a selfie photo of yourself."
       text_template_fr: "Veuillez prendre une photo selfie de vous-même."
@@ -186,6 +188,8 @@ interview_graph:
     DOC_AADHAAR_FRONT:
       type: "capture"
       document_id: "aadhaar_front"
+      manifest_id: doc_aadhaar_002
+      page_id: front
       text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the front side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
@@ -197,6 +201,8 @@ interview_graph:
     DOC_AADHAAR_BACK:
       type: "capture"
       document_id: "aadhaar_back"
+      manifest_id: doc_aadhaar_002
+      page_id: back
       text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the back side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
@@ -246,6 +252,8 @@ interview_graph:
     DOC_PAN:
       type: "capture"
       document_id: "pan"
+      manifest_id: doc_pan_001
+      page_id: front
       text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
       text_template_en: "Please take a photo of your PAN card."
       text_template_fr: "Veuillez prendre une photo de votre carte PAN."
@@ -270,6 +278,8 @@ interview_graph:
     DOC_UDYAM:
       type: "capture"
       document_id: "udyam"
+      manifest_id: doc_udyam_001
+      page_id: certificate
       text_template: "कृपया अपने उद्यम प्रमाणपत्र की फोटो लें।"
       text_template_en: "Please take a photo of your Udyam Registration certificate."
       text_template_fr: "Veuillez prendre une photo de votre certificat Udyam."
@@ -281,6 +291,8 @@ interview_graph:
     DOC_VOTER_FRONT:
       type: "capture"
       document_id: "voter_front"
+      manifest_id: doc_voter_001
+      page_id: front
       text_template: "कृपया अपने वोटर आईडी कार्ड के आगे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the front side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte d'électeur."
@@ -292,6 +304,8 @@ interview_graph:
     DOC_VOTER_BACK:
       type: "capture"
       document_id: "voter_back"
+      manifest_id: doc_voter_001
+      page_id: back
       text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
       text_template_en: "Please take a photo of the back side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte d'électeur."

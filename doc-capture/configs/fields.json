@@ -33,6 +33,13 @@
   "doc_pan_father_name": { "label": {"English":"Father's Name","Hindi":"पिता का नाम"}, "type":"text", "criticality":"standard" },
   "doc_pan_dob": { "label": {"English":"Date of Birth","Hindi":"जन्म तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"critical" },
 
+  "doc_voter_number": { "label": {"English":"Voter ID Number","Hindi":"वोटर आईडी नंबर"}, "type":"text", "criticality":"critical" },
+  "doc_voter_name": { "label": {"English":"Full Name","Hindi":"पूरा नाम"}, "type":"text", "criticality":"critical" },
+  "doc_voter_father_name": { "label": {"English":"Father's Name","Hindi":"पिता का नाम"}, "type":"text", "criticality":"standard" },
+  "doc_voter_dob": { "label": {"English":"Date of Birth","Hindi":"जन्म तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"critical" },
+  "doc_voter_gender": { "label": {"English":"Gender","Hindi":"लिंग"}, "type":"categorical", "values":["MALE","FEMALE","OTHER"], "criticality":"standard" },
+  "doc_voter_address": { "label": {"English":"Address","Hindi":"पता"}, "type":"text", "criticality":"standard" },
+
   "doc_udyam_registration_number": { "label": {"English":"Udyam Registration Number"}, "type":"text", "pattern":"^UDYAM-[A-Z]{2}-[0-9]{2}-[0-9]{7}$", "criticality":"critical" },
   "doc_udyam_enterprise_name": { "label": {"English":"Name of Enterprise"}, "type":"text", "criticality":"critical" },
   "doc_udyam_enterprise_type": { "label": {"English":"Enterprise Type"}, "type":"categorical", "values":["MICRO","SMALL","MEDIUM"], "criticality":"critical" },

@@ -396,6 +396,43 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         doc_id = session.get_current_document_id()
         doc_config = session.current_document_config
         
+        if doc_id and "selfie" in doc_id.lower():
+            ext = "jpg"
+            if request.content_type == "application/pdf":
+                ext = "pdf"
+            elif request.content_type == "image/png":
+                ext = "png"
+                
+            filename = f"{session.session_id}_{doc_id}_{request.page_id}.{ext}"
+            if request.filename:
+                orig_ext = request.filename.split(".")[-1]
+                if orig_ext:
+                    filename = f"{session.session_id}_{doc_id}_{request.page_id}.{orig_ext}"
+                    
+            session.record_upload(request.page_id, filename)
+            
+            from quality_gate import QualityResult
+            fake_quality = QualityResult(passed=True, part_id="selfie", ocr_text="", ocr_confidence=1.0)
+            session.record_part_result(request.page_id, fake_quality)
+            
+            session.advance_page()
+            next_page = session.get_current_page()
+            next_page_id = next_page.get("page_id") if next_page else ""
+            
+            return pb2.ProcessDocResponse(
+                success=True,
+                extracted_fields_json="{}",
+                page_complete=True,
+                document_complete=session.is_coverage_complete(),
+                all_complete=session.is_all_complete(),
+                confirm_fields=[],
+                part_id="selfie",
+                next_page_id=next_page_id,
+                next_part_id=next_page_id,
+                next_document_id=session.get_current_document_id(),
+                processed_document_id=doc_id
+            )
+        
         # 2. Validate file size and formats based on source configuration in manifest
         sources = doc_config.get("sources", [{}])
         first_source = sources[0] if sources else {}
@@ -665,6 +702,56 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             doc_config = config_loader.get_manifest(request.document_id)
             if not doc_config:
                 return pb2.ProcessDocResponse(success=False, error=f"Manifest not found for document: {request.document_id}")
+                
+            if "selfie" in request.document_id.lower():
+                # GCS Upload inside doc-capture
+                gcs_key = ""
+                if request.session_id:
+                    try:
+                        ext = "jpg"
+                        if request.filename:
+                            orig_ext = request.filename.split(".")[-1]
+                            if orig_ext:
+                                ext = orig_ext
+                        filename = f"{request.session_id}_{request.document_id}_{request.page_id}.{ext}"
+                        gcs_key = upload_to_gcs(
+                            image_bytes=request.image_data,
+                            content_type=request.content_type or "image/jpeg",
+                            session_id=request.session_id,
+                            document_type=request.document_id,
+                            filename=filename
+                        )
+                        logger.info(f"ProcessDocumentDirect (Selfie): Uploaded to GCS key: {gcs_key}", req_id=req_id)
+                    except Exception as gcs_err:
+                        logger.error(f"ProcessDocumentDirect (Selfie): GCS upload failed: {gcs_err}", req_id=req_id)
+
+                # Save document mapping to database
+                if request.session_id and gcs_key:
+                    try:
+                        await self.orch_stub.SaveDocument(
+                            app_orchestrator_pb2.SaveDocRequest(
+                                session_id=request.session_id,
+                                doc_type=request.document_id,
+                                key=gcs_key,
+                                name=request.filename or "document"
+                            ),
+                            metadata=[("x-request-id", req_id)]
+                        )
+                        logger.info("ProcessDocumentDirect (Selfie): Saved document mapping to DB", req_id=req_id)
+                    except Exception as db_err:
+                        logger.error(f"ProcessDocumentDirect (Selfie): SaveDocument mapping failed: {db_err}", req_id=req_id)
+
+                return pb2.ProcessDocResponse(
+                    success=True,
+                    extracted_fields_json="{}",
+                    page_complete=True,
+                    document_complete=True,
+                    all_complete=True,
+                    confirm_fields=[],
+                    part_id="selfie",
+                    processed_document_id=request.document_id,
+                    gcs_path=gcs_key
+                )
                 
             expected_part_id, page_index = parse_page_id(request.page_id)
             

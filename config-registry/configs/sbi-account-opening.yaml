@@ -20,6 +20,8 @@ interview_graph:
     DOC_AADHAAR_FRONT:
       type: capture
       document_id: aadhaar_front
+      manifest_id: doc_aadhaar_002
+      page_id: front
       text_template: कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।
       text_template_en: Please take a photo of the front side of your Aadhaar card.
       text_template_te: దయచేసి మీ ఆధార్ కార్డ్ ముందు వైపు ఫోటో తీయండి.
@@ -29,6 +31,8 @@ interview_graph:
     DOC_AADHAAR_BACK:
       type: capture
       document_id: aadhaar_back
+      manifest_id: doc_aadhaar_002
+      page_id: back
       text_template: कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।
       text_template_en: Please take a photo of the back side of your Aadhaar card.
       text_template_te: దయచేసి మీ ఆధార్ కార్డ్ వెనుక వైపు ఫోటో తీయండి.
@@ -62,6 +66,8 @@ interview_graph:
     DOC_PAN:
       type: capture
       document_id: pan
+      manifest_id: doc_pan_001
+      page_id: front
       text_template: कृपया अपने पैन कार्ड की फोटो लें।
       text_template_en: Please take a photo of your PAN card.
       text_template_te: దయచేసి మీ పాన్ కార్డ్ ఫోటో తీయండి.

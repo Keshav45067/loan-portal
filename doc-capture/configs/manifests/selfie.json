@@ -1,0 +1,54 @@
+{
+  "document_id": "selfie",
+  "title": {
+    "English": "Selfie",
+    "Hindi": "सेल्फी"
+  },
+  "proves": [],
+  "required_when": "always",
+  "expects": [],
+  "parts": [
+    {
+      "id": "selfie",
+      "name": {
+        "English": "Selfie",
+        "Hindi": "सेल्फी"
+      },
+      "title": {
+        "English": "selfie",
+        "Hindi": "सेल्फी"
+      },
+      "anchors": [],
+      "provides": [],
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "camera"
+    }
+  ],
+  "ocr": {
+    "lang": [
+      "en"
+    ],
+    "table_mode": false
+  },
+  "quality": {
+    "min_box_confidence": 0.0,
+    "min_anchor_hits": 0,
+    "blur_var_min": 0
+  },
+  "preprocessing": [],
+  "prompts": {
+    "ask_part": {
+      "en": "Please take a selfie.",
+      "hi": "कृपया अपनी एक सेल्फी लें।"
+    },
+    "success": {
+      "en": "Selfie uploaded successfully.",
+      "hi": "सेल्फी सफलतापूर्वक अपलोड हो गई।"
+    }
+  },
+  "checks": []
+}

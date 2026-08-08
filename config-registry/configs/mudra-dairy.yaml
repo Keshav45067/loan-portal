@@ -142,16 +142,22 @@ interview_graph:
       - condition: always
         next: START
       type: capture
+      manifest_id: doc_aadhaar_002
+      page_id: back
     DOC_AADHAAR_FRONT:
       document_id: aadhaar_front
       edges:
       - condition: always
         next: DOC_AADHAAR_BACK
       type: capture
+      manifest_id: doc_aadhaar_002
+      page_id: front
     DOC_BANK_STATEMENT:
       document_id: bank_statement
       edges: []
       type: capture
+      manifest_id: doc_bank_statement_001
+      page_id: statement
     DOC_COMPANY_ID:
       document_id: company_id
       edges:
@@ -164,18 +170,24 @@ interview_graph:
       - condition: always
         next: DOC_BANK_STATEMENT
       type: capture
+      manifest_id: doc_pan_001
+      page_id: front
     DOC_SELFIE:
       document_id: selfie
       edges:
       - condition: always
         next: DOC_AADHAAR_FRONT
       type: capture
+      manifest_id: selfie
+      page_id: selfie
     DOC_UDYAM:
       document_id: udyam
       edges:
       - condition: always
         next: Q_STATUS
       type: capture
+      manifest_id: doc_udyam_001
+      page_id: certificate
     Q_BIZ_TYPE:
       edges:
       - condition: routing_decision == 'YES'
