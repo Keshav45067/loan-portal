@@ -134,7 +134,13 @@ if GRPC_AVAILABLE:
                 sess_id = request.session_id if request.session_id else None
                 lang = getattr(request, "language", "") or "en"
                 logger.info(f"🌐 [AGENT-SERVICE InitSession gRPC] session_id='{sess_id}' | raw_request_lang='{getattr(request, 'language', '')}' | resolved_lang='{lang}'")
-                session = create_session(scheme_id=scheme_id, session_id=sess_id, language=lang)
+                session = get_session(sess_id) if sess_id else None
+                if not session:
+                    session = create_session(scheme_id=scheme_id, session_id=sess_id, language=lang)
+                else:
+                    if lang:
+                        session.language = lang
+                    logger.info(f"🌐 [AGENT-SERVICE InitSession gRPC] Session '{sess_id}' already exists — preserving existing session state!")
                 if not session.manifests:
                     return agent_pb2.InitSessionResponse(
                         success=False,
