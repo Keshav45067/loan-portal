@@ -283,6 +283,8 @@ export default function InterviewPage() {
   const [isStarted, setIsStarted] = useState(false);
   const [nodeType, setNodeType] = useState('voice-qa'); // 'voice-qa' or 'capture' or 'video_capture'
   const [documentId, setDocumentId] = useState('selfie');
+  const [manifestId, setManifestId] = useState('');
+  const [pageId, setPageId] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [totalSteps, setTotalSteps] = useState(0);
 
@@ -719,10 +721,12 @@ export default function InterviewPage() {
           setCurrentStep(step);
           setTotalSteps(total);
         },
-        onNodeChange: (type, docId) => {
-          console.log('[DEBUG Frontend] onNodeChange: type =', type, 'docId =', docId);
+        onNodeChange: (type, docId, manifest_id, page_id) => {
+          console.log('[DEBUG Frontend] onNodeChange: type =', type, 'docId =', docId, 'manifest_id =', manifest_id, 'page_id =', page_id);
           setNodeType(type);
           if (docId) setDocumentId(docId);
+          setManifestId(manifest_id || '');
+          setPageId(page_id || '');
         },
         onComplete: async () => {
           console.log('[DEBUG Frontend] onComplete triggered, opening extracted details review modal...');
@@ -841,6 +845,8 @@ export default function InterviewPage() {
       formData.append('document_type', documentId);
       formData.append('scheme_id', schemeId);
       formData.append('session_id', sessionId);
+      if (manifestId) formData.append('manifest_id', manifestId);
+      if (pageId) formData.append('page_id', pageId);
       if (lat !== null && lat !== undefined) formData.append('latitude', String(lat));
       if (lon !== null && lon !== undefined) formData.append('longitude', String(lon));
 

@@ -61,6 +61,8 @@ message VoiceOutput {
 message NodeChange {
   string node_type = 1;           // "voice-qa", "capture"
   string document_id = 2;         // If "capture", specifies which document
+  string manifest_id = 3;
+  string page_id = 4;
 }
 
 message StatusUpdate {

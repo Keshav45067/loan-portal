@@ -193,7 +193,9 @@ async def voice_websocket(websocket: WebSocket):
                         await websocket.send_json({
                             "type": "node_change",
                             "node_type": response.node_change.node_type,
-                            "document_id": response.node_change.document_id
+                            "document_id": response.node_change.document_id,
+                            "manifest_id": getattr(response.node_change, "manifest_id", ""),
+                            "page_id": getattr(response.node_change, "page_id", "")
                         })
                     elif output_type == "error":
                         await websocket.send_json({

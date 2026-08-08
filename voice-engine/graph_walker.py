@@ -101,7 +101,28 @@ class GraphWalker:
     def current_node(self) -> Optional[dict]:
         if not self._current_node_id:
             return None
-        return self._nodes.get(self._current_node_id)
+        node = self._nodes.get(self._current_node_id)
+        if node and node.get("type") in ("capture", "video_capture"):
+            doc_id = node.get("document_id", "")
+            manifest_id = node.get("manifest_id", "")
+            page_id = node.get("page_id", "")
+            if not manifest_id or not page_id:
+                LEGACY_MAPPINGS = {
+                    "aadhaar_front": ("doc_aadhaar_002", "front"),
+                    "aadhaar_back": ("doc_aadhaar_002", "back"),
+                    "pan": ("doc_pan_001", "front"),
+                    "pan_card": ("doc_pan_001", "front"),
+                    "udyam": ("doc_udyam_001", "certificate"),
+                    "bank_statement": ("doc_bank_statement_001", "statement"),
+                    "passport_front": ("doc_passport_001", "passport_front"),
+                    "passport_back": ("doc_passport_001", "passport_back"),
+                    "passport_visas": ("doc_passport_001", "passport_visas"),
+                }
+                mapped = LEGACY_MAPPINGS.get(doc_id.lower())
+                if mapped:
+                    node["manifest_id"] = mapped[0]
+                    node["page_id"] = mapped[1]
+        return node
 
     @property
     def extracted_data(self) -> dict:
@@ -177,11 +198,32 @@ class GraphWalker:
                      step_number=self._step_number,
                      details={"total_nodes": len(self._nodes)})
 
+        doc_id = node.get("document_id", "")
+        manifest_id = node.get("manifest_id", "")
+        page_id = node.get("page_id", "")
+        if not manifest_id or not page_id:
+            LEGACY_MAPPINGS = {
+                "aadhaar_front": ("doc_aadhaar_002", "front"),
+                "aadhaar_back": ("doc_aadhaar_002", "back"),
+                "pan": ("doc_pan_001", "front"),
+                "pan_card": ("doc_pan_001", "front"),
+                "udyam": ("doc_udyam_001", "certificate"),
+                "bank_statement": ("doc_bank_statement_001", "statement"),
+                "passport_front": ("doc_passport_001", "passport_front"),
+                "passport_back": ("doc_passport_001", "passport_back"),
+                "passport_visas": ("doc_passport_001", "passport_visas"),
+            }
+            mapped = LEGACY_MAPPINGS.get(doc_id.lower())
+            if mapped:
+                manifest_id, page_id = mapped
+
         return {
             "node_id": self._current_node_id,
             "text": text,
             "type": node.get("type", "voice-qa"),
-            "document_id": node.get("document_id", ""),
+            "document_id": doc_id,
+            "manifest_id": manifest_id,
+            "page_id": page_id,
             "targets": node.get("targets", []),
             "has_routing": bool(node.get("routing_prompt")),
             "routing_prompt": node.get("routing_prompt", ""),
@@ -238,11 +280,34 @@ class GraphWalker:
                      next_node=self._current_node_id,
                      step=self._step_number)
 
+        doc_id = next_node.get("document_id", "")
+        manifest_id = next_node.get("manifest_id", "")
+        page_id = next_node.get("page_id", "")
+        if not manifest_id or not page_id:
+            LEGACY_MAPPINGS = {
+                "aadhaar_front": ("doc_aadhaar_002", "front"),
+                "aadhaar_back": ("doc_aadhaar_002", "back"),
+                "pan": ("doc_pan_001", "front"),
+                "pan_card": ("doc_pan_001", "front"),
+                "udyam": ("doc_udyam_001", "certificate"),
+                "bank_statement": ("doc_bank_statement_001", "statement"),
+                "passport_front": ("doc_passport_001", "passport_front"),
+                "passport_back": ("doc_passport_001", "passport_back"),
+                "passport_visas": ("doc_passport_001", "passport_visas"),
+            }
+            mapped = LEGACY_MAPPINGS.get(doc_id.lower())
+            if mapped:
+                manifest_id, page_id = mapped
+                next_node["manifest_id"] = manifest_id
+                next_node["page_id"] = page_id
+
         return {
             "node_id": self._current_node_id,
             "text": text,
             "type": next_node.get("type", "voice-qa"),
-            "document_id": next_node.get("document_id", ""),
+            "document_id": doc_id,
+            "manifest_id": manifest_id,
+            "page_id": page_id,
             "targets": next_node.get("targets", []),
             "has_routing": bool(next_node.get("routing_prompt")),
             "routing_prompt": next_node.get("routing_prompt", ""),

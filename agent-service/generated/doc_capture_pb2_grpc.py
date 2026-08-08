@@ -61,6 +61,11 @@ class DocumentCaptureStub:
                 request_serializer=doc__capture__pb2.ProcessDocRequest.SerializeToString,
                 response_deserializer=doc__capture__pb2.ProcessDocResponse.FromString,
                 _registered_method=True)
+        self.ProcessDocumentDirect = channel.unary_unary(
+                '/chayan.doc_capture.DocumentCapture/ProcessDocumentDirect',
+                request_serializer=doc__capture__pb2.ProcessDocDirectRequest.SerializeToString,
+                response_deserializer=doc__capture__pb2.ProcessDocResponse.FromString,
+                _registered_method=True)
         self.GetSchemeConfig = channel.unary_unary(
                 '/chayan.doc_capture.DocumentCapture/GetSchemeConfig',
                 request_serializer=doc__capture__pb2.SchemeConfigRequest.SerializeToString,
@@ -115,6 +120,12 @@ class DocumentCaptureServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ProcessDocumentDirect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetSchemeConfig(self, request, context):
         """─── Config Fetching (frontend-safe) ───
         """
@@ -161,6 +172,11 @@ def add_DocumentCaptureServicer_to_server(servicer, server):
             'ProcessDocument': grpc.unary_unary_rpc_method_handler(
                     servicer.ProcessDocument,
                     request_deserializer=doc__capture__pb2.ProcessDocRequest.FromString,
+                    response_serializer=doc__capture__pb2.ProcessDocResponse.SerializeToString,
+            ),
+            'ProcessDocumentDirect': grpc.unary_unary_rpc_method_handler(
+                    servicer.ProcessDocumentDirect,
+                    request_deserializer=doc__capture__pb2.ProcessDocDirectRequest.FromString,
                     response_serializer=doc__capture__pb2.ProcessDocResponse.SerializeToString,
             ),
             'GetSchemeConfig': grpc.unary_unary_rpc_method_handler(
@@ -315,6 +331,33 @@ class DocumentCapture:
             target,
             '/chayan.doc_capture.DocumentCapture/ProcessDocument',
             doc__capture__pb2.ProcessDocRequest.SerializeToString,
+            doc__capture__pb2.ProcessDocResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ProcessDocumentDirect(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/chayan.doc_capture.DocumentCapture/ProcessDocumentDirect',
+            doc__capture__pb2.ProcessDocDirectRequest.SerializeToString,
             doc__capture__pb2.ProcessDocResponse.FromString,
             options,
             channel_credentials,

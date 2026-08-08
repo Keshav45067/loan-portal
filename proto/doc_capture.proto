@@ -15,6 +15,7 @@ service DocumentCapture {
 
   // ─── Document Processing Pipeline ───
   rpc ProcessDocument (ProcessDocRequest) returns (ProcessDocResponse);
+  rpc ProcessDocumentDirect (ProcessDocDirectRequest) returns (ProcessDocResponse);
 
   // ─── Config Fetching (frontend-safe) ───
   rpc GetSchemeConfig (SchemeConfigRequest) returns (SchemeConfigResponse);
@@ -180,4 +181,14 @@ message FAQPromptResponse {
   string error = 2;
   string system_prompt = 3;
   string context_prompt = 4;
+}
+
+message ProcessDocDirectRequest {
+  string document_id = 1;        // e.g. "doc_aadhaar_002", "doc_pan_001"
+  string page_id = 2;            // e.g. "front", "back"
+  bytes image_data = 3;
+  string content_type = 4;
+  string filename = 5;
+  string language = 6;           // "en", "hi", etc.
+  string session_id = 7;         // Optional: for upserting to DB
 }

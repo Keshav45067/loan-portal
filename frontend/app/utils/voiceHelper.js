@@ -377,7 +377,7 @@ export class VoiceSessionManager {
                   try { this.audioProcessor.start(); } catch (e) {}
                 }
               }
-              this.onNodeChange(data.node_type, data.document_id);
+              this.onNodeChange(data.node_type, data.document_id, data.manifest_id, data.page_id);
             } else if (data.type === 'control_signal') {
               if (this.onControlSignal) {
                 this.onControlSignal(data.signal, data.payload);

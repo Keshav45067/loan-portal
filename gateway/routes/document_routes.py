@@ -17,6 +17,7 @@ from log_utils.logger import get_logger
 from middleware.jwt_auth import require_auth
 
 from grpc_clients.generated import doc_intelligence_pb2
+from grpc_clients.generated import doc_capture_pb2
 
 logger = get_logger("gateway")
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -89,19 +90,23 @@ async def extract_document(
     session_id: str = Form(""),
     latitude: Optional[float] = Form(None),
     longitude: Optional[float] = Form(None),
+    manifest_id: Optional[str] = Form(None),
+    page_id: Optional[str] = Form(None),
     auth: dict = Depends(require_auth),
 ):
     """
     Extract structured data from document image.
-    Forwards to Doc Intelligence via gRPC.
+    Forwards to Doc Capture via gRPC.
     """
     req_id = request.state.req_id
     image_bytes = await file.read()
 
-    logger.info("Extract document",
+    logger.info("Extract document via doc-capture",
                  req_id=req_id,
                  session_id=session_id,
                  document_type=document_type,
+                 manifest_id=manifest_id,
+                 page_id=page_id,
                  details={"file_size": len(image_bytes)})
 
     try:
@@ -170,72 +175,69 @@ async def extract_document(
                 error=""
             )
 
-        stub = request.app.state.doc_intel_stub
-        response = await stub.ExtractDocument(
-            doc_intelligence_pb2.ExtractDocRequest(
+        # Legacy mappings for backward compatibility
+        LEGACY_MAPPINGS = {
+            "aadhaar_front": ("doc_aadhaar_002", "front"),
+            "aadhaar_back": ("doc_aadhaar_002", "back"),
+            "pan": ("doc_pan_001", "front"),
+            "pan_card": ("doc_pan_001", "front"),
+            "udyam": ("doc_udyam_001", "certificate"),
+            "bank_statement": ("doc_bank_statement_001", "statement"),
+            "passport_front": ("doc_passport_001", "passport_front"),
+            "passport_back": ("doc_passport_001", "passport_back"),
+            "passport_visas": ("doc_passport_001", "passport_visas"),
+        }
+
+        doc_id = manifest_id
+        part_id = page_id
+        
+        if not doc_id or not part_id:
+            mapped = LEGACY_MAPPINGS.get(document_type.lower())
+            if mapped:
+                doc_id, part_id = mapped
+            else:
+                doc_id = document_type
+                part_id = "front"
+
+        # Determine language (can default to "en" or extract from session/auth)
+        language = "en"
+
+        # Call doc-capture ProcessDocumentDirect
+        stub = request.app.state.doc_capture_stub
+        response = await stub.ProcessDocumentDirect(
+            doc_capture_pb2.ProcessDocDirectRequest(
+                document_id=doc_id,
+                page_id=part_id,
                 image_data=image_bytes,
-                document_type=document_type,
-                scheme_id=scheme_id,
-                session_id=session_id,
+                content_type=file.content_type or "image/jpeg",
+                filename=file.filename,
+                language=language,
+                session_id=session_id
             ),
             metadata=[("x-request-id", req_id)]
         )
 
         json_fields = {}
-        if response.json_data:
+        if response.success and response.extracted_fields_json:
             try:
-                json_fields = json.loads(response.json_data)
+                raw_json = json.loads(response.extracted_fields_json)
+                for k, v in raw_json.items():
+                    if isinstance(v, dict) and "value" in v:
+                        json_fields[k] = v["value"]
+                    else:
+                        json_fields[k] = v
             except Exception:
                 pass
 
-        if response.success:
-            try:
-                from services.gcs_service import upload_image_to_gcs
-                content_type = file.content_type or "image/jpeg"
-                gcs_key = upload_image_to_gcs(
-                    image_bytes=image_bytes,
-                    content_type=content_type,
-                    session_id=session_id,
-                    document_type=document_type,
-                    filename=file.filename
-                )
-                logger.info(f"Saved document file to GCS: {gcs_key}", req_id=req_id)
-            except Exception as write_err:
-                logger.error(f"Failed to save document file to GCS: {write_err}", req_id=req_id)
-
-        if response.success and response.json_data:
-            try:
-                from grpc_clients.generated import app_orchestrator_pb2
-                await orch_stub.UpsertExtractedData(
-                    app_orchestrator_pb2.UpsertDataRequest(
-                        application_id=session_id,
-                        source=document_type,
-                        json_fields=response.json_data
-                    ),
-                    metadata=[("x-request-id", req_id)]
-                )
-                logger.info("Saved extracted fields to database via App Orchestrator", req_id=req_id, session_id=session_id)
-
-                if gcs_key:
-                    # Save document metadata mapping to docs table
-                    await orch_stub.SaveDocument(
-                        app_orchestrator_pb2.SaveDocRequest(
-                            session_id=session_id,
-                            doc_type=document_type,
-                            key=gcs_key,
-                            name=file.filename
-                        ),
-                        metadata=[("x-request-id", req_id)]
-                    )
-                    logger.info("Saved document mapping to docs table via App Orchestrator", req_id=req_id, session_id=session_id)
-            except Exception as db_err:
-                logger.error(f"Failed to save extracted data or doc to DB: {db_err}", req_id=req_id)
+        error_msg = response.error
+        if not response.success and response.validation_error_text:
+            error_msg = response.validation_error_text
 
         return ExtractResponse(
             success=response.success,
             json_data=json_fields,
             gcs_path=response.gcs_path,
-            error=response.error,
+            error=error_msg,
         )
 
     except Exception as e:

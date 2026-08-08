@@ -15,13 +15,29 @@ import os
 import json
 import asyncio
 import traceback
-from typing import Tuple
+from typing import Tuple, Optional
+import uuid
 import grpc
 from grpc import aio as grpc_aio
+from google.cloud import storage
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
 from log_utils.logger import get_logger, extract_req_id
 from session_manager import parse_page_id
+
+_gcs_client = None
+
+def upload_to_gcs(image_bytes: bytes, content_type: str, session_id: str, document_type: str, filename: str) -> str:
+    global _gcs_client
+    if _gcs_client is None:
+        project_id = os.environ.get("GCP_PROJECT", "augmen-496803")
+        _gcs_client = storage.Client(project=project_id)
+    bucket_name = os.environ.get("GCS_BUCKET_NAME", "augmen-docs")
+    bucket = _gcs_client.bucket(bucket_name)
+    blob_path = f"govt_id/{session_id}/{document_type}/{filename}"
+    blob = bucket.blob(blob_path)
+    blob.upload_from_string(image_bytes, content_type=content_type)
+    return blob_path
 
 from generated import doc_capture_pb2 as pb2
 from generated import doc_capture_pb2_grpc as pb2_grpc
@@ -638,8 +654,358 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 next_page_id=next_page_id,
                 next_part_id=next_page_id,
                 next_document_id=session.get_current_document_id(),
-                processed_document_id=doc_id
+                )
+
+    async def ProcessDocumentDirect(self, request, context):
+        req_id = extract_req_id(context)
+        logger.info(f"ProcessDocumentDirect: doc={request.document_id} page={request.page_id} lang={request.language}", req_id=req_id)
+        
+        try:
+            # 1. Load manifest directly from config loader
+            doc_config = config_loader.get_manifest(request.document_id)
+            if not doc_config:
+                return pb2.ProcessDocResponse(success=False, error=f"Manifest not found for document: {request.document_id}")
+                
+            expected_part_id, page_index = parse_page_id(request.page_id)
+            
+            # 2. Validate file size and formats
+            sources = doc_config.get("sources", [{}])
+            first_source = sources[0] if sources else {}
+            max_size_mb = first_source.get("max_mb", 10)
+            if len(request.image_data) > max_size_mb * 1024 * 1024:
+                return pb2.ProcessDocResponse(success=False, error=f"File exceeds maximum allowed size of {max_size_mb}MB")
+                
+            acceptable_formats = first_source.get("formats", ["image/jpeg", "image/png"])
+            if acceptable_formats:
+                ext = request.filename.split('.')[-1].lower() if '.' in request.filename else ''
+                allowed_exts = []
+                for f in acceptable_formats:
+                    f = f.lower()
+                    if '/' in f:
+                        subtype = f.split('/')[-1]
+                        if subtype == 'jpeg':
+                            allowed_exts.extend(['jpg', 'jpeg'])
+                        else:
+                            allowed_exts.append(subtype)
+                    else:
+                        allowed_exts.append(f.replace('.', ''))
+                
+                if ext not in allowed_exts:
+                    return pb2.ProcessDocResponse(success=False, error=f"Invalid file format. Allowed formats: {', '.join(acceptable_formats)}")
+            
+            is_pdf = (request.content_type == "application/pdf") or request.filename.lower().endswith(".pdf")
+            
+            ocr_text = ""
+            ocr_confidence = 0.0
+            
+            if is_pdf:
+                # PDF Flow: Skip blur check and preprocessing, call OCR directly
+                try:
+                    logger.info("ProcessDocumentDirect: PDF detected. Calling OCR service directly...")
+                    is_table = any(part.get("table") is True for part in doc_config.get("parts", []))
+                    spotting_flag = any(part.get("spotting") is True for part in doc_config.get("parts", []))
+                    ocr_hint = "Table Recognition:" if is_table else request.document_id
+                    
+                    ocr_res = await self.ocr_stub.ExtractText(ocr_pb2.OCRRequest(
+                        image_data=request.image_data,
+                        language=request.language or "en",
+                        hint=ocr_hint,
+                        spotting=spotting_flag
+                    ), timeout=30.0)
+                    
+                    if not ocr_res.success:
+                        logger.error(f"ProcessDocumentDirect: PDF OCR failed: {ocr_res.error}")
+                        return pb2.ProcessDocResponse(success=False, error=f"OCR failed: {ocr_res.error}")
+                    
+                    xml_layout = getattr(ocr_res, "xml_layout", "")
+                    ocr_text = xml_layout if xml_layout else ocr_res.raw_text
+                    ocr_confidence = ocr_res.confidence
+                except grpc.RpcError as e:
+                    logger.error(f"ProcessDocumentDirect: PDF OCR gRPC call failed: {e}")
+                    return pb2.ProcessDocResponse(success=False, error=f"OCR Service Unavailable: {e.details()}")
+                
+                # OCR confidence gate check
+                quality_config = doc_config.get("quality", {})
+                min_box_confidence = quality_config.get("min_box_confidence", 0.50)
+                if ocr_confidence < min_box_confidence:
+                    logger.warning(f"ProcessDocumentDirect: PDF OCR confidence ({ocr_confidence:.2f}) below threshold ({min_box_confidence})")
+                    error_text = get_localized_prompt(doc_config, "error_low_confidence", request.language or "en")
+                    return pb2.ProcessDocResponse(
+                        success=False,
+                        validation_error_key="error_low_confidence",
+                        validation_error_text=error_text
+                    )
+                
+                # Transliterate Devanagari numerals
+                translit_map = str.maketrans("०१२३४५६७८९", "0123456789")
+                ocr_text = ocr_text.translate(translit_map)
+                
+                # Anchor matching
+                min_anchor_hits = quality_config.get("min_anchor_hits", 2)
+                matched_part = None
+                clean_lower_text = ocr_text.lower()
+                for part in doc_config.get("parts", []):
+                    if part.get("id") == expected_part_id:
+                        anchors = part.get("anchors", [])
+                        hits = sum(1 for anchor in anchors if anchor.lower() in clean_lower_text)
+                        if hits >= min_anchor_hits:
+                            matched_part = part.get("id")
+                            break
+                
+                if not matched_part:
+                    logger.warning(f"ProcessDocumentDirect: PDF upload did not match expected part '{expected_part_id}'.")
+                    error_text = get_localized_prompt(doc_config, "error_wrong_page", request.language or "en")
+                    return pb2.ProcessDocResponse(
+                        success=False,
+                        validation_error_key="error_wrong_page",
+                        validation_error_text=error_text
+                    )
+                
+                part_id = expected_part_id
+                processed_img = request.image_data
+                
+            else:
+                # Standard Image Flow: Measure, Recover, and run Quality Gate
+                quality_policy = doc_config.get("quality_policy", {
+                    "allow_deskew": True,
+                    "allow_glare_removal": True,
+                    "allow_contrast_enhancement": True,
+                    "allow_denoise": False,
+                    "allow_gamma": False,
+                    "allow_white_balance": False,
+                    "allow_sharpen": False
+                })
+                if "quality_policy" not in doc_config and "preprocessing" in doc_config:
+                    pre_flags = doc_config["preprocessing"]
+                    quality_policy = {
+                        "allow_deskew": "auto_deskew" in pre_flags,
+                        "allow_glare_removal": "remove_glare" in pre_flags,
+                        "allow_contrast_enhancement": "enhance_contrast" in pre_flags,
+                        "allow_denoise": "denoise" in pre_flags,
+                        "allow_gamma": "gamma" in pre_flags,
+                        "allow_white_balance": "white_balance" in pre_flags,
+                        "allow_sharpen": "sharpen" in pre_flags
+                    }
+
+                quality_config = doc_config.get("quality", {})
+                report = build_quality_report(request.image_data)
+                
+                # Check blur floor
+                blur_floor = quality_config.get("blur_unrecoverable_floor", 30.0)
+                if report.blur < blur_floor:
+                    logger.warning(f"ProcessDocumentDirect: Quality check failed: blur {report.blur:.2f} below floor {blur_floor}")
+                    val_error_key = "error_low_light" if report.brightness < 0.35 else "error_blur"
+                    error_text = get_localized_prompt(doc_config, val_error_key, request.language or "en")
+                    return pb2.ProcessDocResponse(
+                        success=False,
+                        validation_error_key=val_error_key,
+                        validation_error_text=error_text
+                    )
+
+                # Apply recovery
+                decisions = decide_recovery(report, quality_policy, quality_config)
+                if decisions:
+                    logger.info(f"ProcessDocumentDirect: applying recovery actions: {[d.action for d in decisions]}")
+                    processed_img = apply_recovery(request.image_data, decisions)
+                else:
+                    processed_img = request.image_data
+
+                # Quality Gate
+                from quality_gate import run_quality_gate
+                quality_res = await run_quality_gate(
+                    image_bytes=processed_img,
+                    manifest=doc_config,
+                    ocr_stub=self.ocr_stub,
+                    language=request.language or "en",
+                    document_id=request.document_id,
+                    part_id=expected_part_id
+                )
+                
+                if not quality_res.passed:
+                    logger.warning(f"ProcessDocumentDirect: Quality gate failed: '{quality_res.failure_reason}'")
+                    val_error_key = f"error_{quality_res.failure_reason}" if quality_res.failure_reason else "error_invalid_document"
+                    if quality_res.failure_reason == "blur" and report.brightness < 0.35:
+                        val_error_key = "error_low_light"
+                    error_text = get_localized_prompt(doc_config, val_error_key, request.language or "en")
+                    return pb2.ProcessDocResponse(
+                        success=False,
+                        validation_error_key=val_error_key,
+                        validation_error_text=error_text
+                    )
+                    
+                part_id = quality_res.part_id
+                if part_id != expected_part_id:
+                    logger.warning(f"ProcessDocumentDirect: Classifier returned '{part_id}', but expected '{expected_part_id}'")
+                    error_text = get_localized_prompt(doc_config, "error_wrong_page", request.language or "en")
+                    return pb2.ProcessDocResponse(
+                        success=False,
+                        validation_error_key="error_wrong_page",
+                        validation_error_text=error_text
+                    )
+                ocr_text = quality_res.ocr_text
+                ocr_confidence = quality_res.ocr_confidence
+
+            # 3. GCS Upload inside doc-capture
+            gcs_key = ""
+            if request.session_id:
+                try:
+                    ext = "jpg"
+                    if request.content_type == "application/pdf":
+                        ext = "pdf"
+                    elif request.content_type == "image/png":
+                        ext = "png"
+                        
+                    filename = f"{request.session_id}_{request.document_id}_{request.page_id}.{ext}"
+                    if request.filename:
+                        orig_ext = request.filename.split(".")[-1]
+                        if orig_ext:
+                            filename = f"{request.session_id}_{request.document_id}_{request.page_id}.{orig_ext}"
+                    
+                    gcs_key = upload_to_gcs(
+                        image_bytes=processed_img,
+                        content_type=request.content_type or "image/jpeg",
+                        session_id=request.session_id,
+                        document_type=request.document_id,
+                        filename=filename
+                    )
+                    logger.info(f"ProcessDocumentDirect: Uploaded to GCS key: {gcs_key}", req_id=req_id)
+                except Exception as gcs_err:
+                    logger.error(f"ProcessDocumentDirect: GCS upload failed: {gcs_err}", req_id=req_id)
+
+            # 4. Save document mapping to database
+            if request.session_id and gcs_key:
+                try:
+                    await self.orch_stub.SaveDocument(
+                        app_orchestrator_pb2.SaveDocRequest(
+                            session_id=request.session_id,
+                            doc_type=request.document_id,
+                            key=gcs_key,
+                            name=request.filename or "document"
+                        ),
+                        metadata=[("x-request-id", req_id)]
+                    )
+                    logger.info("ProcessDocumentDirect: Saved document mapping to DB", req_id=req_id)
+                except Exception as db_err:
+                    logger.error(f"ProcessDocumentDirect: SaveDocument mapping failed: {db_err}", req_id=req_id)
+
+            # 5. Extraction step
+            from extraction import run_extraction
+            # Build flat page text dict with current page
+            flat_page_texts = {request.page_id: ocr_text}
+            
+            extraction_res = await run_extraction(
+                all_page_texts=flat_page_texts,
+                manifest=doc_config,
+                llm_stub=self.llm_stub
             )
+            
+            # Route slots through confidence routing
+            from confidence_router import route_slot
+            bands = config_loader.get_confidence_bands()
+            
+            flat_extracted_dict = {}
+            confirm_fields = []
+            failed_slots = []
+            
+            provided_slots = set()
+            for part in doc_config.get("parts", []):
+                if part.get("id") == expected_part_id:
+                    for slot in part.get("provides", []):
+                        provided_slots.add(slot)
+                        
+            for slot_res in extraction_res:
+                if slot_res.slot not in provided_slots:
+                    continue
+                slot_def = config_loader.get_slot_def(slot_res.slot)
+                if not slot_def:
+                    flat_extracted_dict[slot_res.slot] = {"value": slot_res.value, "confidence": slot_res.confidence}
+                    continue
+                
+                action = route_slot(slot_res, slot_def, bands)
+                if action == "retake":
+                    failed_slots.append(slot_res.slot)
+                elif action == "confirm":
+                    confirm_fields.append(slot_res.slot)
+                    
+                flat_extracted_dict[slot_res.slot] = {"value": slot_res.value, "confidence": slot_res.confidence}
+
+            if failed_slots:
+                logger.warning(f"ProcessDocumentDirect: Slots failed validation: {failed_slots}")
+                error_text = get_localized_prompt(doc_config, "error_low_confidence", request.language or "en")
+                return pb2.ProcessDocResponse(
+                    success=False,
+                    validation_error_key="error_low_confidence",
+                    validation_error_text=error_text,
+                    confirm_fields=confirm_fields,
+                    extracted_fields_json=json.dumps(flat_extracted_dict),
+                    processed_document_id=request.document_id
+                )
+
+            # 6. Fetch existing data from App Orchestrator to handle array appending
+            existing_data = {}
+            if request.session_id:
+                try:
+                    ext_resp = await self.orch_stub.GetExtractedData(
+                        app_orchestrator_pb2.AppIdRequest(application_id=request.session_id),
+                        metadata=[("x-request-id", req_id)],
+                        timeout=5.0
+                    )
+                    if ext_resp and ext_resp.json_data:
+                        existing_data = json.loads(ext_resp.json_data)
+                except Exception as e:
+                    logger.warning(f"ProcessDocumentDirect: Failed to fetch existing extracted data: {e}")
+
+            # 7. Merge lists/arrays and update database
+            upsert_fields = {}
+            for k, v in flat_extracted_dict.items():
+                val = v.get("value") if isinstance(v, dict) and "value" in v else v
+                if val is not None:
+                    slot_def = config_loader.get_slot_def(k)
+                    is_array = slot_def and slot_def.get("type") == "array"
+                    
+                    if is_array and isinstance(val, list):
+                        existing_val = existing_data.get(k) or []
+                        if not isinstance(existing_val, list):
+                            existing_val = [existing_val] if existing_val else []
+                        
+                        merged_list = list(existing_val)
+                        for item in val:
+                            if item not in merged_list:
+                                merged_list.append(item)
+                        upsert_fields[k] = merged_list
+                    else:
+                        upsert_fields[k] = val
+
+            if request.session_id and upsert_fields:
+                try:
+                    await self.orch_stub.UpsertExtractedData(
+                        app_orchestrator_pb2.UpsertDataRequest(
+                            application_id=request.session_id,
+                            source=request.document_id,
+                            json_fields=json.dumps(upsert_fields, ensure_ascii=False)
+                        ),
+                        metadata=[("x-request-id", req_id)],
+                        timeout=5.0
+                    )
+                    logger.info(f"ProcessDocumentDirect: Upserted {len(upsert_fields)} fields to App Orchestrator", req_id=req_id)
+                except Exception as upsert_err:
+                    logger.error(f"ProcessDocumentDirect: UpsertExtractedData failed: {upsert_err}", req_id=req_id)
+
+            return pb2.ProcessDocResponse(
+                success=True,
+                extracted_fields_json=json.dumps(flat_extracted_dict),
+                page_complete=True,
+                document_complete=True,
+                all_complete=True,
+                confirm_fields=confirm_fields,
+                part_id=part_id,
+                processed_document_id=request.document_id,
+                gcs_path=gcs_key
+            )
+
+        except Exception as e:
+            logger.error(f"ProcessDocumentDirect failed: {e}", req_id=req_id, error=traceback.format_exc())
+            return pb2.ProcessDocResponse(success=False, error=str(e))
 
     async def GetFAQPrompt(self, request, context):
         session = session_manager.get_session(request.session_id)

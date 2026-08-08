@@ -229,10 +229,12 @@ class PageSummary(_message.Message):
     def __init__(self, page_id: _Optional[str] = ..., page_name: _Optional[str] = ..., allow_multiple: _Optional[bool] = ..., ui_camera_overlay: _Optional[str] = ..., prompts_json: _Optional[str] = ...) -> None: ...
 
 class FAQPromptRequest(_message.Message):
-    __slots__ = ("session_id",)
+    __slots__ = ("session_id", "language")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    LANGUAGE_FIELD_NUMBER: _ClassVar[int]
     session_id: str
-    def __init__(self, session_id: _Optional[str] = ...) -> None: ...
+    language: str
+    def __init__(self, session_id: _Optional[str] = ..., language: _Optional[str] = ...) -> None: ...
 
 class FAQPromptResponse(_message.Message):
     __slots__ = ("success", "error", "system_prompt", "context_prompt")
@@ -245,3 +247,21 @@ class FAQPromptResponse(_message.Message):
     system_prompt: str
     context_prompt: str
     def __init__(self, success: _Optional[bool] = ..., error: _Optional[str] = ..., system_prompt: _Optional[str] = ..., context_prompt: _Optional[str] = ...) -> None: ...
+
+class ProcessDocDirectRequest(_message.Message):
+    __slots__ = ("document_id", "page_id", "image_data", "content_type", "filename", "language", "session_id")
+    DOCUMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    IMAGE_DATA_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_TYPE_FIELD_NUMBER: _ClassVar[int]
+    FILENAME_FIELD_NUMBER: _ClassVar[int]
+    LANGUAGE_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    document_id: str
+    page_id: str
+    image_data: bytes
+    content_type: str
+    filename: str
+    language: str
+    session_id: str
+    def __init__(self, document_id: _Optional[str] = ..., page_id: _Optional[str] = ..., image_data: _Optional[bytes] = ..., content_type: _Optional[str] = ..., filename: _Optional[str] = ..., language: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...

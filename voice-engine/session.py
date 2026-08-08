@@ -642,7 +642,9 @@ class VoiceSession:
             yield pb2.VoiceOutput(
                 node_change=pb2.NodeChange(
                     node_type=current_node.get("type"),
-                    document_id=current_node.get("document_id", "")
+                    document_id=current_node.get("document_id", ""),
+                    manifest_id=current_node.get("manifest_id", ""),
+                    page_id=current_node.get("page_id", "")
                 )
             )
             return
@@ -679,14 +681,18 @@ class VoiceSession:
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type=node_type,
-                            document_id=next_node.get("document_id", "")
+                            document_id=next_node.get("document_id", ""),
+                            manifest_id=next_node.get("manifest_id", ""),
+                            page_id=next_node.get("page_id", "")
                         )
                     )
                 else:
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type="voice-qa",
-                            document_id=""
+                            document_id="",
+                            manifest_id="",
+                            page_id=""
                         )
                     )
                 
@@ -909,14 +915,18 @@ class VoiceSession:
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type=node_type,
-                            document_id=next_node.get("document_id", "")
+                            document_id=next_node.get("document_id", ""),
+                            manifest_id=next_node.get("manifest_id", ""),
+                            page_id=next_node.get("page_id", "")
                         )
                     )
                 else:
                     yield pb2.VoiceOutput(
                         node_change=pb2.NodeChange(
                             node_type="voice-qa",
-                            document_id=""
+                            document_id="",
+                            manifest_id="",
+                            page_id=""
                         )
                     )
 
