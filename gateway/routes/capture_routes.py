@@ -271,10 +271,11 @@ def get_scheme_docs(scheme_id: str):
             "manifests": manifests,
             "fields_registry": fields_registry
         }
-    except FileNotFoundError:
-        logger.error(f"Scheme config not found: {scheme_id}")
-        return {"success": False, "error": f"Scheme '{scheme_id}' not found", "manifests": {}, "fields_registry": {}}
     except Exception as e:
+        logger.error(f"get_scheme_docs failed: {e}")
+        return {"success": False, "error": str(e), "manifests": {}, "fields_registry": {}}
+
+
 @router.get("/api/schemes")
 async def list_all_schemes(request: Request):
     """List all available loan schemes dynamically from Config Registry."""
