@@ -131,7 +131,7 @@ class ProcessDocRequest(_message.Message):
     def __init__(self, session_id: _Optional[str] = ..., document_id: _Optional[str] = ..., page_id: _Optional[str] = ..., image_data: _Optional[bytes] = ..., content_type: _Optional[str] = ..., filename: _Optional[str] = ...) -> None: ...
 
 class ProcessDocResponse(_message.Message):
-    __slots__ = ("success", "error", "extracted_fields_json", "validation_error_key", "validation_error_text", "validation_field_id", "page_complete", "document_complete", "all_complete", "next_page_id", "next_document_id", "confirm_fields", "part_id", "next_part_id", "processed_document_id")
+    __slots__ = ("success", "error", "extracted_fields_json", "validation_error_key", "validation_error_text", "validation_field_id", "page_complete", "document_complete", "all_complete", "next_page_id", "next_document_id", "confirm_fields", "part_id", "next_part_id", "processed_document_id", "gcs_path")
     SUCCESS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     EXTRACTED_FIELDS_JSON_FIELD_NUMBER: _ClassVar[int]
@@ -147,6 +147,7 @@ class ProcessDocResponse(_message.Message):
     PART_ID_FIELD_NUMBER: _ClassVar[int]
     NEXT_PART_ID_FIELD_NUMBER: _ClassVar[int]
     PROCESSED_DOCUMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    GCS_PATH_FIELD_NUMBER: _ClassVar[int]
     success: bool
     error: str
     extracted_fields_json: str
@@ -162,7 +163,8 @@ class ProcessDocResponse(_message.Message):
     part_id: str
     next_part_id: str
     processed_document_id: str
-    def __init__(self, success: _Optional[bool] = ..., error: _Optional[str] = ..., extracted_fields_json: _Optional[str] = ..., validation_error_key: _Optional[str] = ..., validation_error_text: _Optional[str] = ..., validation_field_id: _Optional[str] = ..., page_complete: _Optional[bool] = ..., document_complete: _Optional[bool] = ..., all_complete: _Optional[bool] = ..., next_page_id: _Optional[str] = ..., next_document_id: _Optional[str] = ..., confirm_fields: _Optional[_Iterable[str]] = ..., part_id: _Optional[str] = ..., next_part_id: _Optional[str] = ..., processed_document_id: _Optional[str] = ...) -> None: ...
+    gcs_path: str
+    def __init__(self, success: _Optional[bool] = ..., error: _Optional[str] = ..., extracted_fields_json: _Optional[str] = ..., validation_error_key: _Optional[str] = ..., validation_error_text: _Optional[str] = ..., validation_field_id: _Optional[str] = ..., page_complete: _Optional[bool] = ..., document_complete: _Optional[bool] = ..., all_complete: _Optional[bool] = ..., next_page_id: _Optional[str] = ..., next_document_id: _Optional[str] = ..., confirm_fields: _Optional[_Iterable[str]] = ..., part_id: _Optional[str] = ..., next_part_id: _Optional[str] = ..., processed_document_id: _Optional[str] = ..., gcs_path: _Optional[str] = ...) -> None: ...
 
 class SchemeConfigRequest(_message.Message):
     __slots__ = ("scheme_id",)

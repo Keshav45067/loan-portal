@@ -128,6 +128,7 @@ message ProcessDocResponse {
   string part_id = 13;
   string next_part_id = 14;
   string processed_document_id = 15;  // The doc_id the backend actually processed (source of truth)
+  string gcs_path = 16;
 }
 
 // ─── Config Fetching ───
