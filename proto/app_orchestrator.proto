@@ -63,6 +63,7 @@ message VerifyOtpResponse {
   string session_id = 2;
   bool requires_panchayat = 3;
   string error = 4;
+  bool registration_completed = 5;
 }
 
 // ─── Application Messages ───

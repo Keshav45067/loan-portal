@@ -275,8 +275,32 @@ def get_scheme_docs(scheme_id: str):
         logger.error(f"Scheme config not found: {scheme_id}")
         return {"success": False, "error": f"Scheme '{scheme_id}' not found", "manifests": {}, "fields_registry": {}}
     except Exception as e:
-        logger.error(f"get_scheme_docs failed: {e}")
-        return {"success": False, "error": str(e), "manifests": {}, "fields_registry": {}}
+@router.get("/api/schemes")
+async def list_all_schemes(request: Request):
+    """List all available loan schemes dynamically from Config Registry."""
+    req_id = getattr(request.state, 'req_id', 'scheme-req') if request else 'scheme-req'
+    try:
+        from grpc_clients.generated import config_registry_pb2
+        stub = request.app.state.config_registry_stub
+        res = await stub.ListSchemes(
+            config_registry_pb2.ListSchemesRequest(),
+            metadata=[("x-request-id", req_id)]
+        )
+        schemes = []
+        for s in res.schemes:
+            if s.scheme_id == "base-mudra":
+                continue
+            schemes.append({
+                "scheme_id": s.scheme_id,
+                "display_name": s.display_name,
+                "languages": list(s.languages),
+                "total_nodes": s.total_nodes
+            })
+        return {"success": True, "schemes": schemes}
+    except Exception as e:
+        logger.error(f"List all schemes failed: {e}", req_id=req_id)
+        return {"success": False, "schemes": [], "error": str(e)}
+
 
 @router.post("/api/capture/process")
 async def process_document(

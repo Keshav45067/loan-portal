@@ -26,6 +26,7 @@ if (typeof window !== 'undefined' && !window._consoleWrapped) {
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import AuthGuard from '../components/AuthGuard';
 import styles from './interview.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -47,12 +48,6 @@ class AudioVisualizer {
     this.time = 0;
     this.bars = [];
     this.initBars();
-
-    // Setup canvas resolution
-    this._setupCanvas();
-
-    // Start ambient/idle loop
-    this._animate();
   }
 
   initBars() {
@@ -270,7 +265,7 @@ const DOCUMENT_METADATA = {
   }
 };
 
-export default function InterviewPage() {
+function InterviewContent() {
   const router = useRouter();
 
   // Basic Session Info
@@ -2012,5 +2007,13 @@ export default function InterviewPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InterviewPage() {
+  return (
+    <AuthGuard>
+      <InterviewContent />
+    </AuthGuard>
   );
 }

@@ -41,6 +41,7 @@ class VerifyOtpResponse(BaseModel):
     session_id: str = ""
     token: str = ""
     requires_panchayat: bool = True
+    registration_completed: bool = False
     error: str = ""
 
 
@@ -101,6 +102,7 @@ async def verify_otp(body: VerifyOtpRequest, request: Request):
             session_id=response.session_id,
             token=token,
             requires_panchayat=response.requires_panchayat,
+            registration_completed=getattr(response, "registration_completed", False),
         )
 
     except Exception as e:

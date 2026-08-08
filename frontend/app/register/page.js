@@ -2,67 +2,45 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import AuthGuard, { useAuth } from '../components/AuthGuard';
 import styles from './register.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-const STATES = ['Jharkhand', 'Bihar', 'Uttar Pradesh', 'Madhya Pradesh', 'Rajasthan', 'Chhattisgarh'];
-const DISTRICTS = {
+const FALLBACK_STATES = ['Jharkhand', 'Bihar', 'Uttar Pradesh', 'Madhya Pradesh', 'Rajasthan', 'Chhattisgarh'];
+const FALLBACK_DISTRICTS = {
   'Jharkhand': ['Ranchi', 'Dumka', 'Deoghar', 'Bokaro', 'Giridih'],
   'Bihar': ['Patna', 'Gaya', 'Muzaffarpur', 'Bhagalpur', 'Nalanda'],
+  'Uttar Pradesh': ['Lucknow', 'Varanasi', 'Kanpur', 'Agra'],
+  'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior'],
+  'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur'],
+  'Chhattisgarh': ['Raipur', 'Bilaspur', 'Durg']
 };
-const BLOCKS = {
+const FALLBACK_BLOCKS = {
   'Ranchi': ['Kanke', 'Namkum', 'Ratu', 'Bundu', 'Tamar'],
   'Dumka': ['Dumka Sadar', 'Masalia', 'Jama', 'Shikaripara'],
   'Deoghar': ['Deoghar Sadar', 'Devipur', 'Mohanpur'],
   'Bokaro': ['Chas', 'Bermo', 'Jaridih'],
   'Giridih': ['Giridih Sadar', 'Gandey', 'Pirtandr'],
   'Patna': ['Patna Sadar', 'Phulwari Sharif', 'Digha'],
-  'Gaya': ['Gaya Sadar', 'Bodhgaya', 'Manpur'],
-  'Muzaffarpur': ['Mushahari', 'Kanti', 'Minapur'],
-  'Bhagalpur': ['Jagdishpur', 'Nathnagar', 'Sabhour'],
-  'Nalanda': ['Biharsharif', 'Rajgir', 'Harnaut'],
+  'Gaya': ['Gaya Sadar', 'Bodhgaya', 'Manpur']
 };
-const PANCHAYATS = {
+const FALLBACK_PANCHAYATS = {
   'Kanke': ['Kanke Gram', 'Hatu Gram', 'Kuchu Gram', 'Tupudana'],
   'Namkum': ['Namkum Gram', 'Sukurhutu', 'Jonha', 'Pithoria'],
   'Ratu': ['Ratu Gram', 'Kathitand'],
   'Bundu': ['Bundu Gram', 'Taimara'],
   'Tamar': ['Tamar Gram', 'Saligutu'],
   'Dumka Sadar': ['Dumka Gram', 'Dudhani'],
-  'Masalia': ['Masalia Gram', 'Kundahit'],
-  'Jama': ['Jama Gram', 'Bhadwari'],
-  'Shikaripara': ['Shikaripara Gram', 'Pinargaria'],
-  'Deoghar Sadar': ['Deoghar Gram', 'Jasidih'],
-  'Devipur': ['Devipur Gram', 'Rikhiya'],
-  'Mohanpur': ['Mohanpur Gram', 'Tapovan'],
-  'Chas': ['Chas Gram', 'Chira Chas'],
-  'Bermo': ['Phusro', 'Bermo Gram'],
-  'Jaridih': ['Jaridih Gram', 'Tenughat'],
-  'Giridih Sadar': ['Giridih Gram', 'Barki Saraiya'],
-  'Gandey': ['Gandey Gram', 'Ahilyapur'],
-  'Pirtandr': ['Pirtandr Gram', 'Madhuban'],
-  'Patna Sadar': ['Patna Gram', 'Anisabad'],
-  'Phulwari Sharif': ['Phulwari Gram', 'Khagaul'],
-  'Digha': ['Digha Gram', 'Kurji'],
-  'Gaya Sadar': ['Gaya Gram', 'Delha'],
-  'Bodhgaya': ['Bodhgaya Gram', 'Mastipur'],
-  'Manpur': ['Manpur Gram', 'Buniadganj'],
-  'Mushahari': ['Mushahari Gram', 'Bela'],
-  'Kanti': ['Kanti Gram', 'Kaparpura'],
-  'Minapur': ['Minapur Gram', 'Panapur'],
-  'Jagdishpur': ['Jagdishpur Gram', 'Babupur'],
-  'Nathnagar': ['Nathnagar Gram', 'Champanagar'],
-  'Sabhour': ['Sabhour Gram', 'Mamalkha'],
-  'Biharsharif': ['Biharsharif Gram', 'Sohtarai'],
-  'Rajgir': ['Rajgir Gram', 'Mora'],
-  'Harnaut': ['Harnaut Gram', 'Cheran'],
+  'Patna Sadar': ['Patna Gram', 'Anisabad']
 };
 
 const RSETIS = ['RSETI Ranchi', 'RSETI Dumka', 'RSETI Deoghar', 'RSETI Bokaro'];
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
+  const { token, sessionId } = useAuth();
   const [step, setStep] = useState(0); // 0: Location, 1: RSETI
   const [form, setForm] = useState({
     state: '',
@@ -71,30 +49,102 @@ export default function RegisterPage() {
     panchayat: '',
     rseti: '',
   });
+
+  // Dynamic Location Lists
+  const [states, setStates] = useState(FALLBACK_STATES);
+  const [districts, setDistricts] = useState([]);
+  const [blocks, setBlocks] = useState([]);
+  const [panchayats, setPanchayats] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [token, setToken] = useState('');
-  const [sessionId, setSessionId] = useState('');
 
+  // Fetch States dynamically on mount
   useEffect(() => {
-    const savedToken = localStorage.getItem('token');
-    const savedSessionId = localStorage.getItem('session_id');
-    if (!savedToken || !savedSessionId) {
-      router.push('/');
-    } else {
-      setToken(savedToken);
-      setSessionId(savedSessionId);
+    async function fetchStates() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/location-tree?level=states`);
+        const data = await res.json();
+        if (data.success && data.items && data.items.length > 0) {
+          setStates(data.items.map(item => item.name));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch dynamic states, using fallback list', err);
+      }
     }
-  }, [router]);
+    fetchStates();
+  }, []);
+
+  // Fetch Districts when state changes
+  useEffect(() => {
+    if (!form.state) {
+      setDistricts([]);
+      return;
+    }
+    async function fetchDistricts() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/location-tree?level=districts&parent_id=${encodeURIComponent(form.state)}`);
+        const data = await res.json();
+        if (data.success && data.items && data.items.length > 0) {
+          setDistricts(data.items.map(item => item.name));
+        } else {
+          setDistricts(FALLBACK_DISTRICTS[form.state] || ['Central District', 'North District', 'South District', 'East District', 'West District']);
+        }
+      } catch (err) {
+        setDistricts(FALLBACK_DISTRICTS[form.state] || ['Central District', 'North District', 'South District', 'East District', 'West District']);
+      }
+    }
+    fetchDistricts();
+  }, [form.state]);
+
+  // Fetch Blocks when district changes
+  useEffect(() => {
+    if (!form.district) {
+      setBlocks([]);
+      return;
+    }
+    async function fetchBlocks() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/location-tree?level=blocks&parent_id=${encodeURIComponent(form.district)}`);
+        const data = await res.json();
+        if (data.success && data.items && data.items.length > 0) {
+          setBlocks(data.items.map(item => item.name));
+        } else {
+          setBlocks(FALLBACK_BLOCKS[form.district] || [`${form.district} Sadar`, `${form.district} North`, `${form.district} South`]);
+        }
+      } catch (err) {
+        setBlocks(FALLBACK_BLOCKS[form.district] || [`${form.district} Sadar`, `${form.district} North`, `${form.district} South`]);
+      }
+    }
+    fetchBlocks();
+  }, [form.district]);
+
+  // Fetch Panchayats when block changes
+  useEffect(() => {
+    if (!form.block) {
+      setPanchayats([]);
+      return;
+    }
+    async function fetchPanchayats() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/location-tree?level=panchayats&parent_id=${encodeURIComponent(form.block)}`);
+        const data = await res.json();
+        if (data.success && data.items && data.items.length > 0) {
+          setPanchayats(data.items.map(item => item.name));
+        } else {
+          setPanchayats(FALLBACK_PANCHAYATS[form.block] || [`${form.block} Gram Panchayat 1`, `${form.block} Gram Panchayat 2`, `${form.block} Gram Panchayat 3`]);
+        }
+      } catch (err) {
+        setPanchayats(FALLBACK_PANCHAYATS[form.block] || [`${form.block} Gram Panchayat 1`, `${form.block} Gram Panchayat 2`, `${form.block} Gram Panchayat 3`]);
+      }
+    }
+    fetchPanchayats();
+  }, [form.block]);
 
   const steps = [
     { label: 'Location', icon: '📍' },
     { label: 'RSETI Center', icon: '🏛️' },
   ];
-
-  const districts = DISTRICTS[form.state] || [];
-  const blocks = BLOCKS[form.district] || [];
-  const panchayats = PANCHAYATS[form.block] || [];
 
   const canNext = () => {
     switch (step) {
@@ -133,14 +183,20 @@ export default function RegisterPage() {
         setLoading(false);
 
         if (data.success) {
-          localStorage.setItem('application_id', data.application_id);
-          router.push('/interview');
+          if (data.application_id) {
+            localStorage.setItem('application_id', data.application_id);
+          }
+          toast.success('Registration completed successfully!');
+          router.push('/dashboard');
         } else {
-          setError(data.error || 'Failed to save registration. Please try again.');
+          const errMsg = data.error || 'Failed to save registration. Please try again.';
+          setError(errMsg);
+          toast.error(errMsg);
         }
       } catch (err) {
         setLoading(false);
         setError('Failed to connect to the server.');
+        toast.error('Failed to connect to the server.');
         console.error(err);
       }
     }
@@ -202,8 +258,8 @@ export default function RegisterPage() {
                   value={form.state}
                   onChange={e => setForm({ ...form, state: e.target.value, district: '', block: '', panchayat: '' })}
                 >
-                  <option value="">Select...</option>
-                  {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="">Select State...</option>
+                  {states.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className={styles.selectWrap}>
@@ -215,7 +271,7 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, district: e.target.value, block: '', panchayat: '' })}
                   disabled={!form.state}
                 >
-                  <option value="">Select...</option>
+                  <option value="">Select District...</option>
                   {districts.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
               </div>
@@ -228,7 +284,7 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, block: e.target.value, panchayat: '' })}
                   disabled={!form.district}
                 >
-                  <option value="">Select...</option>
+                  <option value="">Select Block...</option>
                   {blocks.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
@@ -241,7 +297,7 @@ export default function RegisterPage() {
                   onChange={e => setForm({ ...form, panchayat: e.target.value })}
                   disabled={!form.block}
                 >
-                  <option value="">Select...</option>
+                  <option value="">Select Panchayat...</option>
                   {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -302,5 +358,13 @@ export default function RegisterPage() {
         </button>
       </footer>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <AuthGuard>
+      <RegisterContent />
+    </AuthGuard>
   );
 }

@@ -1,0 +1,86 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { toast } from 'sonner';
+
+export function useAuth(options = { redirectTo: '/', requireAuth: true }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [loading, setLoading] = useState(true);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [token, setToken] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [phone, setPhone] = useState(null);
+
+  useEffect(() => {
+    // Skip check on public routes
+    const publicRoutes = ['/'];
+    if (publicRoutes.includes(pathname)) {
+      setLoading(false);
+      return;
+    }
+
+    const storedToken = localStorage.getItem('token');
+    const storedSessionId = localStorage.getItem('session_id');
+    const storedPhone = localStorage.getItem('phone');
+
+    if (!storedToken || !storedSessionId) {
+      setAuthenticated(false);
+      setLoading(false);
+      if (options.requireAuth !== false) {
+        toast.error('Please log in with your phone number to access this page.', {
+          id: 'auth-required-toast',
+          duration: 4000,
+        });
+        router.replace(options.redirectTo || '/');
+      }
+      return;
+    }
+
+    setToken(storedToken);
+    setSessionId(storedSessionId);
+    setPhone(storedPhone);
+    setAuthenticated(true);
+    setLoading(false);
+  }, [pathname, router, options.redirectTo, options.requireAuth]);
+
+  return { authenticated, loading, token, sessionId, phone };
+}
+
+export default function AuthGuard({ children }) {
+  const { authenticated, loading } = useAuth({ requireAuth: true, redirectTo: '/' });
+
+  if (loading || !authenticated) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'radial-gradient(circle at center, #0f111a 0%, #050508 100%)',
+        color: '#fff',
+        fontFamily: 'system-ui, -apple-system, sans-serif'
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '3px solid rgba(255, 255, 255, 0.1)',
+          borderTopColor: '#6366f1',
+          borderRadius: '50%',
+          animation: 'authSpin 0.8s linear infinite',
+          marginBottom: '16px'
+        }} />
+        <style jsx global>{`
+          @keyframes authSpin { to { transform: rotate(360deg); } }
+        `}</style>
+        <p style={{ color: '#94a3b8', fontSize: '0.95rem', fontWeight: 500 }}>
+          Verifying security authorization...
+        </p>
+      </div>
+    );
+  }
+
+  return children;
+}

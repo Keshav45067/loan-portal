@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import styles from './page.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -144,28 +145,33 @@ export default function LoginPage() {
       const data = await res.json();
       setLoading(false);
 
-      if (data.success) {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('session_id', data.session_id);
-        localStorage.setItem('phone', fullPhone);
-        // Force scheme to mudra-grocery
-        localStorage.setItem('scheme_id', 'mudra-grocery');
+        if (data.success) {
+          toast.success('OTP verified successfully!');
+          localStorage.setItem('token', data.token);
+          localStorage.setItem('session_id', data.session_id);
+          localStorage.setItem('phone', fullPhone);
+          localStorage.setItem('scheme_id', 'mudra-grocery');
 
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('capture') === 'true') {
-          router.push('/capture');
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('capture') === 'true') {
+            router.push('/capture');
+          } else if (data.registration_completed === false) {
+            toast.info('Please complete your location details to finish registration.');
+            router.push('/register');
+          } else {
+            router.push('/dashboard');
+          }
         } else {
-          router.push('/dashboard');
+          setError(data.error || 'Invalid OTP. Please try again.');
+          toast.error(data.error || 'Invalid OTP. Please try again.');
         }
-      } else {
-        setError(data.error || 'Invalid OTP. Please try again.');
+      } catch (err) {
+        setLoading(false);
+        setError('Failed to connect to the server.');
+        toast.error('Failed to connect to the server.');
+        console.error(err);
       }
-    } catch (err) {
-      setLoading(false);
-      setError('Failed to connect to the server.');
-      console.error(err);
-    }
-  };
+    };
 
   return (
     <div className={styles.container}>

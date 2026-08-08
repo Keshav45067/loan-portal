@@ -1,4 +1,5 @@
 import './globals.css';
+import ToastProvider from './components/ToastProvider';
 
 export const metadata = {
   title: 'Augmen — Smart Loan Solutions',
@@ -16,6 +17,7 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </head>
       <body>
+        <ToastProvider />
         {/* Decorative floating orbs */}
         <div className="floating-orb floating-orb-1" aria-hidden="true" />
         <div className="floating-orb floating-orb-2" aria-hidden="true" />

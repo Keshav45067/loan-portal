@@ -621,8 +621,15 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 user_row = cur.fetchone()
 
                 requires_panchayat = False
+                registration_completed = False
                 if user_row:
                     session_id = user_row[0]
+                    cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
+                    u_row = cur.fetchone()
+                    if u_row and u_row[0]:
+                        u_data = u_row[0]
+                        if isinstance(u_data, dict):
+                            registration_completed = bool(u_data.get("registration_completed") or bool(u_data.get("panchayat")))
                 else:
                     session_id = str(uuid.uuid4())
                     cur.execute(
@@ -632,6 +639,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             "scheme_id": SBI_BANK_SCHEME_ID,
                             "completion_status": "NEW",
                             "onboarding_finished": False,
+                            "registration_completed": False,
                             "created_at": datetime.datetime.now().isoformat(),
                             "updated_at": datetime.datetime.now().isoformat()
                         }, ensure_ascii=False))
@@ -642,6 +650,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     success=True,
                     session_id=session_id,
                     requires_panchayat=requires_panchayat,
+                    registration_completed=registration_completed,
                 )
         except Exception as e:
             logger.error(f"VerifyOtp failed: {e}", req_id=req_id, error=traceback.format_exc())
@@ -831,11 +840,15 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
 
                 # 2. Update user_data json fields
                 existing_data["panchayat"] = request.panchayat
+                existing_data["block"] = request.block
+                existing_data["district"] = request.district
+                existing_data["state"] = request.state
                 existing_data["cadre_id"] = target_cadre_id or ""
                 existing_data["application_id"] = application_id
                 existing_data["rseti"] = request.rseti or ""
                 existing_data["scheme_id"] = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 existing_data["onboarding_finished"] = False
+                existing_data["registration_completed"] = True
                 existing_data["updated_at"] = now.isoformat()
 
                 if is_rseti_user:

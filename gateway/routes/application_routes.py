@@ -93,7 +93,72 @@ async def save_panchayat(body: SavePanchayatRequest, request: Request,
 
     except Exception as e:
         logger.error(f"Save panchayat failed: {e}", req_id=req_id, error=str(e))
-        return SavePanchayatResponse(success=False, error=str(e))
+@router.get("/location-tree")
+async def get_location_tree(level: str = "states", parent_id: str = "", request: Request = None):
+    """Fetch dynamic location hierarchy (states, districts, blocks, panchayats)."""
+    req_id = getattr(request.state, 'req_id', 'loc-req') if request else 'loc-req'
+    try:
+        stub = request.app.state.orchestrator_stub
+        res = await stub.GetLocationTree(
+            app_orchestrator_pb2.GetLocationTreeRequest(level=level, parent_id=parent_id),
+            metadata=[("x-request-id", req_id)]
+        )
+        items = [{"id": item.id, "name": item.name, "parent_id": item.parent_id} for item in res.items]
+        return {"success": True, "items": items}
+    except Exception as e:
+        logger.error(f"GetLocationTree failed: {e}", req_id=req_id)
+        return {"success": False, "items": [], "error": str(e)}
+
+
+@router.get("/my-applications")
+async def get_my_applications(request: Request, auth: dict = Depends(require_auth)):
+    """Fetch user's current session applications and data dynamically."""
+    req_id = request.state.req_id
+    session_id = auth.get("session_id")
+    phone = auth.get("phone", "")
+    try:
+        stub = request.app.state.orchestrator_stub
+        
+        # 1. Fetch current user session row data
+        app_resp = await stub.GetApplication(
+            app_orchestrator_pb2.AppIdRequest(application_id=session_id),
+            metadata=[("x-request-id", req_id)]
+        )
+        
+        # 2. Fetch extracted fields
+        extracted_resp = await stub.GetExtractedData(
+            app_orchestrator_pb2.AppIdRequest(application_id=session_id),
+            metadata=[("x-request-id", req_id)]
+        )
+        
+        import json
+        extracted_json = {}
+        if extracted_resp.json_data:
+            try:
+                extracted_json = json.loads(extracted_resp.json_data)
+            except Exception:
+                pass
+                
+        applications = []
+        if app_resp.session_id:
+            applications.append({
+                "application_id": app_resp.application_id or app_resp.session_id,
+                "session_id": app_resp.session_id,
+                "scheme_id": app_resp.scheme_id or extracted_json.get("scheme_id", "mudra-grocery"),
+                "stage": app_resp.stage or "VOICE_QA",
+                "completion_status": app_resp.completion_status or extracted_json.get("completion_status", "IN_PROGRESS"),
+                "phone": app_resp.phone or phone,
+                "panchayat": app_resp.panchayat or extracted_json.get("panchayat", ""),
+                "state": extracted_json.get("state", ""),
+                "district": extracted_json.get("district", ""),
+                "onboarding_finished": extracted_json.get("onboarding_finished", False),
+                "extracted_data": extracted_json
+            })
+            
+        return {"success": True, "applications": applications}
+    except Exception as e:
+        logger.error(f"Get my applications failed: {e}", req_id=req_id)
+        return {"success": False, "applications": [], "error": str(e)}
 
 
 @router.get("/{application_id}")
