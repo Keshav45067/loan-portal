@@ -1000,7 +1000,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     for slot in part.get("provides", []):
                         provided_slots.add(slot)
                         
-            for slot_res in extraction_res:
+            for slot_res in extraction_res.filled:
                 if slot_res.slot not in provided_slots:
                     continue
                 slot_def = config_loader.get_slot_def(slot_res.slot)
