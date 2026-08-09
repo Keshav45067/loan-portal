@@ -217,7 +217,7 @@ export class VoiceSessionManager {
         sampleRate: 16000,
 
         onAudioChunk: (chunk) => {
-          if (this.isRecording && !this._disconnected && !this.isPlayingAudio && !this.isProcessing) {
+          if (this.isRecording && !this._disconnected && !this.isPlayingAudio && this.audioQueue.length === 0 && !this.isProcessing) {
             if (this.ws?.readyState === WebSocket.OPEN) {
               this.ws.send(chunk);
             }
@@ -225,15 +225,14 @@ export class VoiceSessionManager {
         },
 
         onSpeechStart: () => {
-          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.isProcessing || this._inCaptureMode) return;
+          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.audioQueue.length > 0 || this.isProcessing || this._inCaptureMode) return;
           
           this.ws?.send(JSON.stringify({ signal: 'speech_start' }));
-          this.stopAudioPlayback();
           this.onStateChange('listening');
         },
 
         onSpeechEnd: () => {
-          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.isProcessing || this._inCaptureMode) return;
+          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.audioQueue.length > 0 || this.isProcessing || this._inCaptureMode) return;
 
           this.tSpeechEnd = performance.now();
           console.log(`[LATENCY] Speech ended (VAD speech_end). Timestamp: ${this.tSpeechEnd.toFixed(1)} ms`);

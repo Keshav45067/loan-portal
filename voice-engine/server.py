@@ -428,9 +428,12 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         if session and session.walker and session.walker.is_completed:
                             logger.info("Ignoring speech_start because session is completed", session_id=session_id)
                             continue
-                        # ─── Guard: Ignore speech on capture nodes ───
+                        # ─── Guard: Ignore speech on capture nodes or while speaking (no interruption) ───
                         if session and session._walker.current_node and session._walker.current_node.get("type") in ("capture", "video_capture"):
                             logger.info("Ignoring speech_start on capture node", session_id=session_id)
+                            continue
+                        if session and getattr(session, "is_speaking", False):
+                            logger.info("Ignoring speech_start because assistant is speaking (no-interruption mode)", session_id=session_id)
                             continue
                         # ─── Preserve pre-speech padding (~800ms = 25600 bytes) & clear older noise ───
                         existing_audio = session.get_audio_buffer()
