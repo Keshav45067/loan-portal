@@ -178,7 +178,7 @@ interview_graph:
       text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
       text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
       text_template_ar: "أهلاً بك في خدمة القروض المصغرة. أنا هنا لمساعدتك في الحصول على القرض المناسب لنشاطك التجاري. هل أنت جاهز للبدء؟"
-      targets: [welcome_consent]
+      targets: []
       edges:
         - condition: "always"
           next: "DOC_SELFIE"
