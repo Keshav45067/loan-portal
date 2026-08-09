@@ -1137,7 +1137,7 @@ class VoiceSession:
 
         DEFAULT_VOICE_MAP = {
             "hi": "hi-IN-Neural2-A",
-            "mr": "mr-IN-Neural2-A",
+            "mr": "mr-IN-Wavenet-A",
             "fr": "fr-FR-Neural2-A",
             "ar": "ar-XA-Wavenet-A",
             "te": "te-IN-Wavenet-A",
@@ -1227,6 +1227,17 @@ class VoiceSession:
                     "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
                 )
             },
+            "mr": {
+                "lang_name": "Marathi",
+                "filler": (
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
+                    "1) Start with a warm, expressive reaction using natural, friendly Marathi filler words and punctuation "
+                    "(e.g., 'अरे वा!', 'हो नक्कीच...', 'छान!', 'हम्म, समजलं!', 'काही हरकत नाही!'). Write them in Marathi script only. "
+                    "2) Speak like a helpful, caring friend—never like a stiff, formal officer. "
+                    "3) Answer user questions sweetly and directly. "
+                    "4) Ask your followup question in a casual, friendly tone in Marathi.\n"
+                )
+            },
             "te": {
                 "lang_name": "Telugu",
                 "filler": (
@@ -1234,14 +1245,6 @@ class VoiceSession:
                     "1) Start with a warm reaction using Telugu filler words (e.g., 'అవునా!', 'సరేనండి, అర్థమైంది!', 'చాలా బాగుంది!'). "
                     "End acknowledgment with '.' or ','. "
                     "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
-                )
-            "mr": {
-                "lang_name": "Marathi",
-                "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm reaction using Marathi filler words (e.g., 'अरे हो!', 'छान!', 'नक्कीच!'). "
-                    "End acknowledgment with '.' or ','. "
-                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone in Marathi.\n"
                 )
             },
         }
@@ -1568,6 +1571,7 @@ class RawAgentSession(VoiceSession):
                 LANG_NAMES = {
                     "en": "English",
                     "hi": "Hindi (हिन्दी)",
+                    "mr": "Marathi (मराठी)",
                     "fr": "French (Français)",
                     "ar": "Arabic (العربية)"
                 }

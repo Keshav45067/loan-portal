@@ -4,12 +4,16 @@
 
 scheme_id: base-mudra
 display_name: "Base Mudra Loan Configuration"
-languages: [hi, en, fr, ar, mr]
+languages: [hi, en, mr, fr, ar]
 
 # ─── TTS/STT Configuration ───
 tts:
   hi:
     voice_name: "hi-IN-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  mr:
+    voice_name: "mr-IN-Wavenet-A"
     engine: "google"
     sample_rate: 24000
   en:
@@ -24,15 +28,14 @@ tts:
     voice_name: "ar-XA-Wavenet-A"
     engine: "google"
     sample_rate: 24000
-  mr:
-    voice_name: "mr-IN-Neural2-A"
-    engine: "google"
-    sample_rate: 24000
 
 stt:
   hi:
     engine: "google"
     language_code: "hi-IN"
+  mr:
+    engine: "google"
+    language_code: "mr-IN"
   en:
     engine: "google"
     language_code: "en-US"
@@ -42,9 +45,6 @@ stt:
   ar:
     engine: "google"
     language_code: "ar-XA"
-  mr:
-    engine: "google"
-    language_code: "mr-IN"
 
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
@@ -84,6 +84,35 @@ system_voice_messages:
       workplace_video: "कार्यस्थल का वीडियो"
       company_id: "कंपनी आईडी कार्ड"
       default: "दस्तावेज़"
+
+  mr:
+    processing: "तुमचे कागदपत्र तपासले जात आहे. कृपया थोडी वाट पहा."
+    success_template: "तुमच्या {doc_name} मधून माहिती मिळवली गेली आहे."
+    error_blur: "फोटो अस्पष्ट किंवा कापलेला आहे. कृपया एक स्पष्ट फोटो घ्या."
+    error_invalid: "हे योग्य कागदपत्र दिसत नाही. कृपया योग्य कागदपत्राचा स्पष्ट फोटो अपलोड करा."
+    error_default: "पडताळणी अयशस्वी झाली. कृपया वैध कागदपत्र अपलोड करा."
+    fallback_nudges:
+      - "तुमहाला माझा आवाज येतोय का? मी तुमच्या मदतीसाठी इथे आहे."
+      - "काही घाई नाही, तुम्ही सवडीने उत्तर देऊ शकता."
+    doc_names:
+      selfie: "सेलफी"
+      aadhaar: "आधार कार्ड"
+      aadhaar_front: "आधार कार्डची समोरील बाजू"
+      aadhaar_back: "आधार कार्डची मागची बाजू"
+      doc_aadhaar_002: "आधार कार्ड"
+      doc_aadhaar_002_front: "आधार कार्डची समोरील बाजू"
+      doc_aadhaar_002_back: "आधार कार्डची मागची बाजू"
+      front: "कार्डची समोरील बाजू"
+      back: "कार्डची मागची बाजू"
+      pan: "पॅन कार्ड"
+      doc_pan_001: "पॅन कार्ड"
+      spouse_pan: "पती किंवा पत्नीचे पॅन कार्ड"
+      voter_front: "व्होटर आयडीची समोरील बाजू"
+      voter_back: "व्होटर आयडीची मागची बाजू"
+      udyam: "उद्यम नोंदणी प्रमाणपत्र"
+      bank_statement: "बँक स्टेटमेंट"
+      workplace_video: "कामाच्या जागेचा व्हिडिओ"
+      default: "कागदपत्र"
 
   en:
     processing: "Your document is processing. Please wait."
@@ -175,63 +204,6 @@ system_voice_messages:
       company_id: "بطاقة هوية الشركة"
       default: "الوثيقة"
 
-  mr:
-    processing: "तुमच्या दस्तऐवजाची पडताळणी केली जात आहे. कृपया वाट पहा."
-    success_template: "तुमच्या {doc_name} मधून तपशील यशस्वीरित्या काढले गेले आहेत."
-    error_blur: "फोटो अस्पष्ट किंवा कापलेला आहे. कृपया एक स्पष्ट फोटो घ्या."
-    error_invalid: "हे वैध दस्तऐवज वाटत नाही. कृपया योग्य दस्तऐवजाचा स्पष्ट फोटो अपलोड करा."
-    error_default: "पडताळणी अयशस्वी झाली. कृपया वैध दस्तऐवज अपलोड करा."
-    fallback_nudges:
-      - "तुम्हाला माझा आवाज येतोय का? मी तुमच्या मदतीसाठी येथे आहे."
-      - "काही घाई नाही, तुम्ही सावकाश उत्तर देऊ शकता."
-    doc_names:
-      selfie: "सेल्फी"
-      aadhaar: "आधार कार्ड"
-      aadhaar_front: "आधार कार्डची समोरील बाजू"
-      aadhaar_back: "आधार कार्डची मागील बाजू"
-      doc_aadhaar_002: "आधार कार्ड"
-      doc_aadhaar_002_front: "आधार कार्डची समोरील बाजू"
-      doc_aadhaar_002_back: "आधार कार्डची मागील बाजू"
-      front: "कार्डची समोरील बाजू"
-      back: "कार्डची मागील बाजू"
-      pan: "पॅन कार्ड"
-      doc_pan_001: "पॅन कार्ड"
-      spouse_pan: "पती/पत्नीचे पॅन कार्ड"
-      voter_front: "मतदार ओळखपत्राची समोरील बाजू"
-      voter_back: "मतदार ओळखपत्राची मागील बाजू"
-      udyam: "उद्यम प्रमाणपत्र"
-      bank_statement: "बँक स्टेटमेंट"
-      workplace_video: "कार्यस्थळाचा व्हिडिओ"
-      company_id: "कंपनी ओळखपत्र"
-      default: "दस्तऐवज"لجة وثيقتك. يرجى الانتظار."
-    success_template: "تم استخراج التفاصيل بنجاح من {doc_name} الخاص بك."
-    error_blur: "الصورة ضبابية أو غير واضحة. يرجى التقاط صورة أكثر وضوحاً."
-    error_invalid: "يبدو أن هذه الوثيقة غير صالحة. يرجى تحميل صورة واضحة للوثيقة الصحيحة."
-    error_default: "فشلت عملية التحقق. يرجى تحميل وثيقة صالحة."
-    fallback_nudges:
-      - "أهلاً، هل تسمعني بشكل جيد؟ لا تقلق أبداً، خذ وقتك!"
-      - "خذ وقتك الكامل، وأخبرني إذا كنت بحاجة إلى أي مساعدة."
-    doc_names:
-      selfie: "الصورة الشخصية (السيلفي)"
-      aadhaar: "بطاقة الهوية"
-      aadhaar_front: "الوجه الأمامي لبطاقة الهوية"
-      aadhaar_back: "الوجه الخلفي لبطاقة الهوية"
-      doc_aadhaar_002: "بطاقة الهوية"
-      doc_aadhaar_002_front: "الوجه الأمامي لبطاقة الهوية"
-      doc_aadhaar_002_back: "الوجه الخلفي لبطاقة الهوية"
-      front: "الوجه الأمامي للبطاقة"
-      back: "الوجه الخلفي للبطاقة"
-      pan: "البطاقة الضريبية"
-      doc_pan_001: "البطاقة الضريبية"
-      spouse_pan: "البطاقة الضريبية للزوج/الزوجة"
-      voter_front: "الوجه الأمامي لبطاقة الناخب"
-      voter_back: "الوجه الخلفي لبطاقة الناخب"
-      udyam: "شهادة تسجيل المنشأة"
-      bank_statement: "كشف الحساب البنكي"
-      workplace_video: "فيديو مكان العمل"
-      company_id: "بطاقة هوية الشركة"
-      default: "الوثيقة"
-
 # ─── Base Interview Graph ───
 interview_graph:
   start_node_id: "START"
@@ -239,10 +211,10 @@ interview_graph:
     START:
       type: "voice-qa"
       text_template: "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?"
+      text_template_mr: "मायक्रो लोन सेवेत आपले स्वागत आहे. मी, आपल्या व्यवसायाला पुढे नेण्यासाठी लागणाऱ्या कर्जाबाबत मदत करण्यासाठी इथे आहे. आपण सुरुवात करायला तयार आहात का?"
       text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
       text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
       text_template_ar: "أهلاً بك في خدمة القروض المصغرة. أنا هنا لمساعدتك في الحصول على القرض المناسب لنشاطك التجاري. هل أنت جاهز للبدء؟"
-      text_template_mr: "मायक्रो लोन सेवेत आपले स्वागत आहे. तुमच्या व्यवसायासाठी लागणाऱ्या मायक्रो लोनबद्दल मी तुमच्याशी बोलणार आहे. तुम्ही सांगायला तयार आहात का?"
       targets: []
       edges:
         - condition: "always"
@@ -254,10 +226,10 @@ interview_graph:
       manifest_id: selfie
       page_id: selfie
       text_template: "कृपया अपनी एक सेल्फी लें।"
+      text_template_mr: "कृपया स्वतःचा एक सेल्फी फोटो घ्या."
       text_template_en: "Please take a selfie photo of yourself."
       text_template_fr: "Veuillez prendre une photo selfie de vous-même."
       text_template_ar: "يرجى التقاط صورة شخصية (سيلفي) لنفسك."
-      text_template_mr: "कृपया तुमची एक सेल्फी घ्या."
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_FRONT"
@@ -268,10 +240,10 @@ interview_graph:
       manifest_id: doc_aadhaar_002
       page_id: front
       text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
       text_template_en: "Please take a photo of the front side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
       text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
-      text_template_mr: "कृपया तुमच्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "DOC_AADHAAR_BACK"
@@ -282,10 +254,10 @@ interview_graph:
       manifest_id: doc_aadhaar_002
       page_id: back
       text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या मागच्या बाजूचा फोटो घ्या."
       text_template_en: "Please take a photo of the back side of your Aadhaar card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
       text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
-      text_template_mr: "कृपया तुमच्या आधार कार्डच्या मागील बाजूचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "Q_NAME_CONFIRMATION"
@@ -293,10 +265,10 @@ interview_graph:
     Q_NAME_CONFIRMATION:
       type: "voice-qa"
       text_template: "कृपया बताएं, क्या मेरी बात {applicant_name} से हो रही है?"
+      text_template_mr: "कृपया सांगा, मी {applicant_name} यांच्याशी बोलतोय का?"
       text_template_en: "Please tell me, am I speaking with {applicant_name}?"
       text_template_fr: "S'il vous plaît, est-ce que je m'adresse à {applicant_name} ?"
       text_template_ar: "من فضلك أخبرني، هل أتحدث مع {applicant_name}؟"
-      text_template_mr: "कृपया सांगा, मी {applicant_name} यांच्याशी बोलत आहे का?"
       targets: [name_confirmation]
       edges:
         - condition: "always"
@@ -305,10 +277,10 @@ interview_graph:
     Q_BUSINESS_PURPOSE:
       type: "voice-qa"
       text_template: "बढ़िया, और आप किस व्यवसाय के लिए लोन चाहते हैं?"
+      text_template_mr: "छान, आणि तुम्हाला कोणत्या व्यवसायासाठी मायक्रो लोन हवे आहे?"
       text_template_en: "Great, and for which business would you like the micro-loan?"
       text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous ce micro-crédit ?"
       text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على القرض المصغر لأجله؟"
-      text_template_mr: "छान! तुम्हाला कोणत्या व्यवसायासाठी लोन हवे आहे?"
       targets: [business_purpose]
       inactivity_policy:
         timeout_seconds: 3.0
@@ -320,10 +292,10 @@ interview_graph:
     Q_IS_MARRIED:
       type: "voice-qa"
       text_template: "ठीक है। क्या आप विवाहित हैं?"
+      text_template_mr: "ठीक आहे. आपले लग्न झाले आहे का?"
       text_template_en: "Alright. Are you married?"
       text_template_fr: "D'accord. Êtes-vous marié(e) ?"
       text_template_ar: "حسناً. هل أنت متزوج؟"
-      text_template_mr: "ठीक आहे. तुमचे लग्न झाले आहे का?"
       targets: [is_married]
       inactivity_policy:
         timeout_seconds: 3.0
@@ -337,10 +309,10 @@ interview_graph:
       manifest_id: doc_pan_001
       page_id: front
       text_template: "कृपया अपने पैन कार्ड की फोटो लें।"
+      text_template_mr: "कृपया आपल्या पॅन कार्डचा फोटो घ्या."
       text_template_en: "Please take a photo of your PAN card."
       text_template_fr: "Veuillez prendre une photo de votre carte PAN."
       text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بك."
-      text_template_mr: "कृपया तुमच्या पॅन कार्डचा फोटो घ्या."
       edges:
         - condition: "is_married == 'Yes'"
           next: "DOC_SPOUSE_PAN"
@@ -351,10 +323,10 @@ interview_graph:
       type: "capture"
       document_id: "spouse_pan"
       text_template: "कृपया अपने पति या पत्नी के पैन कार्ड की फोटो लें।"
+      text_template_mr: "कृपया आपल्या पती किंवा पत्नीच्या पॅन कार्डचा फोटो घ्या."
       text_template_en: "Please take a photo of your spouse's PAN card."
       text_template_fr: "Veuillez prendre une photo de la carte PAN de votre conjoint."
       text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بزوجك/زوجتك."
-      text_template_mr: "कृपया तुमच्या पती/पत्नीच्या पॅन कार्डचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "DOC_UDYAM"
@@ -365,10 +337,10 @@ interview_graph:
       manifest_id: doc_udyam_001
       page_id: certificate
       text_template: "कृपया अपने उद्यम प्रमाणपत्र की फोटो लें।"
+      text_template_mr: "कृपया आपल्या उद्यम नोंदणी प्रमाणपत्राचा फोटो घ्या."
       text_template_en: "Please take a photo of your Udyam Registration certificate."
       text_template_fr: "Veuillez prendre une photo de votre certificat Udyam."
       text_template_ar: "يرجى التقاط صورة لشهادة تسجيل المنشأة الخاصة بك."
-      text_template_mr: "कृपया तुमच्या उद्यम प्रमाणपत्राचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "DOC_VOTER_FRONT"
@@ -379,10 +351,10 @@ interview_graph:
       manifest_id: doc_voter_001
       page_id: front
       text_template: "कृपया अपने वोटर आईडी कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या व्होटर आयडी कार्डच्या समोरील बाजूचा फोटो घ्या."
       text_template_en: "Please take a photo of the front side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du recto de votre carte d'électeur."
       text_template_ar: "يرجى التقاط صورة للوجه الأمامي لبطاقة الناخب الخاصة بك."
-      text_template_mr: "कृपया तुमच्या मतदार ओळखपत्राच्या समोरील बाजूचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "DOC_VOTER_BACK"
@@ -393,10 +365,10 @@ interview_graph:
       manifest_id: doc_voter_001
       page_id: back
       text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या व्होटर आयडी कार्डच्या मागच्या बाजूचा फोटो घ्या."
       text_template_en: "Please take a photo of the back side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte d'électeur."
       text_template_ar: "يرجى التقاط صورة للوجه الخلفي لبطاقة الناخب الخاصة بك."
-      text_template_mr: "कृपया तुमच्या मतदार ओळखपत्राच्या मागील बाजूचा फोटो घ्या."
       edges:
         - condition: "always"
           next: "PROMPT_MANUAL_FILLING"
@@ -404,10 +376,10 @@ interview_graph:
     PROMPT_MANUAL_FILLING:
       type: "manual_filling_prompt"
       text_template: "वोटर आईडी कार्ड की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
+      text_template_mr: "व्होटर आयडी कार्डची पडताळणी झाली आहे. तुम्हाला उरलेली माहिती स्वतः फॉर्ममध्ये भरायची आहे, की माझ्याशी बोलून पुढे जायचे आहे?"
       text_template_en: "Voter ID card confirmed. Would you like to fill the remaining details manually in the form, or continue speaking with me?"
       text_template_fr: "Carte d'électeur confirmée. Souhaitez-vous remplir le reste du formulaire manuellement ou continuer avec l'assistant vocal ?"
       text_template_ar: "تم تأكيد بطاقة الناخب. هل ترغب في إكمال بقية التفاصيل يدوياً في النموذج، أم تفضل الاستمرار في التحدث معي؟"
-      text_template_mr: "मतदार ओळखपत्राची पडताळणी झाली आहे. उरलेली माहिती तुम्ही स्वतः फॉर्ममध्ये भरू इच्छिता की माझ्याशी बोलून पुढे जायचे आहे?"
       targets: []
       edges:
         - condition: "always"
@@ -416,10 +388,10 @@ interview_graph:
     Q_STATUS:
       type: "voice-qa"
       text_template: "आपका काम कैसा चल रहा है?"
+      text_template_mr: "तुमचा व्यवसाय कसा चालला आहे?"
       text_template_en: "How is your business going currently?"
       text_template_fr: "Comment se déroule votre activité actuellement ?"
       text_template_ar: "كيف تسير أعمالك ونشاطك التجاري حالياً؟"
-      text_template_mr: "तुमचा व्यवसाय सध्या कसा चालला आहे?"
       targets: []
       edges:
         - condition: "always"
@@ -428,10 +400,10 @@ interview_graph:
     Q_MONTHLY_REV:
       type: "voice-qa"
       text_template: "अभी आप महीने में लगभग कितनी बिक्री कर लेते हैं?"
+      text_template_mr: "सध्या तुम्ही महिन्यात साधारण किती रुपयांची विक्री करता?"
       text_template_en: "Approximately how much sales or revenue do you generate per month?"
       text_template_fr: "Quel est environ votre chiffre d'affaires ou vos ventes mensuelles ?"
       text_template_ar: "كم تبلغ مبيعاتك أو إيراداتك الشهرية تقريباً؟"
-      text_template_mr: "सध्या तुम्ही महिन्यातून साधारण किती विक्री किंवा कमाई करता?"
       targets: [monthly_revenue]
       edges:
         - condition: "always"
@@ -440,10 +412,10 @@ interview_graph:
     Q_MONTHLY_PROFIT:
       type: "voice-qa"
       text_template: "काम का सारा खर्चा निकालने के बाद, महीने में कितना पैसा बच जाता है?"
+      text_template_mr: "व्यवसायाचा सर्व खर्च वजा करून महिन्यात किती नफा शिल्लक राहतो?"
       text_template_en: "After deducting all business expenses, how much net profit remains per month?"
       text_template_fr: "Après avoir déduit toutes les dépenses professionnelles, quel est votre bénéfice net mensuel ?"
       text_template_ar: "بعد خصم جميع المصاريف التشغيلية، كم يتبقى لك كصافي ربح شهرياً؟"
-      text_template_mr: "व्यवसायाचा सर्व खर्च वजा करून महिन्यात किती निव्वळ नफा उरतो?"
       targets: [monthly_profit]
       edges:
         - condition: "always"
@@ -452,10 +424,10 @@ interview_graph:
     Q_LAST_YEAR_REV:
       type: "voice-qa"
       text_template: "अच्छा! पहले, जब काम नया था, तब महीने की बिक्री कितनी होती थी? पिछले एक साल में काम कुछ बढ़ा है क्या?"
+      text_template_mr: "पूर्वी दरमहा साधारण किती विक्री होत होती? गेल्या एका वर्षात व्यवसाय काही वाढला आहे का?"
       text_template_en: "Earlier, what were your monthly sales? Has the business grown over the past year?"
       text_template_fr: "Auparavant, quel était votre chiffre d'affaires mensuel ? Votre entreprise a-t-elle progressé au cours de la dernière année ?"
       text_template_ar: "في السابق، كم كانت مبيعاتك الشهرية؟ وهل شهد نشاطك التجاري نمواً خلال العام الماضي؟"
-      text_template_mr: "आधी महिन्याची विक्री किती होती? गेल्या एका वर्षात व्यवसाय काही वाढला आहे का?"
       targets: [last_year_monthly_revenue]
       edges:
         - condition: "always"
@@ -464,10 +436,10 @@ interview_graph:
     Q_PERSONS_INVOLVED:
       type: "voice-qa"
       text_template: "अभी काम पर आपके अलावा और कौन-कौन काम करता है?"
+      text_template_mr: "सध्या कामावर तुमच्याव्यतिरिक्त आणखी कोण-कोण काम करते?"
       text_template_en: "Who else works in your business besides you?"
       text_template_fr: "Qui d'autre travaille dans votre entreprise à part vous ?"
       text_template_ar: "من يعمل معك في هذا النشاط التجاري بالإضافة إليك؟"
-      text_template_mr: "सध्या कामावर तुमच्याव्यतिरिक्त अजून कोण कोण काम करते?"
       targets: [persons_involved]
       routing_prompt: "Evaluate if the user works alone or with others. Set 'routing_decision' to 'YES' if they work with others, 'NO' if they work alone."
       edges:
@@ -479,10 +451,10 @@ interview_graph:
     Q_PAID_EMPLOYEES:
       type: "voice-qa"
       text_template: "उनमें से घर के लोग हैं या बाहर के लोग भी हैं, जिन्हें पगार देनी पड़ती है?"
+      text_template_mr: "त्यांच्यापैकी घराबाहेरचे पगारी कर्मचारी आहेत का?"
       text_template_en: "Are they family members or outside paid employees?"
       text_template_fr: "S'agit-il de membres de votre famille ou d'employés rémunérés ?"
       text_template_ar: "هل هم أفراد من العائلة أم موظفون يتقاضون رواتب؟"
-      text_template_mr: "त्यांच्यापैकी घरातील व्यक्ती आहेत की बाहेरचे पगारी कर्मचारी आहेत?"
       targets: [number_of_paid_employees]
       routing_prompt: "Evaluate if any workers are paid employees (outsiders). Set 'routing_decision' to 'YES' if they have paid employees, 'NO' if only family members."
       edges:
@@ -494,10 +466,10 @@ interview_graph:
     Q_CURRENT_WAGES:
       type: "voice-qa"
       text_template: "उन लोगों को पगार देने में महीने का कितना खर्च हो जाता है?"
+      text_template_mr: "त्या कर्मचाऱ्यांच्या पगारावर महिन्यात किती खर्च होतो?"
       text_template_en: "How much do you spend per month on employee wages?"
       text_template_fr: "Combien dépensez-vous par mois pour les salaires des employés ?"
       text_template_ar: "كم تنفق شهرياً على رواتب الموظفين؟"
-      text_template_mr: "त्यांना पगार देण्यासाठी महिन्यात किती खर्च होतो?"
       targets: [current_wages]
       edges:
         - condition: "always"
@@ -506,10 +478,10 @@ interview_graph:
     Q_INVENTORY:
       type: "voice-qa"
       text_template: "अभी दुकान/बिज़नेस में जो माल रखा है, उसकी कुल क़ीमत कितनी होगी?"
+      text_template_mr: "सध्या दुकानात किंवा व्यवसायात किती रुपयांचा माल शिल्लक आहे?"
       text_template_en: "What is the total value of stock or inventory currently in your business?"
       text_template_fr: "Quelle est la valeur totale du stock actuel dans votre entreprise ?"
       text_template_ar: "ما هي القيمة الإجمالية للبضائع والمخزون الحالي في منشأتك؟"
-      text_template_mr: "सध्या दुकानात किंवा व्यवसायात असलेल्या मालाची एकूण किंमत किती असेल?"
       targets: [inventory_amount]
       edges:
         - condition: "always"
@@ -518,10 +490,10 @@ interview_graph:
     Q_DEBTORS:
       type: "voice-qa"
       text_template: "क्या कोई उधार का पैसा है, जो आपको लोगों से मिलना बाकी है?"
+      text_template_mr: "ग्राहकांकडून तुम्हाला काही पैसे येणे बाकी आहे का?"
       text_template_en: "Is there any money owed to you by customers (receivables)?"
       text_template_fr: "Y a-t-il des sommes qui vous sont dues par vos clients ?"
       text_template_ar: "هل هناك أي أموال متبقية لك عند العملاء (ديون للنشاط)؟"
-      text_template_mr: "ग्राहकांकडून येणे बाकी असलेली काही उधारीची रक्कम आहे का?"
       targets: [debtors_amount]
       edges:
         - condition: "always"
@@ -530,10 +502,10 @@ interview_graph:
     Q_CREDITORS:
       type: "voice-qa"
       text_template: "और क्या कोई पैसा ऐसा है, जो आपको देना बाकी है? जैसे आपने माल लिया है और पैसा अभी नहीं दिया?"
+      text_template_mr: "आणि सप्लायर्सना तुम्हाला काही पैसे देणे बाकी आहे का?"
       text_template_en: "And is there any money you owe to suppliers for stock (payables)?"
       text_template_fr: "Et y a-t-il des sommes que vous devez à vos fournisseurs ?"
       text_template_ar: "وهل هناك أي أموال مستحقة عليك للموردين مقابل البضائع؟"
-      text_template_mr: "आणि पुरवठादारांना किंवा इतरांना देणे बाकी असलेले काही पैसे आहेत का?"
       targets: [creditors_amount]
       edges:
         - condition: "always"
@@ -542,10 +514,10 @@ interview_graph:
     Q_PROPOSED_REV:
       type: "voice-qa"
       text_template: "बहुत अच्छा! अब यह जो कर्ज आप लेने वाले हैं, कर्ज मिलने के बाद महीने की बिक्री कितनी हो जाएगी, ऐसा आपको क्या लगता है?"
+      text_template_mr: "हे कर्ज मिळाल्यानंतर महिन्याची विक्री किती होईल असे तुम्हाला वाटते?"
       text_template_en: "Great! What do you expect your monthly sales to be after getting this loan?"
       text_template_fr: "Très bien ! Quel chiffre d'affaires mensuel prévoyez-vous après l'obtention de ce prêt ?"
       text_template_ar: "رائع! كم تتوقع أن تصبح مبيعاتك الشهرية بعد الحصول على هذا القرض؟"
-      text_template_mr: "खूप छान! हे कर्ज मिळाल्यानंतर महिन्याची विक्री किती होईल असे तुम्हाला वाटते?"
       targets: [proposed_monthly_revenue]
       edges:
         - condition: "always"
@@ -554,10 +526,10 @@ interview_graph:
     Q_PROPOSED_HIRING:
       type: "voice-qa"
       text_template: "कर्ज मिलने के बाद, क्या काम के लिए और आदमी रखने पड़ेंगे, या अभी जैसे चल रहा है वैसे चल जाएगा?"
+      text_template_mr: "कर्ज मिळाल्यानंतर नवीन लोकांना कामावर ठेवावे लागेल का?"
       text_template_en: "Will you need to hire additional workers after receiving the loan?"
       text_template_fr: "Aurez-vous besoin d'embaucher du personnel supplémentaire après avoir reçu le prêt ?"
       text_template_ar: "هل ستحتاج إلى توظيف عمال إضافيين بعد الحصول على القرض؟"
-      text_template_mr: "कर्ज मिळाल्यानंतर नवीन माणसे कामावर ठेवावी लागतील का?"
       targets: [proposed_number_of_people]
       routing_prompt: "Evaluate if the user will hire new people after the loan. Set 'routing_decision' to 'YES' if they will hire new people, 'NO' if not."
       edges:
@@ -569,10 +541,10 @@ interview_graph:
     Q_PROPOSED_WAGES:
       type: "voice-qa"
       text_template: "उन नए लोगों को पगार देने में महीने का कितना खर्च होगा?"
+      text_template_mr: "त्या नवीन कर्मचाऱ्यांच्या पगारावर महिन्यात किती खर्च होईल?"
       text_template_en: "How much will you spend monthly on salaries for those new employees?"
       text_template_fr: "Combien dépenserez-vous par mois pour les salaires de ces nouveaux employés ?"
       text_template_ar: "كم ستكون تكلفة رواتب هؤلاء الموظفين الجدد شهرياً؟"
-      text_template_mr: "त्या नवीन कर्मचाऱ्यांना पगार देण्यासाठी महिन्यात किती खर्च येईल?"
       targets: [proposed_wages]
       edges:
         - condition: "always"
@@ -581,10 +553,10 @@ interview_graph:
     Q_NEED_MACHINES:
       type: "voice-qa"
       text_template: "क्या कोई फ्रिज, मशीन या और सामान भी लेना है?"
+      text_template_mr: "तुम्हाला कोणती नवीन मशीन, उपकरण किंवा साहित्य खरेदी करायचे आहे का?"
       text_template_en: "Do you need to purchase any new machinery, equipment, or items?"
       text_template_fr: "Avez-vous besoin d'acheter de nouvelles machines ou des équipements ?"
       text_template_ar: "هل تحتاج لشراء أي معدات، آلات، أو أجهزة جديدة؟"
-      text_template_mr: "काही नवीन मशीन, उपकरणे किंवा सामान खरेदी करायचे आहे का?"
       targets: [needs_machine, machine_name]
       routing_prompt: "Evaluate if the user needs to purchase any new machine or equipment. Set 'routing_decision' to 'YES' if they need a machine/equipment, 'NO' if not."
       edges:
@@ -596,10 +568,10 @@ interview_graph:
     Q_MACHINE_DETAILS:
       type: "voice-qa"
       text_template: "यह मशीन किस काम आएगी, कहाँ से लेंगे और इसकी कीमत क्या होगी?"
+      text_template_mr: "ती मशीन कशासाठी वापरणार आहात, कुठून घेणार आहात आणि तिची किंमत किती असेल?"
       text_template_en: "What is the purpose of this equipment, where will you buy it, and how much will it cost?"
       text_template_fr: "Quel est l'usage de cet équipement, où l'achèterez-vous et quel en sera le coût ?"
       text_template_ar: "ما هو الغرض من هذه المعدات، من أين ستشتريها، وكم ستكون تكلفتها؟"
-      text_template_mr: "हे मशीन कशासाठी वापराल, कुठून खरेदी कराल आणि त्याची किंमत काय असेल?"
       targets: [machine_purpose, machine_supplier, machine_cost]
       edges:
         - condition: "always"
@@ -608,10 +580,10 @@ interview_graph:
     Q_PREVIOUS_LOAN:
       type: "voice-qa"
       text_template: "क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो नहीं हुई? मतलब कर्ज लिया और किस्त ना दी या देर से दी हो?"
+      text_template_mr: "तुम्ही आधी कधी कर्ज घेतले आहे का? आणि हप्ता भरायला कधी उशीर झाला आहे का?"
       text_template_en: "Have you taken any loan previously, and did you ever face delays in paying installments?"
       text_template_fr: "Avez-vous déjà contracté un prêt auparavant, et avez-vous déjà eu des retards de remboursement ?"
       text_template_ar: "هل حصلت على أي قرض سابقاً، وهل واجهت أي تأخير في سداد الأقساط؟"
-      text_template_mr: "तुम्ही आधी कधी कर्ज घेतले आहे का? हप्ता भरण्यास काही उशीर किंवा अडचण आली होती का?"
       targets: [previous_loan_detail, previous_loan_default_flag, default_reason]
       edges:
         - condition: "always"
@@ -620,10 +592,10 @@ interview_graph:
     Q_CURRENT_EMI:
       type: "voice-qa"
       text_template: "अभी कोई और कर्ज या किस्त चल रही है क्या? कितनी किस्त है, किस बैंक से है और कितना बचा है?"
+      text_template_mr: "सध्या तुमचे कोणते कर्ज किंवा हप्ता (EMI) सुरू आहे का? किती हप्ता आहे आणि कोणत्या बँकेचा आहे?"
       text_template_en: "Do you have any ongoing active loans or monthly EMIs currently?"
       text_template_fr: "Avez-vous actuellement des prêts ou des mensualités en cours ?"
       text_template_ar: "هل لديك أي قروض قائمة حالياً أو أقساط شهرية ملتزم بسدادها؟"
-      text_template_mr: "सध्या इतर कोणते कर्ज किंवा हप्ता चालू आहे का? किती हप्ता आहे आणि कोणत्या बँकेचा आहे?"
       targets: [current_emi_value, current_emi_lender, current_emi_outstanding]
       edges:
         - condition: "always"
@@ -632,10 +604,10 @@ interview_graph:
     Q_FAMILY:
       type: "voice-qa"
       text_template: "{name} जी, घर में आपके साथ कौन-कौन रहता है?"
+      text_template_mr: "{name} जी, कुटुंबात तुमच्यासोबत कोण-कोण राहतात?"
       text_template_en: "{name}, who lives with you in your family?"
       text_template_fr: "{name}, qui vit avec vous dans votre famille ?"
       text_template_ar: "يا سيد {name}، من يعيش معك في المنزل من أفراد عائلتك؟"
-      text_template_mr: "{name} जी, घरात तुमच्यासोबत कोण कोण राहते?"
       targets: [number_of_family_members, marital_status, number_of_kids]
       edges:
         - condition: "always"
@@ -644,10 +616,10 @@ interview_graph:
     Q_EDUCATION:
       type: "voice-qa"
       text_template: "आपने कहाँ तक पढ़ाई की है? काम का हिसाब खुद कर लेते हैं?"
+      text_template_mr: "तुमचे शिक्षण किती झाले आहे? व्यवसायाचा हिशोब स्वतः करू शकता का?"
       text_template_en: "What is your educational background? Do you handle business accounting yourself?"
       text_template_fr: "Quel est votre niveau d'études ? Gérez-vous vous-même la comptabilité de votre entreprise ?"
       text_template_ar: "ما هو مستواك التعليمي؟ وهل تقوم بإدارة الحسابات المالية لنشاطك بنفسك؟"
-      text_template_mr: "तुमचे शिक्षण कुठपर्यंत झाले आहे? व्यवसायाचे हिशोब स्वतः सांभाळता का?"
       targets: [education_level]
       edges:
         - condition: "always"
@@ -656,10 +628,10 @@ interview_graph:
     Q_COBORROWER:
       type: "voice-qa"
       text_template: "यह काम आप खुद चलाते हैं, या घर का कोई और भी देखता है?"
+      text_template_mr: "हा व्यवसाय तुम्ही स्वतः चालवता, की घरातील आणखी कोणी मदत करते?"
       text_template_en: "Do you manage this business independently, or does a co-borrower assist you?"
       text_template_fr: "Gérez-vous cette entreprise de manière indépendante ou un co-emprunteur vous aide-t-il ?"
       text_template_ar: "هل تدير هذا العمل بمفردك أم يساعدك شريك أو ممتلك آخر في القرض؟"
-      text_template_mr: "हा व्यवसाय तुम्ही स्वतः चालवता की घरातील कोणी सह-कर्जदार म्हणून मदत करते?"
       targets: [co_borrower]
       edges:
         - condition: "always"
@@ -669,10 +641,10 @@ interview_graph:
       type: "video_capture"
       document_id: "workplace_video"
       text_template: "कृपया अपने कार्यस्थल का 30 सेकंड का वीडियो बनाएं।"
+      text_template_mr: "कृपया आपल्या कामाच्या जागेचा ३० सेकंदाचा व्हिडिओ बनवा."
       text_template_en: "Please record a 30-second video of your workplace."
       text_template_fr: "Veuillez enregistrer une vidéo de 30 secondes de votre lieu de travail."
       text_template_ar: "يرجى تسجيل فيديو لمدة 30 ثانية لمكان عملك."
-      text_template_mr: "कृपया तुमच्या कार्यस्थळाचा ३० सेकंदांचा व्हिडिओ बनवा."
       geo_tagged: true
       max_duration_seconds: 30
       instructions:

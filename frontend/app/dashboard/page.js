@@ -34,7 +34,7 @@ const STAGE_LABELS = {
 };
 
 const DEFAULT_MUDRA_SCHEMES = [
-  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan Scheme', languages: ['hi', 'en', 'fr', 'ar', 'mr'], total_nodes: 12 }
+  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan Scheme', languages: ['hi', 'en', 'mr', 'fr', 'ar'], total_nodes: 12 }
 ];
 
 function DashboardContent() {
