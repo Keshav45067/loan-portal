@@ -44,7 +44,21 @@ class ConfigLoader:
         return self.get_manifest(document_id)
 
     def get_manifest(self, document_id: str) -> Optional[dict]:
-        manifest_path = os.path.join(CONFIGS_DIR, "manifests", f"{document_id}.json")
+        LEGACY_MANIFEST_MAPPINGS = {
+            "voter_front": "doc_voter_001",
+            "voter_back": "doc_voter_001",
+            "aadhaar_front": "doc_aadhaar_002",
+            "aadhaar_back": "doc_aadhaar_002",
+            "pan": "doc_pan_001",
+            "pan_card": "doc_pan_001",
+            "udyam": "doc_udyam_001",
+            "bank_statement": "doc_bank_statement_001",
+            "passport_front": "doc_passport_001",
+            "passport_back": "doc_passport_001",
+            "passport_visas": "doc_passport_001",
+        }
+        target_id = LEGACY_MANIFEST_MAPPINGS.get(document_id.lower(), document_id)
+        manifest_path = os.path.join(CONFIGS_DIR, "manifests", f"{target_id}.json")
         try:
             if os.path.exists(manifest_path):
                 with open(manifest_path, "r", encoding="utf-8") as f:

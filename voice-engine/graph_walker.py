@@ -205,6 +205,8 @@ class GraphWalker:
             LEGACY_MAPPINGS = {
                 "aadhaar_front": ("doc_aadhaar_002", "front"),
                 "aadhaar_back": ("doc_aadhaar_002", "back"),
+                "voter_front": ("doc_voter_001", "front"),
+                "voter_back": ("doc_voter_001", "back"),
                 "pan": ("doc_pan_001", "front"),
                 "pan_card": ("doc_pan_001", "front"),
                 "udyam": ("doc_udyam_001", "certificate"),
