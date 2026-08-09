@@ -103,15 +103,7 @@ export default function CaptureFlowPage({ params }) {
   const router = useRouter();
 
   useEffect(() => {
-    const savedLang = paramLang || localStorage.getItem('selected_language') || localStorage.getItem('language') || 'en';
-    console.log('🌐 [DEBUG CAPTURE PAGE MOUNT LANG]', { paramLang, savedLang, finalLang: paramLang || savedLang });
-    if (paramLang) {
-      localStorage.setItem('language', paramLang);
-      localStorage.setItem('selected_language', paramLang);
-      setLanguage(paramLang);
-    } else {
-      setLanguage(savedLang);
-    }
+    setLanguage(paramLang || 'en');
   }, [paramLang]);
 
   const [token, setToken] = useState('');
@@ -1342,7 +1334,6 @@ export default function CaptureFlowPage({ params }) {
               onClick={() => {
                 stopCamera();
                 if (voiceSessionRef.current) voiceSessionRef.current.disconnect();
-                localStorage.removeItem('session_id');
                 router.push('/dashboard');
               }}
               style={{

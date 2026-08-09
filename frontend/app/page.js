@@ -149,8 +149,6 @@ export default function LoginPage() {
           toast.success('OTP verified successfully!');
           localStorage.setItem('token', data.token);
           localStorage.setItem('session_id', data.session_id);
-          localStorage.setItem('phone', fullPhone);
-          localStorage.setItem('scheme_id', 'mudra-grocery');
 
           const params = new URLSearchParams(window.location.search);
           if (params.get('capture') === 'true') {

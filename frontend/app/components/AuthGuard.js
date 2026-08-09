@@ -23,7 +23,6 @@ export function useAuth(options = { redirectTo: '/', requireAuth: true }) {
 
     const storedToken = localStorage.getItem('token');
     const storedSessionId = localStorage.getItem('session_id');
-    const storedPhone = localStorage.getItem('phone');
 
     if (!storedToken || !storedSessionId) {
       setAuthenticated(false);
@@ -40,7 +39,6 @@ export function useAuth(options = { redirectTo: '/', requireAuth: true }) {
 
     setToken(storedToken);
     setSessionId(storedSessionId);
-    setPhone(storedPhone);
     setAuthenticated(true);
     setLoading(false);
   }, [pathname, router, options.redirectTo, options.requireAuth]);

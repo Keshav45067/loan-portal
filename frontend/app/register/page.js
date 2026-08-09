@@ -166,9 +166,6 @@ function RegisterContent() {
       setLoading(false);
 
       if (data.success) {
-        if (data.application_id) {
-          localStorage.setItem('application_id', data.application_id);
-        }
         toast.success('Registration completed successfully!');
         router.push('/dashboard');
       } else {

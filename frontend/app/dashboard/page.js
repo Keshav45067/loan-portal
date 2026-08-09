@@ -99,7 +99,6 @@ function DashboardContent() {
           }
         })
       });
-      localStorage.setItem('scheme_id', schemeIdToStart);
       toast.success(`Starting ${schemeIdToStart.replace('mudra-', '').replace('-', ' ')} application...`);
       router.push('/interview');
     } catch (e) {
@@ -112,8 +111,6 @@ function DashboardContent() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('session_id');
-    localStorage.removeItem('phone');
-    localStorage.removeItem('application_id');
     toast.info('You have been logged out.');
     router.push('/');
   };

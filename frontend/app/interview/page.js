@@ -591,23 +591,14 @@ function InterviewContent() {
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
     const savedSessionId = localStorage.getItem('session_id');
-    const savedApplicationId = localStorage.getItem('application_id');
-    let savedSchemeId = localStorage.getItem('scheme_id');
-    const savedLanguage = localStorage.getItem('selected_language') || localStorage.getItem('language') || 'en';
-    if (savedLanguage) {
-      setSelectedLanguage(savedLanguage);
-    }
-    if (!savedSchemeId || !savedSchemeId.includes('mudra') || savedSchemeId.includes('sbi')) {
-      savedSchemeId = 'mudra-grocery';
-      localStorage.setItem('scheme_id', 'mudra-grocery');
-    }
+
     if (!savedToken || !savedSessionId) {
       router.push('/');
     } else {
       setToken(savedToken);
       setSessionId(savedSessionId);
-      setApplicationId(savedApplicationId || '');
-      setSchemeId(savedSchemeId);
+      setApplicationId(savedSessionId);
+      setSchemeId('mudra-grocery');
     }
 
     import('../utils/voiceHelper').then(({ loadVADScripts }) => {
@@ -1759,8 +1750,6 @@ function InterviewContent() {
                   onClick={() => {
                     if (!isStarted) {
                       setSelectedLanguage(lang.code);
-                      localStorage.setItem('selected_language', lang.code);
-                      localStorage.setItem('language', lang.code);
                     }
                   }}
                   style={{
