@@ -636,7 +636,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         """INSERT INTO user_data (id, phone, data) 
                            VALUES (%s, %s, %s::json)""",
                         (session_id, request.phone, json.dumps({
-                            "scheme_id": SBI_BANK_SCHEME_ID,
+                            "scheme_id": "",
                             "completion_status": "NEW",
                             "onboarding_finished": False,
                             "registration_completed": False,
@@ -846,7 +846,6 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 existing_data["cadre_id"] = target_cadre_id or ""
                 existing_data["application_id"] = application_id
                 existing_data["rseti"] = request.rseti or ""
-                existing_data["scheme_id"] = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 existing_data["onboarding_finished"] = False
                 existing_data["registration_completed"] = True
                 existing_data["updated_at"] = now.isoformat()

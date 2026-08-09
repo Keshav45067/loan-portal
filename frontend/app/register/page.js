@@ -36,18 +36,14 @@ const FALLBACK_PANCHAYATS = {
   'Patna Sadar': ['Patna Gram', 'Anisabad']
 };
 
-const RSETIS = ['RSETI Ranchi', 'RSETI Dumka', 'RSETI Deoghar', 'RSETI Bokaro'];
-
 function RegisterContent() {
   const router = useRouter();
   const { token, sessionId } = useAuth();
-  const [step, setStep] = useState(0); // 0: Location, 1: RSETI
   const [form, setForm] = useState({
     state: '',
     district: '',
     block: '',
     panchayat: '',
-    rseti: '',
   });
 
   // Dynamic Location Lists
@@ -141,215 +137,149 @@ function RegisterContent() {
     fetchPanchayats();
   }, [form.block]);
 
-  const steps = [
-    { label: 'Location', icon: '📍' },
-    { label: 'RSETI Center', icon: '🏛️' },
-  ];
+  const canSubmit = () => form.state && form.district && form.block && form.panchayat;
 
-  const canNext = () => {
-    switch (step) {
-      case 0: return form.state && form.district && form.block && form.panchayat;
-      case 1: return form.rseti;
-      default: return false;
-    }
-  };
+  const handleSubmit = async () => {
+    if (!canSubmit()) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/applications/save-panchayat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          state: form.state,
+          district: form.district,
+          block: form.block,
+          panchayat: form.panchayat,
+          rseti: '',
+          skip: false,
+          cadre_id: ''
+        })
+      });
+      
+      const data = await res.json();
+      setLoading(false);
 
-  const handleNext = async () => {
-    if (step === 0) {
-      setStep(1);
-    } else {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/applications/save-panchayat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            session_id: sessionId,
-            state: form.state,
-            district: form.district,
-            block: form.block,
-            panchayat: form.panchayat,
-            rseti: form.rseti,
-            skip: false,
-            cadre_id: ''
-          })
-        });
-        
-        const data = await res.json();
-        setLoading(false);
-
-        if (data.success) {
-          if (data.application_id) {
-            localStorage.setItem('application_id', data.application_id);
-          }
-          toast.success('Registration completed successfully!');
-          router.push('/dashboard');
-        } else {
-          const errMsg = data.error || 'Failed to save registration. Please try again.';
-          setError(errMsg);
-          toast.error(errMsg);
+      if (data.success) {
+        if (data.application_id) {
+          localStorage.setItem('application_id', data.application_id);
         }
-      } catch (err) {
-        setLoading(false);
-        setError('Failed to connect to the server.');
-        toast.error('Failed to connect to the server.');
-        console.error(err);
+        toast.success('Registration completed successfully!');
+        router.push('/dashboard');
+      } else {
+        const errMsg = data.error || 'Failed to save registration. Please try again.';
+        setError(errMsg);
+        toast.error(errMsg);
       }
+    } catch (err) {
+      setLoading(false);
+      setError('Failed to connect to the server.');
+      toast.error('Failed to connect to the server.');
+      console.error(err);
     }
-  };
-
-  const handleBack = () => {
-    if (step > 0) setStep(0);
-    else router.push('/');
   };
 
   return (
     <div className={styles.container}>
       {/* Header */}
       <header className={styles.header}>
-        <button className="btn btn-ghost" onClick={handleBack} id="back-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button className="btn btn-ghost" onClick={() => router.push('/')} id="back-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
           Back
         </button>
         <div className={styles.headerCenter}>
-          <span className="badge badge-accent">Registration</span>
+          <span className="badge badge-accent">Applicant Registration</span>
         </div>
         <div style={{ width: 80 }} />
       </header>
 
-      {/* Progress Bar */}
-      <div className={styles.progressBar}>
-        <div className={styles.progressFill} style={{ width: `${((step + 1) / 2) * 100}%` }} />
-      </div>
-
-      {/* Step Indicators */}
-      <div className={styles.stepIndicators}>
-        {steps.map((s, i) => (
-          <div key={i} className={`${styles.stepDot} ${i <= step ? styles.stepDotActive : ''} ${i === step ? styles.stepDotCurrent : ''}`}>
-            <span>{i < step ? '✓' : s.icon}</span>
-            <span className={styles.stepDotLabel}>{s.label}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Content */}
+      {/* Main Content */}
       <main className={styles.main}>
         {error && <p className={styles.error} style={{ color: 'var(--accent-danger)', textAlign: 'center', marginBottom: '16px' }}>{error}</p>}
 
-        {/* Step 0: Location */}
-        {step === 0 && (
-          <div className={`${styles.stepContent} animate-in`} key="location">
-            <div className={styles.stepHeader}>
-              <h2>Select Location</h2>
-              <p className="text-muted">State ➔ District ➔ Block ➔ Panchayat</p>
-            </div>
-            <div className={styles.locationGrid}>
-              <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>State</label>
-                <select
-                  id="state-select"
-                  className={`input ${styles.select}`}
-                  value={form.state}
-                  onChange={e => setForm({ ...form, state: e.target.value, district: '', block: '', panchayat: '' })}
-                >
-                  <option value="">Select State...</option>
-                  {states.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>District</label>
-                <select
-                  id="district-select"
-                  className={`input ${styles.select}`}
-                  value={form.district}
-                  onChange={e => setForm({ ...form, district: e.target.value, block: '', panchayat: '' })}
-                  disabled={!form.state}
-                >
-                  <option value="">Select District...</option>
-                  {districts.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>Block</label>
-                <select
-                  id="block-select"
-                  className={`input ${styles.select}`}
-                  value={form.block}
-                  onChange={e => setForm({ ...form, block: e.target.value, panchayat: '' })}
-                  disabled={!form.district}
-                >
-                  <option value="">Select Block...</option>
-                  {blocks.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
-              <div className={styles.selectWrap}>
-                <label className={styles.selectLabel}>Panchayat</label>
-                <select
-                  id="panchayat-select"
-                  className={`input ${styles.select}`}
-                  value={form.panchayat}
-                  onChange={e => setForm({ ...form, panchayat: e.target.value })}
-                  disabled={!form.block}
-                >
-                  <option value="">Select Panchayat...</option>
-                  {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
-            </div>
+        <div className={`${styles.stepContent} animate-in`}>
+          <div className={styles.stepHeader}>
+            <h2>Select Your Location</h2>
+            <p className="text-muted">State ➔ District ➔ Block ➔ Panchayat</p>
           </div>
-        )}
 
-        {/* Step 1: RSETI */}
-        {step === 1 && (
-          <div className={`${styles.stepContent} animate-in`} key="rseti">
-            <div className={styles.stepHeader}>
-              <h2>Choose RSETI Center</h2>
-              <p className="text-muted">Select your training/onboarding center</p>
+          <div className={styles.locationGrid}>
+            <div className={styles.selectWrap}>
+              <label className={styles.selectLabel}>State</label>
+              <select
+                id="state-select"
+                className={`input ${styles.select}`}
+                value={form.state}
+                onChange={e => setForm({ ...form, state: e.target.value, district: '', block: '', panchayat: '' })}
+              >
+                <option value="">Select State...</option>
+                {states.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
-            <div className={styles.optionGrid}>
-              {RSETIS.map(r => (
-                <button
-                  key={r}
-                  id={`rseti-${r.replace(/\s/g, '-')}`}
-                  className={`${styles.optionCard} ${form.rseti === r ? styles.optionSelected : ''}`}
-                  onClick={() => setForm({ ...form, rseti: r })}
-                >
-                  <span className={styles.optionIcon}>🏛️</span>
-                  <span>{r}</span>
-                </button>
-              ))}
+            <div className={styles.selectWrap}>
+              <label className={styles.selectLabel}>District</label>
+              <select
+                id="district-select"
+                className={`input ${styles.select}`}
+                value={form.district}
+                onChange={e => setForm({ ...form, district: e.target.value, block: '', panchayat: '' })}
+                disabled={!form.state}
+              >
+                <option value="">Select District...</option>
+                {districts.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div className={styles.selectWrap}>
+              <label className={styles.selectLabel}>Block</label>
+              <select
+                id="block-select"
+                className={`input ${styles.select}`}
+                value={form.block}
+                onChange={e => setForm({ ...form, block: e.target.value, panchayat: '' })}
+                disabled={!form.district}
+              >
+                <option value="">Select Block...</option>
+                {blocks.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
+            <div className={styles.selectWrap}>
+              <label className={styles.selectLabel}>Panchayat</label>
+              <select
+                id="panchayat-select"
+                className={`input ${styles.select}`}
+                value={form.panchayat}
+                onChange={e => setForm({ ...form, panchayat: e.target.value })}
+                disabled={!form.block}
+              >
+                <option value="">Select Panchayat...</option>
+                {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
             </div>
           </div>
-        )}
+        </div>
       </main>
 
       {/* Footer with CTA */}
       <footer className={styles.footer}>
         <button
-          id="next-btn"
+          id="submit-btn"
           className="btn btn-primary btn-lg"
-          onClick={handleNext}
-          disabled={!canNext() || loading}
+          onClick={handleSubmit}
+          disabled={!canSubmit() || loading}
           style={{ width: '100%', maxWidth: 400 }}
         >
           {loading ? (
             <span className={styles.spinner} />
-          ) : step === 1 ? (
-            <>
-              Complete Registration
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
-            </>
           ) : (
             <>
-              Continue
+              Complete Registration
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>

@@ -33,13 +33,27 @@ const STAGE_LABELS = {
   'APPROVED_BY_LVL_1': 'Approved by Level 1 Admin'
 };
 
+const DEFAULT_MUDRA_SCHEMES = [
+  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan - Kirana & Grocery', languages: ['hi', 'en'], total_nodes: 12 },
+  { scheme_id: 'mudra-dairy', display_name: 'Mudra Loan - Dairy Farming', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-salon', display_name: 'Mudra Loan - Beauty Salon & Parlour', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-electric', display_name: 'Mudra Loan - Electrical & Electronics Shop', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-furniture', display_name: 'Mudra Loan - Furniture Manufacturing', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-garage', display_name: 'Mudra Loan - Auto Repair & Garage', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-goatry', display_name: 'Mudra Loan - Goatry Business', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-poultry', display_name: 'Mudra Loan - Poultry Farm', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-clothing', display_name: 'Mudra Loan - Garments & Clothing', languages: ['hi', 'en'], total_nodes: 10 },
+  { scheme_id: 'mudra-tailor', display_name: 'Mudra Loan - Tailoring Shop', languages: ['hi', 'en'], total_nodes: 8 },
+  { scheme_id: 'sbi-account-opening', display_name: 'SBI Small Business Account Opening', languages: ['hi', 'en'], total_nodes: 14 },
+];
+
 function DashboardContent() {
   const router = useRouter();
   const { token, sessionId, phone } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [myApplications, setMyApplications] = useState([]);
-  const [availableSchemes, setAvailableSchemes] = useState([]);
+  const [availableSchemes, setAvailableSchemes] = useState(DEFAULT_MUDRA_SCHEMES);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'schemes' | 'applications'
   const [startingSchemeId, setStartingSchemeId] = useState(null);
 
@@ -59,12 +73,14 @@ function DashboardContent() {
         // 2. Fetch available schemes
         const schemeRes = await fetch(`${API_BASE_URL}/api/schemes`);
         const schemeData = await schemeRes.json();
-        if (schemeData.success && schemeData.schemes) {
+        if (schemeData.success && schemeData.schemes && schemeData.schemes.length > 0) {
           setAvailableSchemes(schemeData.schemes);
+        } else {
+          setAvailableSchemes(DEFAULT_MUDRA_SCHEMES);
         }
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
-        toast.error('Failed to load live dashboard data.');
+        setAvailableSchemes(DEFAULT_MUDRA_SCHEMES);
       } finally {
         setLoading(false);
       }

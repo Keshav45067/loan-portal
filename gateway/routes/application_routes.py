@@ -140,11 +140,12 @@ async def get_my_applications(request: Request, auth: dict = Depends(require_aut
                 pass
                 
         applications = []
-        if app_resp.session_id:
+        target_scheme_id = app_resp.scheme_id or extracted_json.get("scheme_id", "")
+        if app_resp.session_id and target_scheme_id:
             applications.append({
                 "application_id": app_resp.application_id or app_resp.session_id,
                 "session_id": app_resp.session_id,
-                "scheme_id": app_resp.scheme_id or extracted_json.get("scheme_id", "mudra-grocery"),
+                "scheme_id": target_scheme_id,
                 "stage": app_resp.stage or "VOICE_QA",
                 "completion_status": app_resp.completion_status or extracted_json.get("completion_status", "IN_PROGRESS"),
                 "phone": app_resp.phone or phone,
