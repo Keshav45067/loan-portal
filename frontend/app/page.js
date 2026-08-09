@@ -42,6 +42,15 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0);
   const otpRefs = useRef([]);
 
+  // Auto-redirect to dashboard if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const sessionId = localStorage.getItem('session_id');
+    if (token && sessionId) {
+      router.push('/dashboard');
+    }
+  }, [router]);
+
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
