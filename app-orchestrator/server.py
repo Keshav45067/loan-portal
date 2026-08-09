@@ -1014,14 +1014,36 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         phone = fields["phone"]
                         existing_data["phone"] = phone
 
+                    # Determine last_node from fields or document source if present
+                    extracted_last_node = fields.get("last_node")
+                    if not extracted_last_node and request.source:
+                        src_map = {
+                            "selfie": "DOC_SELFIE",
+                            "aadhaar_front": "DOC_AADHAAR_FRONT",
+                            "aadhaar_back": "DOC_AADHAAR_BACK",
+                            "voter_front": "DOC_VOTER_FRONT",
+                            "voter_back": "DOC_VOTER_BACK",
+                            "pan": "DOC_PAN",
+                            "udyam": "DOC_UDYAM",
+                            "bank_statement": "DOC_BANK_STATEMENT",
+                            "workplace_video": "DOC_WORKPLACE_VIDEO"
+                        }
+                        extracted_last_node = src_map.get(str(request.source).lower())
+
                     # Upsert into user_data
                     merged_json_str = json.dumps(existing_data, ensure_ascii=False)
-                    cur.execute(
-                        """UPDATE user_data SET phone = %s, data = %s::json WHERE id = %s""",
-                        (phone or None, merged_json_str, session_id)
-                    )
+                    if extracted_last_node:
+                        cur.execute(
+                            """UPDATE user_data SET phone = %s, data = %s::json, last_node = %s WHERE id = %s OR data->>'application_id' = %s""",
+                            (phone or None, merged_json_str, extracted_last_node, session_id, session_id)
+                        )
+                    else:
+                        cur.execute(
+                            """UPDATE user_data SET phone = %s, data = %s::json WHERE id = %s OR data->>'application_id' = %s""",
+                            (phone or None, merged_json_str, session_id, session_id)
+                        )
                     conn.commit()
-                    logger.info(f"Upserted {len(fields)} fields to user_data", req_id=req_id)
+                    logger.info(f"Upserted {len(fields)} fields to user_data (last_node={extracted_last_node})", req_id=req_id)
                     
                     # Trigger evaluations if onboarding_finished is True or trigger_evaluations is True
                     if existing_data.get("onboarding_finished") is True or fields.get("trigger_evaluations") is True:
