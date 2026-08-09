@@ -937,7 +937,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
 
                     # Check if explicit reset/redo process is requested
                     reset_docs = fields.get("reset_documents") is True or fields.get("reset_all") is True
-                    if reset_docs or onboarding_val is False:
+                    if reset_docs:
                         try:
                             cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
                             cur.execute("UPDATE user_data SET last_node = NULL WHERE id = %s", (session_id,))
