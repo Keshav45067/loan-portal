@@ -1137,6 +1137,7 @@ class VoiceSession:
 
         DEFAULT_VOICE_MAP = {
             "hi": "hi-IN-Neural2-A",
+            "mr": "mr-IN-Neural2-A",
             "fr": "fr-FR-Neural2-A",
             "ar": "ar-XA-Wavenet-A",
             "te": "te-IN-Wavenet-A",
@@ -1233,6 +1234,14 @@ class VoiceSession:
                     "1) Start with a warm reaction using Telugu filler words (e.g., 'అవునా!', 'సరేనండి, అర్థమైంది!', 'చాలా బాగుంది!'). "
                     "End acknowledgment with '.' or ','. "
                     "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
+                )
+            "mr": {
+                "lang_name": "Marathi",
+                "filler": (
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
+                    "1) Start with a warm reaction using Marathi filler words (e.g., 'अरे हो!', 'छान!', 'नक्कीच!'). "
+                    "End acknowledgment with '.' or ','. "
+                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone in Marathi.\n"
                 )
             },
         }

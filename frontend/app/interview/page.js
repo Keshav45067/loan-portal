@@ -1738,6 +1738,7 @@ function InterviewContent() {
               { code: 'en', label: 'English', flag: '🇬🇧' },
               { code: 'fr', label: 'French', flag: '🇫🇷' },
               { code: 'ar', label: 'Arabic', flag: '🇸🇦' },
+              { code: 'mr', label: 'Marathi', flag: '🇮🇳' },
             ].map((lang) => {
               const isSelected = selectedLanguage === lang.code;
               const isHidden = isStarted && !isSelected;

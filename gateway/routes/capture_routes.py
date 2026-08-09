@@ -285,7 +285,7 @@ async def list_all_schemes(request: Request):
             {
                 "scheme_id": "mudra-grocery",
                 "display_name": "Mudra Loan Scheme",
-                "languages": ["hi", "en", "fr", "ar"],
+                "languages": ["hi", "en", "fr", "ar", "mr"],
                 "total_nodes": 12
             }
         ]

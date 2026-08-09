@@ -33,6 +33,10 @@ FALLBACK_NUDGES = {
     "ar": [
         "أهلاً، هل تسمعني بشكل جيد؟ لا تقلق أبداً، خذ وقتك!",
         "خذ وقتك الكامل، وأخبرني إذا كنت بحاجة إلى أي مساعدة.",
+    ],
+    "mr": [
+        "अरे ऐका, तुम्हाला माझा आवाज येतोय का? काही हरकत नाही, तुम्ही निवांत सांगा!",
+        "काही हरकत नाही, तुम्ही सावकाश उत्तर देऊ शकता.",
     ]
 }
 
@@ -49,7 +53,7 @@ async def generate_nudge(
     Generate a 1-sentence contextual nudge for silence/inactivity.
     Only called for 'voice-qa' nodes.
     """
-    lang_names = {"hi": "Hindi", "en": "English", "fr": "French", "ar": "Arabic"}
+    lang_names = {"hi": "Hindi", "en": "English", "fr": "French", "ar": "Arabic", "mr": "Marathi"}
     lang_name = lang_names.get(language, "English")
 
     prompt = (
