@@ -42,13 +42,30 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0);
   const otpRefs = useRef([]);
 
-  // Auto-redirect to dashboard if user is already logged in
+  // Auto-redirect to dashboard ONLY if token is valid on backend
   useEffect(() => {
     const token = localStorage.getItem('token');
     const sessionId = localStorage.getItem('session_id');
-    if (token && sessionId) {
-      router.push('/dashboard');
-    }
+    if (!token || !sessionId) return;
+
+    const verifyToken = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          router.replace('/dashboard');
+        } else if (res.status === 401 || res.status === 403) {
+          console.warn('[LoginPage] Stored token is expired/invalid. Clearing credentials.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('session_id');
+        }
+      } catch (err) {
+        console.error('[LoginPage] Token verification failed:', err);
+      }
+    };
+
+    verifyToken();
   }, [router]);
 
   // Close dropdown when clicking outside

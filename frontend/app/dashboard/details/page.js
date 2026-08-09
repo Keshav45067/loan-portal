@@ -29,6 +29,13 @@ export default function DetailsPage() {
       const res = await fetch(`${API_BASE_URL}/api/applications/${sessionId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      if (res.status === 401 || res.status === 403) {
+        console.warn('[DetailsPage] Stored token is expired. Clearing credentials.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('session_id');
+        router.replace('/');
+        return;
+      }
       const data = await res.json();
       
       if (data.status === 'ERROR' || data.status === 'NOT_FOUND') {

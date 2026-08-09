@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+
 export function useAuth(options = { redirectTo: '/', requireAuth: true }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -37,10 +39,41 @@ export function useAuth(options = { redirectTo: '/', requireAuth: true }) {
       return;
     }
 
-    setToken(storedToken);
-    setSessionId(storedSessionId);
-    setAuthenticated(true);
-    setLoading(false);
+    // Verify token validity against backend API
+    const verifyTokenWithBackend = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/${storedSessionId}`, {
+          headers: { 'Authorization': `Bearer ${storedToken}` }
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[AuthGuard] Token expired or invalid on backend. Clearing localStorage credentials.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('session_id');
+          setAuthenticated(false);
+          setLoading(false);
+          toast.error('Session expired. Please log in again.', {
+            id: 'session-expired-toast',
+            duration: 4000,
+          });
+          router.replace(options.redirectTo || '/');
+          return;
+        }
+
+        setToken(storedToken);
+        setSessionId(storedSessionId);
+        setAuthenticated(true);
+      } catch (err) {
+        console.error('[AuthGuard] Verification error:', err);
+        setToken(storedToken);
+        setSessionId(storedSessionId);
+        setAuthenticated(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyTokenWithBackend();
   }, [pathname, router, options.redirectTo, options.requireAuth]);
 
   return { authenticated, loading, token, sessionId, phone };

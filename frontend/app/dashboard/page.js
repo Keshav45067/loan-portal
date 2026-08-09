@@ -55,6 +55,15 @@ function DashboardContent() {
         const appRes = await fetch(`${API_BASE_URL}/api/applications/my-applications`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (appRes.status === 401 || appRes.status === 403) {
+          console.warn('[Dashboard] Token expired on API call. Clearing credentials.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('session_id');
+          toast.error('Session expired. Please log in again.');
+          router.replace('/');
+          return;
+        }
+
         const appData = await appRes.json();
         if (appData.success && appData.applications) {
           setMyApplications(appData.applications);
@@ -85,7 +94,7 @@ function DashboardContent() {
     setStartingSchemeId(schemeIdToStart);
     try {
       // Save metadata and reset onboarding finished for clean interview start
-      await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+      const saveRes = await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,6 +108,15 @@ function DashboardContent() {
           }
         })
       });
+
+      if (saveRes.status === 401 || saveRes.status === 403) {
+        console.warn('[Dashboard] Token expired on save-metadata. Clearing credentials.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('session_id');
+        toast.error('Session expired. Please log in again.');
+        router.replace('/');
+        return;
+      }
       toast.success(`Starting ${schemeIdToStart.replace('mudra-', '').replace('-', ' ')} application...`);
       router.push('/interview');
     } catch (e) {

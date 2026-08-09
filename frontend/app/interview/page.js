@@ -593,13 +593,34 @@ function InterviewContent() {
     const savedSessionId = localStorage.getItem('session_id');
 
     if (!savedToken || !savedSessionId) {
-      router.push('/');
-    } else {
+      router.replace('/');
+      return;
+    }
+
+    const checkTokenOnMount = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/applications/${savedSessionId}`, {
+          headers: { 'Authorization': `Bearer ${savedToken}` }
+        });
+        if (res.status === 401 || res.status === 403) {
+          console.warn('[InterviewPage] Stored token expired. Clearing credentials.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('session_id');
+          toast.error('Session expired. Please log in again.');
+          router.replace('/');
+          return;
+        }
+      } catch (err) {
+        console.error('[InterviewPage] Token check failed:', err);
+      }
+
       setToken(savedToken);
       setSessionId(savedSessionId);
       setApplicationId(savedSessionId);
       setSchemeId('mudra-grocery');
-    }
+    };
+
+    checkTokenOnMount();
 
     import('../utils/voiceHelper').then(({ loadVADScripts }) => {
       loadVADScripts().catch(console.error);
