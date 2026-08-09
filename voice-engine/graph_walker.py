@@ -451,7 +451,12 @@ class GraphWalker:
         for ph in placeholders:
             field_cfg = extraction_mappings.get(ph, {})
             sources = field_cfg.get("sources", [ph]) if isinstance(field_cfg, dict) else [ph]
-            if ph not in sources:
+            if ph in ("name", "applicant_name"):
+                name_fallbacks = ["applicant_name", "doc_aadhaar_name", "doc_pan_name", "doc_voter_name", "name", "full_name"]
+                for nf in name_fallbacks:
+                    if nf not in sources:
+                        sources.append(nf)
+            elif ph not in sources:
                 sources = list(sources) + [ph]
 
             val = None

@@ -696,6 +696,19 @@ default_applicant_placeholder:
   ar: "المتقدم"
 
 extraction_mappings:
+  name:
+    sources:
+      - "applicant_name"
+      - "full_name"
+      - "name"
+      - "doc_aadhaar_name"
+      - "doc_pan_name"
+      - "doc_voter_name"
+      - "extractions.doc_aadhaar_002.doc_aadhaar_name"
+      - "extractions.doc_pan_001.doc_pan_name"
+      - "extractions.voter_front.doc_voter_name"
+      - "extractions.aadhaar_front.holder.full_name"
+      - "holder.full_name"
   applicant_name:
     sources:
       - "applicant_name"
@@ -704,6 +717,11 @@ extraction_mappings:
       - "name_of_the_applicant"
       - "corrected_name"
       - "doc_aadhaar_name"
+      - "doc_pan_name"
+      - "doc_voter_name"
+      - "extractions.doc_aadhaar_002.doc_aadhaar_name"
+      - "extractions.doc_pan_001.doc_pan_name"
+      - "extractions.voter_front.doc_voter_name"
       - "extractions.aadhaar_front.holder.full_name"
       - "extractions.aadhaar_back.holder.full_name"
       - "extractions.AADHAAR_FRONT.holder.full_name"
