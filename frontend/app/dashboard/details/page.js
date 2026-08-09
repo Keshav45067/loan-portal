@@ -148,7 +148,7 @@ export default function DetailsPage() {
   };
 
   const getApplicantName = () => {
-    const val = getVal(['applicant_name']);
+    const val = getVal(['applicant_name', 'doc_aadhaar_name', 'doc_pan_name', 'doc_voter_name']);
     if (val && val !== 'Applicant' && val !== 'Not Available' && val !== 'NA' && val !== '') {
       return val;
     }
@@ -160,15 +160,15 @@ export default function DetailsPage() {
   };
 
   const getFullAddress = () => {
-    const addr = extractedData.address;
+    const addr = extractedData.doc_aadhaar_address || extractedData.address || extractedData.doc_voter_address;
     if (!addr || typeof addr !== 'object') {
-      return getVal(['address.address_line', 'address.full_address', 'registered_office_address', 'address.state']);
+      return getVal(['doc_voter_address', 'address.address_line', 'address.full_address', 'registered_office_address', 'address.state']);
     }
     const parts = [
       addr.care_of ? `C/O ${addr.care_of}` : null,
       addr.house,
       addr.street,
-      addr.locality,
+      addr.locality || addr.city_village,
       addr.vtc,
       addr.district,
       addr.state,
@@ -186,13 +186,36 @@ export default function DetailsPage() {
 
   // Group Details into Categories
   const categories = {
+    documents_verified: {
+      title: 'Verified Government Documents',
+      icon: '🆔',
+      data: [
+        { label: 'Aadhaar Holder Name', value: getVal(['doc_aadhaar_name', 'applicant_name']) },
+        { label: 'Aadhaar Last 4 Digits', value: getVal(['doc_aadhaar_last4', 'aadhaar_number']) },
+        { label: 'Aadhaar DOB', value: getVal(['doc_aadhaar_dob', 'date_of_birth']) },
+        { label: 'Aadhaar Gender', value: getVal(['doc_aadhaar_gender', 'gender']) },
+        { label: 'PAN Card Number', value: getVal(['doc_pan_number', 'pan_number']) },
+        { label: 'PAN Holder Name', value: getVal(['doc_pan_name']) },
+        { label: 'PAN Father Name', value: getVal(['doc_pan_father_name']) },
+        { label: 'PAN DOB', value: getVal(['doc_pan_dob']) },
+        { label: 'Udyam Registration Number', value: getVal(['doc_udyam_registration_number', 'udyam_number']) },
+        { label: 'Udyam Enterprise Name', value: getVal(['doc_udyam_enterprise_name', 'enterprise_name']) },
+        { label: 'Udyam Major Activity', value: getVal(['doc_udyam_major_activity', 'major_activity']) },
+        { label: 'Udyam Enterprise Type', value: getVal(['doc_udyam_enterprise_type', 'type_of_enterprise']) },
+        { label: 'Voter ID EPIC Number', value: getVal(['doc_voter_number', 'epic_number']) },
+        { label: 'Voter Holder Name', value: getVal(['doc_voter_name']) },
+        { label: 'Voter Father Name', value: getVal(['doc_voter_father_name']) },
+        { label: 'Voter DOB', value: getVal(['doc_voter_dob']) },
+        { label: 'Voter Registered Address', value: getVal(['doc_voter_address']) }
+      ]
+    },
     applicant: {
       title: 'Applicant Profile',
       icon: '👤',
       data: [
         { label: 'Full Name', value: getApplicantName() },
-        { label: 'Date of Birth', value: getVal(['date_of_birth', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
-        { label: 'Gender', value: getVal(['gender', 'holder.gender']) },
+        { label: 'Date of Birth', value: getVal(['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
+        { label: 'Gender', value: getVal(['gender', 'doc_aadhaar_gender', 'doc_voter_gender', 'holder.gender']) },
         { label: 'Mobile Number', value: appData?.phone || getVal(['phone', 'mobile_number']) },
         { label: 'Email ID', value: getVal(['email', 'email_id']) },
         { label: 'Academic Qualification', value: getVal(['education_level', 'educational_qualification', 'academic_qualification']) },
@@ -207,16 +230,16 @@ export default function DetailsPage() {
       title: 'Business Operations',
       icon: '💼',
       data: [
-        { label: 'Enterprise Name', value: getVal(['enterprise_name']) },
+        { label: 'Enterprise Name', value: getVal(['enterprise_name', 'doc_udyam_enterprise_name']) },
         { label: 'Constitution', value: getVal(['constitution'], 'Proprietary') },
-        { label: 'Business Type / Category', value: getVal(['business_type', 'type_of_business']) },
-        { label: 'Existing Business Activity', value: getVal(['existing_business_activity']) },
+        { label: 'Business Type / Category', value: getVal(['business_type', 'type_of_business', 'doc_udyam_enterprise_type']) },
+        { label: 'Existing Business Activity', value: getVal(['existing_business_activity', 'doc_udyam_major_activity']) },
         { label: 'Proposed Business Activity', value: getVal(['proposed_business_activity']) },
-        { label: 'Date of Commencement', value: getVal(['date_of_commencement']) },
+        { label: 'Date of Commencement', value: getVal(['date_of_commencement', 'doc_udyam_date_of_commencement']) },
         { label: 'Experience in Activity (Years)', value: getVal(['experience_in_line_of_activity', 'experience_years']) },
-        { label: 'Udyam Registration Number', value: getVal(['registration_number_of_business', 'udyam_number']) },
+        { label: 'Udyam Registration Number', value: getVal(['registration_number_of_business', 'udyam_number', 'doc_udyam_registration_number']) },
         { label: 'Registered Unit Status', value: getVal(['unit_is_registered'], 'Yes') },
-        { label: 'Social Category', value: getVal(['social_category']) },
+        { label: 'Social Category', value: getVal(['social_category', 'doc_udyam_social_category']) },
         { label: 'Minority Religion', value: getVal(['if_minority_religion', 'minority_religion'], 'Don\'t want to respond') }
       ]
     },

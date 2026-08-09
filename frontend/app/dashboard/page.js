@@ -295,11 +295,17 @@ function DashboardContent() {
 
                         <button 
                           className="btn btn-primary"
-                          onClick={() => handleStartScheme(schemeId)}
+                          onClick={() => {
+                            if (isFinished) {
+                              router.push('/dashboard/details');
+                            } else {
+                              handleStartScheme(schemeId);
+                            }
+                          }}
                           disabled={startingSchemeId === schemeId}
                           style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '0.875rem' }}
                         >
-                          {startingSchemeId === schemeId ? 'Opening...' : isFinished ? 'Review Application' : 'Continue Interview ➔'}
+                          {startingSchemeId === schemeId ? 'Opening...' : isFinished ? 'Review Application ➔' : 'Continue Interview ➔'}
                         </button>
                       </div>
                     </div>
