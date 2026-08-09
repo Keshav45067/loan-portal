@@ -35,17 +35,7 @@
         "ELECTION",
         "EPIC",
         "Name",
-        "Father",
-        "DOB",
-        "Year of Birth",
-        "Male",
-        "Female",
-        "आयोग",
-        "भारत",
-        "पहचान",
-        "नाम",
-        "पिता",
-        "जन्म"
+        "Father"
       ],
       "provides": [
         "doc_voter_number",
@@ -72,12 +62,8 @@
         "Electoral",
         "Registration",
         "Officer",
-        "Assembly",
-        "Constituency",
         "पता",
-        "मकान",
-        "रजिस्ट्रीकरण",
-        "अधिकारी"
+        "निर्वाचन"
       ],
       "provides": [
         "doc_voter_address"
