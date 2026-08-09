@@ -174,10 +174,10 @@ interview_graph:
   nodes:
     START:
       type: "voice-qa"
-      text_template: "नमस्ते! मुद्रा लोन सेवा में आपका स्वागत है। मैं आपके लोन आवेदन में आपकी सहायता करूंगी। प्रक्रिया शुरू करने के लिए, सबसे पहले कृपया अपनी एक सेल्फी फोटो लें।"
-      text_template_en: "Welcome to the Mudra loan application. I will assist you with your loan application. To get started, first please take a selfie photo of yourself."
-      text_template_fr: "Bienvenue dans la demande de prêt Mudra. Je vais vous aider. Pour commencer, veuillez d'abord prendre une photo selfie de vous-même."
-      text_template_ar: "أهلاً بك في طلب قرض مودة. سأساعدك في تقديم الطلب. للبدء، يرجى أولاً التقاط صورة شخصية لنفسك."
+      text_template: "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?"
+      text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
+      text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
+      text_template_ar: "أهلاً بك في خدمة القروض المصغرة. أنا هنا لمساعدتك في الحصول على القرض المناسب لنشاطك التجاري. هل أنت جاهز للبدء؟"
       targets: [welcome_consent]
       edges:
         - condition: "always"
