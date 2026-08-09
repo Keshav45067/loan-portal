@@ -11,24 +11,38 @@ import copy
 
 # Base template — all business types share this graph structure
 BASE_GRAPH = {
+    "START": {
+        "type": "voice-qa",
+        "text_template": "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?",
+        "text_template_en": "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?",
+        "targets": [],
+        "edges": [{"condition": "always", "next": "DOC_SELFIE"}],
+    },
     "DOC_SELFIE": {
         "type": "capture",
         "document_id": "selfie",
+        "manifest_id": "selfie",
+        "page_id": "selfie",
+        "text_template": "कृपया अपनी एक सेल्फी लें।",
+        "text_template_en": "Please take a selfie photo of yourself.",
         "edges": [{"condition": "always", "next": "DOC_AADHAAR_FRONT"}],
     },
     "DOC_AADHAAR_FRONT": {
         "type": "capture",
         "document_id": "aadhaar_front",
+        "manifest_id": "doc_aadhaar_002",
+        "page_id": "front",
+        "text_template": "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।",
+        "text_template_en": "Please take a photo of the front side of your Aadhaar card.",
         "edges": [{"condition": "always", "next": "DOC_AADHAAR_BACK"}],
     },
     "DOC_AADHAAR_BACK": {
         "type": "capture",
         "document_id": "aadhaar_back",
-        "edges": [{"condition": "always", "next": "START"}],
-    },
-    "START": {
-        "type": "voice-qa",
-        "targets": [],
+        "manifest_id": "doc_aadhaar_002",
+        "page_id": "back",
+        "text_template": "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।",
+        "text_template_en": "Please take a photo of the back side of your Aadhaar card.",
         "edges": [{"condition": "always", "next": "Q_BIZ_TYPE"}],
     },
     "Q_BIZ_TYPE": {

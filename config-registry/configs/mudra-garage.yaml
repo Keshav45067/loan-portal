@@ -81,36 +81,59 @@ documents_required:
   type: bank_statement
 field_instructions:
   co_borrower: INFER as 'Yes' or 'No' ONLY.
-  creditors_amount: Extract as integer in rupees. NO commas, NO decimal. Money owed BY the business to suppliers (payables). If 'koi nahi', value is 0.
+  creditors_amount: Extract as integer in rupees. NO commas, NO decimal. Money owed
+    BY the business to suppliers (payables). If 'koi nahi', value is 0.
   current_emi_lender: INFER the lender name in ENGLISH.
-  current_emi_outstanding: Extract as integer in rupees. If no current loan, value is 0.
-  current_emi_value: Extract as integer in rupees per month. If no current loan, value is 0.
-  current_wages: Extract as integer in rupees per month. NO commas, NO decimal. Total monthly wages paid to all employees. If no paid employees, value is 0.
-  debtors_amount: Extract as integer in rupees. NO commas, NO decimal. Money owed TO the business by customers (receivables). If 'koi nahi', value is 0.
+  current_emi_outstanding: Extract as integer in rupees. If no current loan, value
+    is 0.
+  current_emi_value: Extract as integer in rupees per month. If no current loan, value
+    is 0.
+  current_wages: Extract as integer in rupees per month. NO commas, NO decimal. Total
+    monthly wages paid to all employees. If no paid employees, value is 0.
+  debtors_amount: Extract as integer in rupees. NO commas, NO decimal. Money owed
+    TO the business by customers (receivables). If 'koi nahi', value is 0.
   default_reason: INFER the reason in ENGLISH. If no default, value is empty string.
-  education_level: 'INFER as ONE of: ''No Formal Education'', ''5th'', ''8th'', ''10th'', ''12th'', ''Graduate'', ''Post Graduate''.'
-  existing_business_activity: INFER and summarize the current business activity in ENGLISH.
-  inventory_amount: Extract as integer in rupees. NO commas, NO decimal. Total value of stock/inventory currently held.
-  last_year_monthly_revenue: Extract as integer in rupees per month from previous year. NO commas, NO decimal.
-  machine_cost: Extract as integer in rupees. NO commas, NO decimal. Cost of the machine. If no machine, value is 0.
-  machine_name: 'INFER the machine/equipment name in ENGLISH. Examples: ''fridge lena hai'' -> ''Refrigerator''. If no machine needed, value is ''None''.'
+  education_level: 'INFER as ONE of: ''No Formal Education'', ''5th'', ''8th'', ''10th'',
+    ''12th'', ''Graduate'', ''Post Graduate''.'
+  existing_business_activity: INFER and summarize the current business activity in
+    ENGLISH.
+  inventory_amount: Extract as integer in rupees. NO commas, NO decimal. Total value
+    of stock/inventory currently held.
+  last_year_monthly_revenue: Extract as integer in rupees per month from previous
+    year. NO commas, NO decimal.
+  machine_cost: Extract as integer in rupees. NO commas, NO decimal. Cost of the machine.
+    If no machine, value is 0.
+  machine_name: 'INFER the machine/equipment name in ENGLISH. Examples: ''fridge lena
+    hai'' -> ''Refrigerator''. If no machine needed, value is ''None''.'
   machine_purpose: INFER the purpose in ENGLISH. Be precise and concise.
-  machine_supplier: INFER the supplier name in ENGLISH. If 'local dukaan se' -> 'Local Market'.
+  machine_supplier: INFER the supplier name in ENGLISH. If 'local dukaan se' -> 'Local
+    Market'.
   main_loan_purpose: INFER and summarize the MAIN purpose of the loan in ENGLISH.
   marital_status: 'INFER as ONE of: ''Married'', ''Unmarried'', ''Widow'', ''Widower''.'
-  monthly_profit: Extract as integer in rupees per month. NO commas, NO decimal. Must be less than monthly_revenue.
-  monthly_revenue: Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar' or 'thousand', multiply by 1000.
-  needs_machine: INFER as 'Yes' or 'No'. Whether the user needs to purchase any new machine, equipment, or items.
-  number_of_family_members: INFER the count as integer. Count everyone living together including applicant.
+  monthly_profit: Extract as integer in rupees per month. NO commas, NO decimal. Must
+    be less than monthly_revenue.
+  monthly_revenue: Extract as integer in rupees per month. NO commas, NO decimal.
+    If user says 'lakh', multiply by 100000. If user says 'hazar' or 'thousand', multiply
+    by 1000.
+  needs_machine: INFER as 'Yes' or 'No'. Whether the user needs to purchase any new
+    machine, equipment, or items.
+  number_of_family_members: INFER the count as integer. Count everyone living together
+    including applicant.
   number_of_kids: INFER the count as integer. If none, value is 0.
-  number_of_paid_employees: Extract as integer. Number of employees who receive salary (not family members). If user says 'koi nahi' or 'ghar ke log', value is 0.
-  persons_involved: Extract as integer. Total number of people working including the owner. If user says 'akele' or 'khud', value is 1.
+  number_of_paid_employees: Extract as integer. Number of employees who receive salary
+    (not family members). If user says 'koi nahi' or 'ghar ke log', value is 0.
+  persons_involved: Extract as integer. Total number of people working including the
+    owner. If user says 'akele' or 'khud', value is 1.
   previous_loan_default_flag: INFER as 'Yes' or 'No' ONLY.
-  previous_loan_detail: INFER and summarize loan details in ENGLISH. If no loan, value is 'None'.
+  previous_loan_detail: INFER and summarize loan details in ENGLISH. If no loan, value
+    is 'None'.
   proposed_activity: INFER and summarize the proposed activity/expansion in ENGLISH.
-  proposed_monthly_revenue: Extract as integer in rupees per month. NO commas, NO decimal. Expected revenue AFTER getting loan.
-  proposed_number_of_people: Extract as integer. ADDITIONAL people to be hired after loan (not total). If 'aur kisi ki zarurat nahi', value is 0.
-  proposed_wages: Extract as integer in rupees per month. NO commas, NO decimal. ADDITIONAL wages for new employees after loan. If no new hiring, value is 0.
+  proposed_monthly_revenue: Extract as integer in rupees per month. NO commas, NO
+    decimal. Expected revenue AFTER getting loan.
+  proposed_number_of_people: Extract as integer. ADDITIONAL people to be hired after
+    loan (not total). If 'aur kisi ki zarurat nahi', value is 0.
+  proposed_wages: Extract as integer in rupees per month. NO commas, NO decimal. ADDITIONAL
+    wages for new employees after loan. If no new hiring, value is 0.
   repayment_period: INFER the repayment period as integer (1-5 years).
 financial_rules:
   inventory_multiplier:
@@ -190,7 +213,9 @@ interview_graph:
         next: DOC_COMPANY_ID
       - condition: always
         next: Q_STATUS
-      routing_prompt: Evaluate if the user is doing business or a job/service. Set 'routing_decision' to 'YES' if they are doing business, 'NO' if they are doing a job/service.
+      routing_prompt: Evaluate if the user is doing business or a job/service. Set
+        'routing_decision' to 'YES' if they are doing business, 'NO' if they are doing
+        a job/service.
       targets:
       - employment_type
       text_template: क्या आप कोई व्यापार करते हैं या किसी कंपनी में नौकरी करते हैं?
@@ -209,7 +234,8 @@ interview_graph:
         next: Q_PROPOSED_REV
       targets:
       - creditors_amount
-      text_template: और क्या कोई पैसा ऐसा है, जो आपको देना बाकी है? जैसे आपने माल लिया है और पैसा अभी नहीं दिया?
+      text_template: और क्या कोई पैसा ऐसा है, जो आपको देना बाकी है? जैसे आपने माल
+        लिया है और पैसा अभी नहीं दिया?
       type: voice-qa
     Q_CURRENT_EMI:
       edges:
@@ -243,7 +269,8 @@ interview_graph:
         next: Q_COBORROWER
       targets:
       - education_level
-      text_template: आपने कहाँ तक पढ़ाई की है? काम का हिसाब खुद कर लेते हैं, या किसी और से कराते हैं?
+      text_template: आपने कहाँ तक पढ़ाई की है? काम का हिसाब खुद कर लेते हैं, या किसी
+        और से कराते हैं?
       type: voice-qa
     Q_FAMILY:
       edges:
@@ -261,7 +288,8 @@ interview_graph:
         next: Q_DEBTORS
       targets:
       - inventory_amount
-      text_template: गैराज में अभी जो मशीनें, टूल्स और स्पेयर पार्ट्स हैं, उनकी कुल कीमत लगभग कितनी होगी?
+      text_template: गैराज में अभी जो मशीनें, टूल्स और स्पेयर पार्ट्स हैं, उनकी कुल
+        कीमत लगभग कितनी होगी?
       type: voice-qa
     Q_LAST_YEAR_REV:
       edges:
@@ -269,7 +297,8 @@ interview_graph:
         next: Q_PERSONS_INVOLVED
       targets:
       - last_year_monthly_revenue
-      text_template: अच्छा! पहले, जब काम नया था, तब महीने की कमाई कितनी होती थी? पिछले एक साल में काम कुछ बढ़ा है क्या?
+      text_template: अच्छा! पहले, जब काम नया था, तब महीने की कमाई कितनी होती थी? पिछले
+        एक साल में काम कुछ बढ़ा है क्या?
       type: voice-qa
     Q_MACHINE_DETAILS:
       edges:
@@ -287,7 +316,8 @@ interview_graph:
         next: Q_LAST_YEAR_REV
       targets:
       - monthly_profit
-      text_template: किराया, बिजली, सामान और बाकी खर्च निकालने के बाद, महीने में कितना पैसा बच जाता है?
+      text_template: किराया, बिजली, सामान और बाकी खर्च निकालने के बाद, महीने में कितना
+        पैसा बच जाता है?
       type: voice-qa
     Q_MONTHLY_REV:
       edges:
@@ -303,11 +333,14 @@ interview_graph:
         next: Q_MACHINE_DETAILS
       - condition: always
         next: Q_PRIOR_LOAN
-      routing_prompt: Evaluate if the user needs to purchase any new machine or equipment. Set 'routing_decision' to 'YES' if they need a machine/equipment, 'NO' if not.
+      routing_prompt: Evaluate if the user needs to purchase any new machine or equipment.
+        Set 'routing_decision' to 'YES' if they need a machine/equipment, 'NO' if
+        not.
       targets:
       - needs_machine
       - machine_name
-      text_template: क्या कोई नई मशीन, कार लिफ्ट, डायग्नोस्टिक मशीन या टूल्स लेने का प्लान है?
+      text_template: क्या कोई नई मशीन, कार लिफ्ट, डायग्नोस्टिक मशीन या टूल्स लेने
+        का प्लान है?
       type: voice-qa
     Q_PAID_EMPLOYEES:
       edges:
@@ -315,10 +348,13 @@ interview_graph:
         next: Q_CURRENT_WAGES
       - condition: always
         next: Q_INVENTORY
-      routing_prompt: Evaluate if any workers are paid employees (outsiders). Set 'routing_decision' to 'YES' if they have paid employees, 'NO' if only family members.
+      routing_prompt: Evaluate if any workers are paid employees (outsiders). Set
+        'routing_decision' to 'YES' if they have paid employees, 'NO' if only family
+        members.
       targets:
       - number_of_paid_employees
-      text_template: उनमें से घर के लोग हैं या बाहर के लोग भी हैं, जिन्हें पगार देनी पड़ती है?
+      text_template: उनमें से घर के लोग हैं या बाहर के लोग भी हैं, जिन्हें पगार देनी
+        पड़ती है?
       type: voice-qa
     Q_PERSONS_INVOLVED:
       edges:
@@ -326,7 +362,8 @@ interview_graph:
         next: Q_PAID_EMPLOYEES
       - condition: always
         next: Q_INVENTORY
-      routing_prompt: Evaluate if the user works alone or with others. Set 'routing_decision' to 'YES' if they work with others, 'NO' if they work alone.
+      routing_prompt: Evaluate if the user works alone or with others. Set 'routing_decision'
+        to 'YES' if they work with others, 'NO' if they work alone.
       targets:
       - persons_involved
       text_template: अभी काम पर आपके अलावा और कौन-कौन काम करता है?
@@ -337,12 +374,14 @@ interview_graph:
         next: Q_CURRENT_EMI
       - condition: always
         next: Q_FAMILY
-      routing_prompt: Evaluate if the user has taken any loan before. Set 'routing_decision' to 'YES' if they have a previous loan, 'NO' if not.
+      routing_prompt: Evaluate if the user has taken any loan before. Set 'routing_decision'
+        to 'YES' if they have a previous loan, 'NO' if not.
       targets:
       - previous_loan_detail
       - previous_loan_default_flag
       - default_reason
-      text_template: क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो नहीं हुई? मतलब लोन लिया हो और किश्त ना दी हो या देर से दी हो?
+      text_template: क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो
+        नहीं हुई? मतलब लोन लिया हो और किश्त ना दी हो या देर से दी हो?
       type: voice-qa
     Q_PROPOSED_HIRING:
       edges:
@@ -350,10 +389,12 @@ interview_graph:
         next: Q_PROPOSED_WAGES
       - condition: always
         next: Q_NEED_MACHINES
-      routing_prompt: Evaluate if the user will hire new people after the loan. Set 'routing_decision' to 'YES' if they will hire new people, 'NO' if not.
+      routing_prompt: Evaluate if the user will hire new people after the loan. Set
+        'routing_decision' to 'YES' if they will hire new people, 'NO' if not.
       targets:
       - proposed_number_of_people
-      text_template: कर्ज मिलने के बाद, क्या काम के लिए और आदमी रखने पड़ेंगे, या अभी जैसे चल रहा है वैसे चल जाएगा?
+      text_template: कर्ज मिलने के बाद, क्या काम के लिए और आदमी रखने पड़ेंगे, या अभी
+        जैसे चल रहा है वैसे चल जाएगा?
       type: voice-qa
     Q_PROPOSED_REV:
       edges:
@@ -361,7 +402,8 @@ interview_graph:
         next: Q_PROPOSED_HIRING
       targets:
       - proposed_monthly_revenue
-      text_template: बहुत अच्छा! अब यह जो कर्ज आप लेने वाले हैं, कर्ज मिलने के बाद महीने की कमाई कितनी हो जाएगी, ऐसा आपको क्या लगता है?
+      text_template: बहुत अच्छा! अब यह जो कर्ज आप लेने वाले हैं, कर्ज मिलने के बाद
+        महीने की कमाई कितनी हो जाएगी, ऐसा आपको क्या लगता है?
       type: voice-qa
     Q_PROPOSED_WAGES:
       edges:
@@ -381,12 +423,15 @@ interview_graph:
     START:
       edges:
       - condition: always
-        next: Q_BIZ_TYPE
+        next: DOC_SELFIE
       targets: []
-      text_template: '{name} जी, माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके कार मैकेनिक के काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। आपको जो कर्ज चाहिए, उसे जल्दी
-        दिलाने के लिए मुझे आपसे थोड़ी जानकारी लेनी है। जैसे यह कर्ज किस काम में लगेगा, पैसा कहाँ खर्च होगा, और उससे कमाई कितनी बढ़ेगी। क्या आप बताने के लिए तैयार हैं?'
+      text_template: '{name} जी, माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके कार
+        मैकेनिक के काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात
+        कर रही हूँ। आपको जो कर्ज चाहिए, उसे जल्दी दिलाने के लिए मुझे आपसे थोड़ी जानकारी
+        लेनी है। जैसे यह कर्ज किस काम में लगेगा, पैसा कहाँ खर्च होगा, और उससे कमाई
+        कितनी बढ़ेगी। क्या आप बताने के लिए तैयार हैं?'
       type: voice-qa
-  start_node_id: DOC_SELFIE
+  start_node_id: START
 languages:
 - hi
 - en

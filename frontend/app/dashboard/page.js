@@ -34,17 +34,7 @@ const STAGE_LABELS = {
 };
 
 const DEFAULT_MUDRA_SCHEMES = [
-  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan - Kirana & Grocery', languages: ['hi', 'en'], total_nodes: 12 },
-  { scheme_id: 'mudra-dairy', display_name: 'Mudra Loan - Dairy Farming', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-salon', display_name: 'Mudra Loan - Beauty Salon & Parlour', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-electric', display_name: 'Mudra Loan - Electrical & Electronics Shop', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-furniture', display_name: 'Mudra Loan - Furniture Manufacturing', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-garage', display_name: 'Mudra Loan - Auto Repair & Garage', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-goatry', display_name: 'Mudra Loan - Goatry Business', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-poultry', display_name: 'Mudra Loan - Poultry Farm', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-clothing', display_name: 'Mudra Loan - Garments & Clothing', languages: ['hi', 'en'], total_nodes: 10 },
-  { scheme_id: 'mudra-tailor', display_name: 'Mudra Loan - Tailoring Shop', languages: ['hi', 'en'], total_nodes: 8 },
-  { scheme_id: 'sbi-account-opening', display_name: 'SBI Small Business Account Opening', languages: ['hi', 'en'], total_nodes: 14 },
+  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan Scheme', languages: ['hi', 'en', 'fr', 'ar'], total_nodes: 12 }
 ];
 
 function DashboardContent() {

@@ -278,57 +278,18 @@ def get_scheme_docs(scheme_id: str):
 
 @router.get("/api/schemes")
 async def list_all_schemes(request: Request):
-    """List all available loan schemes dynamically from Config Registry with YAML fallback."""
-    req_id = getattr(request.state, 'req_id', 'scheme-req') if request else 'scheme-req'
-    schemes = []
-    try:
-        from grpc_clients.generated import config_registry_pb2
-        stub = request.app.state.config_registry_stub
-        res = await stub.ListSchemes(
-            config_registry_pb2.ListSchemesRequest(),
-            metadata=[("x-request-id", req_id)]
-        )
-        for s in res.schemes:
-            if s.scheme_id == "base-mudra":
-                continue
-            schemes.append({
-                "scheme_id": s.scheme_id,
-                "display_name": s.display_name,
-                "languages": list(s.languages),
-                "total_nodes": s.total_nodes
-            })
-    except Exception as e:
-        logger.warning(f"ListSchemes gRPC call failed, using file fallback: {e}", req_id=req_id)
-
-    # Fallback to loading YAML files if gRPC returned empty
-    if not schemes:
-        try:
-            import yaml
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            configs_dir = os.path.abspath(os.path.join(current_dir, "..", "..", "config-registry", "configs"))
-            if os.path.exists(configs_dir):
-                for fname in os.listdir(configs_dir):
-                    if fname.endswith(".yaml") and fname != "base-mudra.yaml":
-                        try:
-                            with open(os.path.join(configs_dir, fname), "r", encoding="utf-8") as f:
-                                cfg = yaml.safe_load(f)
-                            sid = cfg.get("scheme_id")
-                            if sid and sid != "base-mudra":
-                                dname = cfg.get("display_name") or sid.replace("mudra-", "").replace("-", " ").title()
-                                langs = cfg.get("languages") or ["hi", "en"]
-                                total_nodes = len(cfg.get("interview_graph", {}).get("nodes", {}))
-                                schemes.append({
-                                    "scheme_id": sid,
-                                    "display_name": dname,
-                                    "languages": langs,
-                                    "total_nodes": total_nodes
-                                })
-                        except Exception:
-                            pass
-        except Exception as file_err:
-            logger.error(f"Failed to read scheme configs fallback: {file_err}")
-
-    return {"success": True, "schemes": schemes}
+    """List primary Mudra loan scheme."""
+    return {
+        "success": True,
+        "schemes": [
+            {
+                "scheme_id": "mudra-grocery",
+                "display_name": "Mudra Loan Scheme",
+                "languages": ["hi", "en", "fr", "ar"],
+                "total_nodes": 12
+            }
+        ]
+    }
 
 
 @router.post("/api/capture/process")
