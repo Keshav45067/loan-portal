@@ -22,6 +22,18 @@ export class AudioProcessor {
     this.onSpeechEnd = options.onSpeechEnd || (() => {});
     this.onVolumeLevel = options.onVolumeLevel || (() => {});
 
+    // Dynamic VAD options (with fallback defaults)
+    this.positiveSpeechThreshold = options.positiveSpeechThreshold ?? 0.50;
+    this.negativeSpeechThreshold = options.negativeSpeechThreshold ?? 0.25;
+    this.minSpeechFrames = options.minSpeechFrames ?? 2;
+    this.preSpeechPadFrames = options.preSpeechPadFrames ?? 14;
+    this.redemptionFrames = options.redemptionFrames ?? 8;
+    this.additionalAudioConstraints = options.additionalAudioConstraints || {
+      echoCancellation: true,
+      noiseSuppression: false,
+      autoGainControl: true,
+    };
+
     this.vadInstance = null;
     this.isRecording = false;
     this._isSpeaking = false;
@@ -72,16 +84,12 @@ export class AudioProcessor {
       this.vadInstance = await window.vad.MicVAD.new({
         workletURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js",
         modelURL: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx",
-        positiveSpeechThreshold: 0.50, // Sensitive activation threshold for short words ("haa"/"no")
-        negativeSpeechThreshold: 0.25, // Hangover de-activation threshold
-        minSpeechFrames: 2,           // 64ms verification to catch fast short speech while ignoring clicks
-        preSpeechPadFrames: 14,        // ~448ms pre-speech audio buffer padding
-        redemptionFrames: 8,           // ~256ms hangover silence before speech_end
-        additionalAudioConstraints: {
-          echoCancellation: true,
-          noiseSuppression: false,     // Disabled: Browser noiseSuppression flattens/suppresses fast short speech like "haa" before VAD sees it
-          autoGainControl: true,       // Auto Gain Control amplifies soft "Haa" into VAD range
-        },
+        positiveSpeechThreshold: this.positiveSpeechThreshold,
+        negativeSpeechThreshold: this.negativeSpeechThreshold,
+        minSpeechFrames: this.minSpeechFrames,
+        preSpeechPadFrames: this.preSpeechPadFrames,
+        redemptionFrames: this.redemptionFrames,
+        additionalAudioConstraints: this.additionalAudioConstraints,
 
         onSpeechStart: () => {
           console.log('[VAD] Speech started');
@@ -101,7 +109,7 @@ export class AudioProcessor {
           if (this.isRecording) {
             // Flush any remaining audio in the buffer
             this._flushBuffer();
-            this.onSpeechEnd();
+            this.onSpeechEnd(audio);
           }
         },
 

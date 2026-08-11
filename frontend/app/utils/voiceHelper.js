@@ -184,7 +184,7 @@ export class VoiceSessionManager {
     this._inCaptureMode = false; // True when in document capture mode (suppress VAD)
     this.pendingComplete = null;
     this._waitingForCaptureTransition = false; // Flag to defer capture node advancement until success audio plays
-    this.isFirstQuestion = true; // Tracks if this is the very first question of the session
+    this.vadOptions = options.vadOptions || {};
   }
 
   async connect() {
@@ -215,6 +215,7 @@ export class VoiceSessionManager {
       // ─── Step 2: Initialize AudioProcessor ───
       this.audioProcessor = new AudioProcessor({
         sampleRate: 16000,
+        ...this.vadOptions,
 
         onAudioChunk: (chunk) => {
           if (this.isRecording && !this._disconnected && !this.isPlayingAudio && this.audioQueue.length === 0 && !this.isProcessing) {
@@ -231,7 +232,7 @@ export class VoiceSessionManager {
           this.onStateChange('listening');
         },
 
-        onSpeechEnd: () => {
+        onSpeechEnd: (audio) => {
           if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.audioQueue.length > 0 || this.isProcessing || this._inCaptureMode) return;
 
           this.tSpeechEnd = performance.now();
@@ -239,10 +240,15 @@ export class VoiceSessionManager {
           this.ws?.send(JSON.stringify({ signal: 'speech_end' }));
           this.isProcessing = true;
           this.onStateChange('processing');
+          if (typeof this.onSpeechEndCallback === 'function') {
+            this.onSpeechEndCallback(audio);
+          }
         },
 
         onVolumeLevel: (level) => {
-          // Can be used for visualizer later if needed
+          if (typeof this.onVolumeLevelCallback === 'function') {
+            this.onVolumeLevelCallback(level);
+          }
         }
       });
 
