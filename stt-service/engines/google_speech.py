@@ -72,12 +72,21 @@ class GoogleSpeechEngine(BaseSTTEngine):
             boost_val = 4.0
             padded_audio_data = audio_data
 
-        phrases = [
-            "हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही",
-            "हजार", "हज़ार", "हजारों", "एक हजार", "दस हजार", "पंद्रह हजार", "बीस हजार",
-            "लाख", "दो लाख", "करोड़", "दसवीं", "किराना", "दुकान", "फ्रीज", "फ्रिज",
-            "yes", "yeah", "ha", "haa", "haan", "ji", "no", "okay"
-        ]
+        if lang_code == "hi-IN":
+            phrases = [
+                "हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही",
+                "हजार", "हज़ार", "हजारों", "एक हजार", "दस हजार", "पंद्रह हजार", "बीस हजार",
+                "लाख", "दो लाख", "करोड़", "दसवीं", "किराना", "दुकान", "फ्रीज", "फ्रिज",
+                "अकेली", "अकेला", "शादी", "नहीं हुई", "हफ्ता", "किस्त"
+            ]
+        elif lang_code == "mr-IN":
+            phrases = [
+                "होय", "हो", "नाही", "ओके", "हजार", "लाख", "कोटी", "एकट्या", "एकटा",
+                "लग्न", "झाले नाही", "हप्ता", "दुकान"
+            ]
+        else:
+            phrases = ["yes", "no", "yeah", "okay", "thousand", "lakh", "married", "single"]
+
         speech_context = speech.SpeechContext(phrases=phrases, boost=boost_val)
 
         recognition_config = speech.RecognitionConfig(
@@ -132,12 +141,21 @@ class GoogleSpeechEngine(BaseSTTEngine):
         req_id = get_req_id()
         lang_code = self._get_language_code(language)
 
-        phrases = [
-            "हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही",
-            "हजार", "हज़ार", "हजारों", "एक हजार", "दस हजार", "पंद्रह हजार", "बीस हजार",
-            "लाख", "दो लाख", "करोड़", "दसवीं", "किराना", "दुकान", "फ्रीज", "फ्रिज",
-            "yes", "yeah", "ha", "haa", "haan", "ji", "no", "okay"
-        ]
+        if lang_code == "hi-IN":
+            phrases = [
+                "हाँ", "हां", "जी", "हा", "हं", "ना", "नहीं", "ठीक है", "सही",
+                "हजार", "हज़ार", "हजारों", "एक हजार", "दस हजार", "पंद्रह हजार", "बीस हजार",
+                "लाख", "दो लाख", "करोड़", "दसवीं", "किराना", "दुकान", "फ्रीज", "फ्रिज",
+                "अकेली", "अकेला", "शादी", "नहीं हुई", "हफ्ता", "किस्त"
+            ]
+        elif lang_code == "mr-IN":
+            phrases = [
+                "होय", "हो", "नाही", "ओके", "हजार", "लाख", "कोटी", "एकट्या", "एकटा",
+                "लग्न", "झाले नाही", "हप्ता", "दुकान"
+            ]
+        else:
+            phrases = ["yes", "no", "yeah", "okay", "thousand", "lakh", "married", "single"]
+
         speech_context = speech.SpeechContext(phrases=phrases, boost=20.0)
 
         model_name = "latest_short" if lang_code in ("hi-IN", "en-IN", "en-US") else "default"
