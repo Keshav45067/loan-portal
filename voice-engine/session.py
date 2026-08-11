@@ -1186,65 +1186,63 @@ class VoiceSession:
             "hi": {
                 "lang_name": "Hindi",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
-                    "1) Start with a warm, expressive reaction using natural, friendly Hindi filler words and punctuation "
-                    "(e.g., 'अरे वाह!', 'अच्छा जी, समझ गई...', 'हम्म!', 'जी बिल्कुल!', 'अरे कोई बात नहीं!', 'अच्छा अच्छा...'). Write them in Hindi script only. "
-                    "2) Use punctuation strategically: Use exclamation marks ('!') for excitement/warmth, ellipses ('...') for natural thinking pauses, and em-dashes ('—') for breath gaps. "
-                    "3) Speak like a helpful, caring friend—never like a stiff, formal officer. Use warm, soft language (e.g., 'आप बस इतना बता दीजिए...', 'अरे चिंता मत कीजिए...'). "
-                    "4) If the user asked a question, answer it sweetly and directly. "
-                    "5) Ask your followup question in a casual, friendly tone to get the required info.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS. Extend to max 25-30 words ONLY in extreme cases where a detailed explanation is strictly required.\n"
+                    "2) FILLER DIVERSITY & ANTI-REPETITION: Start with a brief, natural reaction in Hindi. DO NOT repeat fixed catchphrases like 'अच्छा जी, समझ गई!' or 'अरे वाह!' on every turn. Alternate naturally between diverse short reactions (e.g. 'अरे!', 'जी बिल्कुल...', 'हम्म!', 'समझ गई!', 'अच्छा अच्छा...', 'कोई बात नहीं!', 'जी ठीक है!').\n"
+                    "3) TTS NUMBER FORMATTING: For monetary/quantized amounts, write them in words using the Indian Numbering System (e.g., '1 हजार रुपये', '15 हजार रुपये', '20 हजार रुपये', '2 लाख रुपये'). NEVER write raw digits like '1000' or '15000' for money as TTS reads them digit-by-digit ('एक शून्य शून्य'). For non-quantized numbers (phone numbers, Aadhaar, IDs), write spaced digits (e.g., '9 8 7 6 5 4 3 2 1 0').\n"
+                    "4) If the user asked a question, answer it sweetly and directly.\n"
+                    "5) Ask your followup question in a casual, friendly tone.\n"
                 )
             },
             "en": {
                 "lang_name": "English",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
-                    "1) Start with a warm, expressive reaction using natural conversational fillers and punctuation "
-                    "(e.g., 'Oh, got it!', 'Ah, I see...', 'No worries at all!', 'Oh awesome!', 'Hmm, alright...'). "
-                    "2) Use punctuation strategically: Use exclamation marks ('!') for warmth, ellipses ('...') for natural thinking pauses, and em-dashes ('—') for breath gaps. "
-                    "3) Speak like an empathetic, friendly companion—not a rigid corporate officer. Use soft, encouraging phrases (e.g. 'Could you just tell me...', 'Take your time...'). "
-                    "4) If the user asked a question, answer it sweetly and directly. "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS. Extend to max 25-30 words ONLY in extreme cases where a detailed explanation is strictly required.\n"
+                    "2) FILLER DIVERSITY: Vary your opening reaction phrases (e.g. 'Oh, got it!', 'Ah, I see...', 'No worries!', 'Hmm, alright...', 'Sure thing!'). Do NOT repeat the same filler phrase.\n"
+                    "3) TTS NUMBER FORMATTING: For monetary/quantized amounts, write them in words using the International System (e.g., '1 thousand rupees', '15 thousand', '20 thousand'). For non-quantized numbers (phone numbers, IDs), write space-separated digits.\n"
+                    "4) If the user asked a question, answer it directly.\n"
                     "5) Ask your followup question in a casual, friendly tone.\n"
                 )
             },
             "fr": {
                 "lang_name": "French",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
-                    "1) Start with a warm, expressive reaction in French using natural fillers and punctuation (e.g., 'Ah, super !', 'D\\'accord, je vois...', 'Pas de soucis du tout !'). "
-                    "2) Use punctuation strategically: Use exclamation marks ('!') for warmth and ellipses ('...') for thinking pauses. "
-                    "3) Speak like a warm, supportive assistant. "
-                    "4) If the user asked a question, answer it warmly and directly. "
-                    "5) Ask your followup question in a casual, friendly tone in French.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS. Extend to max 25-30 words ONLY if strictly necessary.\n"
+                    "2) FILLER DIVERSITY: Vary your opening fillers in French (e.g. 'Ah, super !', 'D\\'accord, je vois...', 'Pas de souci !').\n"
+                    "3) TTS NUMBER FORMATTING: Write monetary amounts in words using the International System. Write IDs and phones as spaced digits.\n"
+                    "4) Ask your followup in a casual, friendly tone in French.\n"
                 )
             },
             "ar": {
                 "lang_name": "Arabic",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm reaction using Arabic filler words (e.g. 'آه تمام!', 'حسناً يا غالي', 'يا سلام!'). "
-                    "End acknowledgment with '.' or '،'. "
-                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS. Extend to max 25-30 words ONLY if strictly necessary.\n"
+                    "2) FILLER DIVERSITY: Vary your opening fillers in Arabic (e.g. 'آه تمام!', 'حسناً يا غالي', 'فهمت عليك!').\n"
+                    "3) TTS NUMBER FORMATTING: Write monetary amounts in words using the International System. Write IDs and phones as spaced digits.\n"
+                    "4) Ask your followup in a casual, friendly tone in Arabic.\n"
                 )
             },
             "mr": {
                 "lang_name": "Marathi",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, expressive, warm, and natural. "
-                    "1) Start with a warm, expressive reaction using natural, friendly Marathi filler words and punctuation "
-                    "(e.g., 'अरे वा!', 'हो नक्कीच...', 'छान!', 'हम्म, समजलं!', 'काही हरकत नाही!'). Write them in Marathi script only. "
-                    "2) Speak like a helpful, caring friend—never like a stiff, formal officer. "
-                    "3) Answer user questions sweetly and directly. "
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS. Extend to max 25-30 words ONLY in extreme cases where a detailed explanation is strictly required.\n"
+                    "2) FILLER DIVERSITY & ANTI-REPETITION: Start with a brief, natural reaction in Marathi. Alternate naturally between diverse short reactions (e.g. 'अरे वा!', 'हो नक्कीच...', 'छान!', 'हम्म, समजलं!', 'काही हरकत नाही!'). Write in Marathi script only.\n"
+                    "3) TTS NUMBER FORMATTING: Write all monetary/quantized amounts in words using the Indian Numbering System (e.g., '1 हजार रुपये', '15 हजार रुपये', '20 हजार रुपये', '2 लाख रुपये'). NEVER write raw digits like '1000' or '15000' for money. For non-quantized numbers (phones, IDs), write spaced digits.\n"
                     "4) Ask your followup question in a casual, friendly tone in Marathi.\n"
                 )
             },
             "te": {
                 "lang_name": "Telugu",
                 "filler": (
-                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and natural. "
-                    "1) Start with a warm reaction using Telugu filler words (e.g., 'అవునా!', 'సరేనండి, అర్థమైంది!', 'చాలా బాగుంది!'). "
-                    "End acknowledgment with '.' or ','. "
-                    "2) Answer user questions sweetly and warmly. 3) Ask followup in a casual, friendly tone.\n"
+                    "CRITICAL: If 'is_followup' is true, your 'followup_question' MUST be highly conversational, warm, and extremely concise.\n"
+                    "1) STRICT LENGTH CONSTRAINT: Keep your entire response UNDER 20 WORDS.\n"
+                    "2) FILLER DIVERSITY: Vary opening fillers in Telugu (e.g., 'అవునా!', 'సరేనండి, అర్థమైంది!', 'చాలా బాగుంది!').\n"
+                    "3) TTS NUMBER FORMATTING: Write monetary amounts in words. Write IDs as spaced digits.\n"
+                    "4) Ask your followup in a casual, friendly tone.\n"
                 )
             },
         }

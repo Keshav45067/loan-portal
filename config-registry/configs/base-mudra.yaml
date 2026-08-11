@@ -609,6 +609,8 @@ interview_graph:
       text_template_fr: "{name}, qui vit avec vous dans votre famille ?"
       text_template_ar: "يا سيد {name}، من يعيش معك في المنزل من أفراد عائلتك؟"
       targets: [number_of_family_members, marital_status, number_of_kids]
+      inactivity_policy:
+        nudge_guideline: "If user states they live alone (अकेला/अकेली), accept it immediately as size 1. Do NOT ask if parents or spouse live with them. Do NOT probe for siblings if user says they live with parents."
       edges:
         - condition: "always"
           next: "Q_EDUCATION"
@@ -679,7 +681,7 @@ context_map:
   Q_MACHINE_DETAILS: [Q_NEED_MACHINES]
   Q_PREVIOUS_LOAN: []
   Q_CURRENT_EMI: []
-  Q_FAMILY: []
+  Q_FAMILY: [Q_IS_MARRIED]
   Q_EDUCATION: []
   Q_COBORROWER: [Q_FAMILY, Q_PERSONS_INVOLVED]
 
@@ -688,8 +690,8 @@ field_instructions:
   name_confirmation: "INFER as 'Yes' or 'No' or correct name if provided."
   business_purpose: "INFER the business name or type of business activity in English."
   is_married: "INFER as 'Yes' or 'No' based on marital status."
-  monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar' or 'thousand', multiply by 1000."
-  monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. Must be less than monthly_revenue."
+  monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
+  monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."
   last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
   persons_involved: "Extract as integer. Total number of people working including the owner. If user says 'akele' or 'khud', value is 1."
   number_of_paid_employees: "Extract as integer. Number of employees who receive salary (not family members). If user says 'koi nahi' or 'ghar ke log', value is 0."
