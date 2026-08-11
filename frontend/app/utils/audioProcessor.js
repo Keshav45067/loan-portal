@@ -23,7 +23,7 @@ export class AudioProcessor {
     this.onVolumeLevel = options.onVolumeLevel || (() => {});
 
     // Dynamic VAD options (with fallback defaults)
-    this.positiveSpeechThreshold = options.positiveSpeechThreshold ?? 0.75;
+    this.positiveSpeechThreshold = options.positiveSpeechThreshold ?? 0.90;
     this.negativeSpeechThreshold = options.negativeSpeechThreshold ?? 0.25;
     this.minSpeechFrames = options.minSpeechFrames ?? 2;
     this.preSpeechPadFrames = options.preSpeechPadFrames ?? 14;

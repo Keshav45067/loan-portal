@@ -289,6 +289,7 @@ function InterviewContent() {
   const [textInputValue, setTextInputValue] = useState('');
   const voiceSessionRef = useRef(null);
   const prevQaStateRef = useRef('');
+  const qaStateRef = useRef('idle');
 
   // Document Uploads State
   const [docs, setDocs] = useState({});
@@ -703,6 +704,7 @@ function InterviewContent() {
         onStateChange: (state) => {
           console.log('[DEBUG Frontend] onStateChange:', state);
           setQaState(state);
+          qaStateRef.current = state;
 
           const prev = prevQaStateRef.current;
           prevQaStateRef.current = state;
@@ -721,7 +723,10 @@ function InterviewContent() {
         },
         onTranscript: (text, isFinal) => {
           console.log('[DEBUG Frontend] onTranscript:', text, 'isFinal:', isFinal);
-          setTranscript(text);
+          // Only show transcriptions when AI is speaking (suppress user STT transcript from replacing AI subtitle)
+          if (qaStateRef.current === 'speaking') {
+            setTranscript(text);
+          }
         },
         onProgress: (step, total, nodeId) => {
           console.log('[DEBUG Frontend] onProgress: step =', step, 'total =', total, 'nodeId =', nodeId);
