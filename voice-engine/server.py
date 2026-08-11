@@ -291,6 +291,14 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
                         status=pb2.StatusUpdate(status="connected")
                     )
 
+                    # If STT Sandbox mode, skip initial interview question TTS and set status to listening
+                    if start.scheme_id in ("stt-sandbox", "stt_only") or "stt" in start.scheme_id:
+                        logger.info("STT Sandbox session started. Skipping initial interview question audio.", session_id=session_id)
+                        yield pb2.VoiceOutput(
+                            status=pb2.StatusUpdate(status="listening")
+                        )
+                        continue
+
                     # Start interview — speak first question
                     first_node = await session.start()
                     yield pb2.VoiceOutput(
@@ -636,6 +644,22 @@ class VoiceConversationServicer(pb2_grpc.VoiceConversationServicer):
 
                         # Valid user transcript arrived — clear deadline completely before turn streaming
                         clear_inactivity_timer()
+
+                        # Yield final transcription update to Gateway/Frontend
+                        yield pb2.VoiceOutput(
+                            transcription=pb2.TranscriptionUpdate(
+                                text=transcribed,
+                                is_final=True
+                            )
+                        )
+
+                        # If STT Sandbox mode, skip graph walker & LLM/TTS turn processing
+                        if session and session.scheme_id and (session.scheme_id in ("stt-sandbox", "stt_only") or "stt" in session.scheme_id):
+                            logger.info("STT Sandbox active: Skipping interview turn processing & LLM/TTS generation", session_id=session_id)
+                            yield pb2.VoiceOutput(
+                                status=pb2.StatusUpdate(status="listening")
+                            )
+                            continue
 
                         # Process the turn with streaming pipeline
                         first_audio_yielded = False

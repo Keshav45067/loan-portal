@@ -116,9 +116,9 @@ export default function STTSandboxPage() {
       token,
       sessionId,
       applicationId: sessionId,
-      schemeId: 'mudra-grocery',
+      schemeId: 'stt-sandbox',
       language: sttLanguage,
-      wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/voice?token=${token}&session_id=${sessionId}`,
+      wsUrl: `${WS_BASE_URL.replace('http', 'ws')}/ws/voice?token=${token}&session_id=${sessionId}&scheme_id=stt-sandbox`,
 
       vadOptions: {
         positiveSpeechThreshold,
