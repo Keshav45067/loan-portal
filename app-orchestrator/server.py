@@ -277,16 +277,16 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
         if "business_type" not in all_fields:
             all_fields["business_type"] = all_fields.get("type_of_business") or "other"
 
-        # If mudra, run general financial calculations
-        if is_mudra_scheme:
-            logger.info("Running Mudra financial calculations in background", session_id=session_id)
-            from calculations import calculate_derived_fields
-            try:
-                derived = calculate_derived_fields(all_fields)
+        # Run derived financial/business calculations dynamically using scheme config if present
+        config = load_resolved_scheme_config(scheme_id)
+        from calculations import calculate_derived_fields
+        try:
+            derived = calculate_derived_fields(all_fields, scheme_config=config)
+            if derived:
                 all_fields.update(derived)
-                logger.info(f"Mudra financial calculations complete. Derived keys: {list(derived.keys())}")
-            except Exception as calc_err:
-                logger.error(f"Failed to run Mudra financial calculations: {calc_err}", exc_info=True)
+                logger.info(f"Derived calculations complete for scheme '{scheme_id}'. Derived keys: {list(derived.keys())}")
+        except Exception as calc_err:
+            logger.error(f"Failed to run derived calculations: {calc_err}", exc_info=True)
 
         # Sync all fields to mudra_user_data dynamically
         if valid_cols:
@@ -1130,8 +1130,9 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             mapped_fields[mapped_k] = v
                         all_fields.update(mapped_fields)
                         
-                        derived = calculate_derived_fields(all_fields)
-                        all_fields.update(derived)
+                        derived = calculate_derived_fields(all_fields, scheme_config=config)
+                        if derived:
+                            all_fields.update(derived)
                         
                         for k, v in all_fields.items():
                             data[k] = v

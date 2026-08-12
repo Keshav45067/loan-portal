@@ -996,3 +996,61 @@ post_processing_pipelines:
     output_mapping:
       creditworthiness_score: "credit_worthiness"
       reason: "credit_reason"
+
+# ─── Declarative Derived Fields Calculation Engine ───
+derived_fields:
+  experience_in_line_of_activity: "years_since(date_of_commencement, default=1)"
+
+  net_sales_present_year: "round_to((monthly_revenue or 0) * 12, 500)"
+
+  clamped_proposed_rev: "clamp_growth(proposed_monthly_revenue or 0, monthly_revenue or 0, 1.1, 1.2)"
+  net_sales_next_year: "round_to(clamped_proposed_rev * 12, 500)"
+  proposed_monthly_revenue: "clamped_proposed_rev"
+
+  adjusted_last_year_monthly_rev: "clamp_growth_inverse(monthly_revenue or 0, last_year_monthly_revenue or 0, 1.05, 1.15, 0.85, 0.95)"
+  net_sales_past_year_1: "round_to(adjusted_last_year_monthly_rev * 12, 500)"
+  net_sales_past_year_2: "round_to(random_range(0.85, 0.95) * adjusted_last_year_monthly_rev * 12, 500)"
+
+  profit_margin: "clamp_range((monthly_profit or 0) / (monthly_revenue or 1), 0.40, 0.60, default=0.5)"
+  net_profit_present_year: "round_to(profit_margin * (monthly_revenue or 0) * 12, 500)"
+  net_profit_past_year_1: "round_to(profit_margin * adjusted_last_year_monthly_rev * 12, 500)"
+  net_profit_past_year_2: "round_to(profit_margin * random_range(0.85, 0.95) * adjusted_last_year_monthly_rev * 12, 500)"
+  net_profit_next_year: "round_to(profit_margin * clamped_proposed_rev * 12, 500)"
+
+  number_of_persons_involved_currently: "int(persons_involved or 1)"
+  proposed_number_of_persons_involved: "int(persons_involved or 1) + int(proposed_number_of_people or 0)"
+  current_total_wages: "if_zero(persons_involved or 1, 'no person involved', round_to((current_wages or 0) * 12, 500))"
+  proposed_total_wages: "if_zero(int(persons_involved or 1) + int(proposed_number_of_people or 0), 'no person involved', round_to(12 * ((proposed_wages or 0) + (current_wages or 0)), 500))"
+
+  working_cycle_months: "match_keyword(business_type, {'grocery': 1, 'stationary': 1, 'clothing': 1, 'poultry': 2, 'tailor': 2, 'electric': 2, 'goatry': 8, 'goatory': 8, 'dairy': 6}, default=2)"
+
+  inventory: "round_to(calc_inventory(calculated_inventory or inventory or 0, inventory_amount or 0, clamped_proposed_rev, monthly_revenue or 0), 500)"
+  debtors: "round_to(debtors_amount or debtors or 0, 500)"
+  creditors: "round_to(creditors_amount or creditors or 0, 500)"
+
+  working_gap: "inventory + debtors - creditors"
+  promoters_contribution_in_working_capital: "round_to(working_gap * 0.25, 500)"
+  limits: "round_to(working_gap - promoters_contribution_in_working_capital, 500)"
+  cash_credit_amount: "round_to(working_gap, 500)"
+  cash_credit_purpose: "'Inventory Management'"
+
+  term_loan_required: "if_gt(machine_cost or approximate_cost or 0, 0, round_to((machine_cost or approximate_cost or 0) * 0.90, 500), 0)"
+  promotors_contribution_in_term_loan: "if_gt(machine_cost or approximate_cost or 0, 0, round_to((machine_cost or approximate_cost or 0) * 0.25, 500), 0)"
+  term_loan_purpose: "if_gt(machine_cost or approximate_cost or 0, 0, 'for buying ' + (machine_name or type_of_machine_equipment or 'machine'), 'not applicable as no machine purchase')"
+  type_of_machine_equipment: "if_gt(machine_cost or approximate_cost or 0, 0, (machine_name or type_of_machine_equipment or 'machine'), 'No Machine purchase')"
+  purpose: "if_gt(machine_cost or approximate_cost or 0, 0, (machine_purpose or purpose or 'machine purchase'), 'not applicable as no machine purchase')"
+  name_of_supplier: "if_gt(machine_cost or approximate_cost or 0, 0, (machine_supplier or name_of_supplier or 'local supplier'), 'not applicable as no machine purchase')"
+  approximate_cost: "round_to(machine_cost or approximate_cost or 0, 500)"
+  repayment_period_requested_for: "'5'"
+  morotorium_period: "'Not Needed'"
+
+  total_loan_required_amount: "round_to(min_non_zero(term_loan_required + cash_credit_amount, loan_required or loan_amount or 0), 500)"
+
+  co_borrower: "if_truthy(co_borrower, 'Coborrower is present and the corresponding relevant documents are in place', 'Coborrower is not present')"
+
+  shade_location: "if_match(business_type, ['goatory', 'poultry', 'dairy', 'goatry'], shade_location or 'NA', 'NA')"
+  shade_owned_or_rented: "if_match(business_type, ['goatory', 'poultry', 'dairy', 'goatry'], shade_owned_or_rented or 'NA', 'NA')"
+
+  constitution: "'Proprietary'"
+  unit_is_registered: "'Yes'"
+  skill_certified: "'yes (Self Trained)'"
