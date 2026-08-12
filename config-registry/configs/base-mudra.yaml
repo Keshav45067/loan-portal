@@ -281,10 +281,38 @@ interview_graph:
       text_template_en: "Great, and for which business would you like the micro-loan?"
       text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous ce micro-crédit ?"
       text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على القرض المصغر لأجله؟"
-      targets: [business_purpose]
+      targets: [business_purpose, business_type]
       inactivity_policy:
         timeout_seconds: 3.0
         nudge_guideline: "Ask if they need help describing their business activity."
+      edges:
+        - condition: "business_type in ['dairy', 'goatry', 'poultry', 'goatory']"
+          next: "Q_HAVE_SHADE"
+        - condition: "always"
+          next: "Q_IS_MARRIED"
+
+    Q_HAVE_SHADE:
+      type: "voice-qa"
+      text_template: "क्या पशुओं या पक्षियों के रखने के लिए आपके पास शेड या अहाता उपलब्ध है?"
+      text_template_mr: "जनावरांना/पक्ष्यांना ठेवण्यासाठी तुमच्याकडे शेड किंवा जागा उपलब्ध आहे का?"
+      text_template_en: "Do you have a shade/shelter available for keeping livestock or poultry?"
+      targets: [have_shade]
+      inactivity_policy:
+        timeout_seconds: 3.0
+      edges:
+        - condition: "have_shade == 'YES'"
+          next: "Q_SHADE_DETAILS"
+        - condition: "always"
+          next: "Q_IS_MARRIED"
+
+    Q_SHADE_DETAILS:
+      type: "voice-qa"
+      text_template: "यह शेड आपकी अपनी जगह पर है या किराए पर लिया गया है, और यह कहाँ स्थित है?"
+      text_template_mr: "हा शेड तुमच्या मालकीचा आहे की भाड्याचा आहे, आणि तो कुठे आहे?"
+      text_template_en: "Is this shade owned or rented, and where is it located?"
+      targets: [shade_owned_or_rented, shade_location]
+      inactivity_policy:
+        timeout_seconds: 3.0
       edges:
         - condition: "always"
           next: "Q_IS_MARRIED"
@@ -687,6 +715,7 @@ context_map:
 field_instructions:
   name_confirmation: "INFER as 'Yes' or 'No' or correct name if provided."
   business_purpose: "INFER the business name or type of business activity in English."
+  business_type: "Deduce the canonical business type from the user's response as one of: 'dairy', 'grocery', 'salon', 'tailor', 'electrician', 'goatry', 'poultry', 'furniture', 'garage', 'csc', 'clothing', or 'other'. Examples: 'दूध का काम' -> 'dairy', 'किराना दुकान' -> 'grocery', 'सिलाई कढ़ाई' -> 'tailor', 'नाई/ब्यूटी पार्लर' -> 'salon', 'बिजली का काम' -> 'electrician', 'बकरी पालन' -> 'goatry', 'मुर्गी पालन' -> 'poultry', 'फर्नीचर बनाना' -> 'furniture', 'गाड़ी मरम्मत/गैरेज' -> 'garage', 'सीएससी जन सेवा केंद्र' -> 'csc', 'कपड़े की दुकान' -> 'clothing'."
   is_married: "INFER as 'Yes' or 'No' based on marital status."
   monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
   monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."

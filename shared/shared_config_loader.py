@@ -18,7 +18,7 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
     if not scheme_id:
         return {}
 
-    if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b':
+    if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' or scheme_id.startswith('mudra'):
         scheme_id = 'base-mudra'
 
     config_dir = os.getenv(

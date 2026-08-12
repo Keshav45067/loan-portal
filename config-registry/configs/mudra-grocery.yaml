@@ -1,8 +1,0 @@
-# ================================================================
-# Mudra Loan — Grocery (Kirana) Scheme Configuration
-# ================================================================
-extends: base-mudra
-scheme_id: mudra-grocery
-display_name: "Mudra Loan - Grocery (Kirana)"
-
-# Inherits everything from base-mudra

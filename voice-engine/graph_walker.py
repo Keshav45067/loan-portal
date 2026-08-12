@@ -508,7 +508,16 @@ class GraphWalker:
 
             # Evaluate condition expression
             try:
-                if "==" in condition:
+                if " in " in condition:
+                    parts = condition.split(" in ")
+                    key = parts[0].strip()
+                    raw_list = parts[1].strip()
+                    clean_str = raw_list.strip("[]()").replace("'", "").replace('"', '')
+                    candidates = [c.strip().upper() for c in clean_str.split(",") if c.strip()]
+                    actual = str(state.get(key, "")).strip().upper()
+                    if actual in candidates:
+                        return next_id
+                elif "==" in condition:
                     parts = condition.split("==")
                     key = parts[0].strip()
                     expected = parts[1].strip().strip("'\"")
