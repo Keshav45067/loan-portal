@@ -1316,13 +1316,25 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             created_at = CURRENT_TIMESTAMP;
                     """, (request.session_id, request.key, latitude, longitude, address))
 
-                    # Insert mapping in docs_test as well
-                    doc_id = str(uuid.uuid4())
+                    # Upsert mapping in docs_test as well
                     cur.execute(
-                        """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
-                           VALUES (%s, %s, %s, %s, NOW(), NOW())""",
-                        (doc_id, request.key, request.session_id, doc_name)
+                        "SELECT id FROM docs_test WHERE user_id = %s AND name = %s",
+                        (request.session_id, doc_name)
                     )
+                    if cur.fetchone():
+                        cur.execute(
+                            """UPDATE docs_test
+                               SET key = %s, updated_at = NOW()
+                               WHERE user_id = %s AND name = %s""",
+                            (request.key, request.session_id, doc_name)
+                        )
+                    else:
+                        doc_id = str(uuid.uuid4())
+                        cur.execute(
+                            """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
+                               VALUES (%s, %s, %s, %s, NOW(), NOW())""",
+                            (doc_id, request.key, request.session_id, doc_name)
+                        )
                 return pb2.SaveDocResponse(success=True)
 
             if "AADHAAR_FRONT" in raw_doc_type or "AADHAR_FRONT" in raw_doc_type:
@@ -1355,12 +1367,26 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
 
             doc_name = request.name or "document"
             with get_db_cursor(self._db_pool) as cur:
-                doc_id = str(uuid.uuid4())
                 cur.execute(
-                    """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
-                       VALUES (%s, %s, %s, %s, NOW(), NOW())""",
-                    (doc_id, request.key, request.session_id, doc_name)
+                    "SELECT id FROM docs_test WHERE user_id = %s AND name = %s",
+                    (request.session_id, doc_name)
                 )
+                if cur.fetchone():
+                    cur.execute(
+                        """UPDATE docs_test
+                           SET key = %s, updated_at = NOW()
+                           WHERE user_id = %s AND name = %s""",
+                        (request.key, request.session_id, doc_name)
+                    )
+                    logger.info(f"Updated existing document record '{doc_name}' for user_id '{request.session_id}' with key '{request.key}'")
+                else:
+                    doc_id = str(uuid.uuid4())
+                    cur.execute(
+                        """INSERT INTO docs_test (id, key, user_id, name, created_at, updated_at)
+                           VALUES (%s, %s, %s, %s, NOW(), NOW())""",
+                        (doc_id, request.key, request.session_id, doc_name)
+                    )
+                    logger.info(f"Inserted new document record '{doc_name}' for user_id '{request.session_id}' with key '{request.key}'")
             return pb2.SaveDocResponse(success=True)
         except Exception as e:
             logger.error(f"SaveDocument failed: {e}", req_id=req_id, error=traceback.format_exc())
