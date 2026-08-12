@@ -162,6 +162,7 @@ export class VoiceSessionManager {
     this.onError = options.onError || (() => {});
     this.onConnected = options.onConnected || (() => {});
     this.onControlSignal = options.onControlSignal || (() => {});
+    this.onDisconnect = options.onDisconnect || (() => {});
 
     // Audio Refs
     this.ws = null;
@@ -295,6 +296,13 @@ export class VoiceSessionManager {
         this.disconnect();
         return;
       }
+
+      ws.onclose = () => {
+        console.warn('[voiceHelper] WebSocket connection closed.');
+        if (!this._disconnected) {
+          this.onDisconnect();
+        }
+      };
 
       // ─── Step 4: Set up WS message handlers ───
       ws.onmessage = async (e) => {

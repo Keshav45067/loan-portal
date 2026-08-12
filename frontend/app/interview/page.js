@@ -276,6 +276,8 @@ function InterviewContent() {
 
   // Flow State (Driven by backend)
   const [isStarted, setIsStarted] = useState(false);
+  const isStartedRef = useRef(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [nodeType, setNodeType] = useState('voice-qa'); // 'voice-qa' or 'capture' or 'video_capture'
   const [documentId, setDocumentId] = useState('selfie');
   const [manifestId, setManifestId] = useState('');
@@ -660,6 +662,58 @@ function InterviewContent() {
     };
   }, [isStarted, nodeType, qaState]);
 
+  // Detect call/background app switch interruptions (e.g. incoming phone call)
+  useEffect(() => {
+    const handleVisibilityOrFocusChange = () => {
+      if (document.visibilityState === 'visible' && isStartedRef.current) {
+        console.log('[InterviewPage] Page returned to foreground after call or backgrounding.');
+        const ws = voiceSessionRef.current?.ws;
+        const isWsClosed = !ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING;
+        const isAudioSuspended = window.globalAudioContext && window.globalAudioContext.state === 'suspended';
+
+        if (isWsClosed || isAudioSuspended) {
+          console.warn('[InterviewPage] Session interrupted by call/backgrounding. Pausing session.');
+          setIsPaused(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityOrFocusChange);
+    window.addEventListener('pageshow', handleVisibilityOrFocusChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocusChange);
+      window.removeEventListener('pageshow', handleVisibilityOrFocusChange);
+    };
+  }, []);
+
+  const handleResumeSession = async () => {
+    console.log('[InterviewPage] User tapped Resume Session button.');
+    setIsPaused(false);
+    setErrors(prev => ({ ...prev, global: null, warning: null }));
+
+    // Re-check / request location permission if Mudra scheme
+    const isMudra = schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
+    if (isMudra) {
+      const locationGranted = await checkLocationPermission();
+      if (!locationGranted) {
+        setLocationPermissionState('denied');
+        setNodeType('video_capture');
+        setIsStarted(true);
+        isStartedRef.current = true;
+        return;
+      }
+    }
+
+    // Synchronously unlock/resume AudioContext inside user tap gesture handler
+    import('../utils/voiceHelper').then(({ unlockAudioContext }) => {
+      unlockAudioContext();
+    });
+
+    // Re-connect session via WebSocket (triggers backend walker.restore_state)
+    await startSession();
+  };
+
   const startSession = async () => {
     setErrors(prev => ({ ...prev, global: null, warning: null }));
 
@@ -677,6 +731,7 @@ function InterviewContent() {
     }
 
     setIsStarted(true);
+    isStartedRef.current = true;
     setQaState('connecting');
 
     // Initialize and resume AudioContext synchronously in click handler
@@ -778,6 +833,13 @@ function InterviewContent() {
           setErrors({ global: err });
           setQaState('error');
           setIsStarted(false);
+          isStartedRef.current = false;
+        },
+        onDisconnect: () => {
+          console.warn('[InterviewPage] VoiceSessionManager disconnected.');
+          if (isStartedRef.current) {
+            setIsPaused(true);
+          }
         }
       });
 
@@ -2019,6 +2081,27 @@ function InterviewContent() {
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Paused Session Overlay (Call or Audio Interruption) */}
+      {isPaused && (
+        <div className={styles.pausedOverlay}>
+          <div className={styles.pausedCard}>
+            <div className={styles.pausedIcon}>⏸️</div>
+            <h2 className={styles.pausedTitle}>
+              {selectedLanguage === 'hi' ? 'साक्षात्कार रोका गया' : 'Interview Paused'}
+            </h2>
+            <p className={styles.pausedDesc}>
+              {selectedLanguage === 'hi'
+                ? 'फोन कॉल या बैकग्राउंड ऐप स्विच के कारण कनेक्शन कट गया था। जारी रखने के लिए नीचे बटन पर क्लिक करें।'
+                : 'Session was paused due to a call or audio disconnection. Tap below to resume.'}
+            </p>
+            <button className={styles.resumeButton} onClick={handleResumeSession}>
+              <span className={styles.resumeIcon}>▶</span>
+              {selectedLanguage === 'hi' ? 'साक्षात्कार पुनः शुरू करें' : 'Resume Interview'}
+            </button>
           </div>
         </div>
       )}
