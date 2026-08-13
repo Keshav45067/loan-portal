@@ -350,6 +350,8 @@ interview_graph:
     DOC_SPOUSE_PAN:
       type: "capture"
       document_id: "spouse_pan"
+      manifest_id: doc_pan_001
+      page_id: front
       text_template: "कृपया अपने पति या पत्नी के पैन कार्ड की फोटो लें।"
       text_template_mr: "कृपया आपल्या पती किंवा पत्नीच्या पॅन कार्डचा फोटो घ्या."
       text_template_en: "Please take a photo of your spouse's PAN card."
@@ -1057,10 +1059,10 @@ derived_fields:
   debtors: "round_to(debtors_amount or debtors or 0, 500)"
   creditors: "round_to(creditors_amount or creditors or 0, 500)"
 
-  working_gap: "inventory + debtors - creditors"
+  working_gap: "clamp_min(inventory + debtors - creditors, 0)"
   promoters_contribution_in_working_capital: "round_to(working_gap * 0.25, 500)"
-  limits: "round_to(working_gap - promoters_contribution_in_working_capital, 500)"
-  cash_credit_amount: "round_to(working_gap, 500)"
+  limits: "round_to(clamp_min(working_gap - promoters_contribution_in_working_capital, 0), 500)"
+  cash_credit_amount: "round_to(clamp_min(working_gap, 0), 500)"
   cash_credit_purpose: "'Inventory Management'"
 
   term_loan_required: "if_gt(machine_cost or approximate_cost or 0, 0, round_to((machine_cost or approximate_cost or 0) * 0.90, 500), 0)"
@@ -1073,7 +1075,7 @@ derived_fields:
   repayment_period_requested_for: "'5'"
   morotorium_period: "'Not Needed'"
 
-  total_loan_required_amount: "round_to(min_non_zero(term_loan_required + cash_credit_amount, loan_required or loan_amount or 0), 500)"
+  total_loan_required_amount: "round_to(clamp_min(min_non_zero(term_loan_required + cash_credit_amount, loan_required or loan_amount or 0), 0), 500)"
 
   co_borrower: "if_truthy(co_borrower, 'Coborrower is present and the corresponding relevant documents are in place', 'Coborrower is not present')"
 

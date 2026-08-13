@@ -112,6 +112,13 @@ def calc_inventory(calculated_inv: Any, inventory_amount: Any, proposed_rev: Any
         return float(int(round(random_in_range(3.0, 4.0) * p_rev)))
 
 
+def clamp_min(val: Any, min_val: float = 0.0) -> float:
+    return max(parse_float(min_val), parse_float(val))
+
+def clamp_max(val: Any, max_val: float) -> float:
+    return min(parse_float(max_val), parse_float(val))
+
+
 PREDEFINED_FUNCTIONS = {
     "parse_float": parse_float,
     "round_to": round_to,
@@ -122,6 +129,8 @@ PREDEFINED_FUNCTIONS = {
     "clamp_growth": clamp_growth,
     "clamp_growth_inverse": clamp_growth_inverse,
     "clamp_range": clamp_range,
+    "clamp_min": clamp_min,
+    "clamp_max": clamp_max,
     "match_keyword": match_keyword,
     "if_gt": if_gt,
     "if_zero": if_zero,
