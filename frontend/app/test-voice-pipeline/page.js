@@ -40,13 +40,13 @@ function pcmChunksToWavBlob(chunks, sampleRate = 16000) {
   view.setUint32(4, 36 + numSamples * 2, true);
   writeString(8, 'WAVE');
   writeString(12, 'fmt ');
-  view.setUint32(16, 16, true); // PCM format size
-  view.setUint16(20, 1, true);  // Audio format 1 (PCM)
-  view.setUint16(22, 1, true);  // 1 Channel (Mono)
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, 1, true); // Mono
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true); // Byte rate (16000 * 2)
-  view.setUint16(32, 2, true);  // Block align (1 channel * 2 bytes)
-  view.setUint16(34, 16, true); // Bits per sample (16-bit)
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
   writeString(36, 'data');
   view.setUint32(40, numSamples * 2, true);
 
@@ -74,6 +74,9 @@ export default function StandaloneVoicePipelineLab() {
     speakCloserCooldownMs: 15000,
   });
 
+  // Time window for graphs (seconds)
+  const [timeWindowSec, setTimeWindowSec] = useState(10); // 5, 10, 20
+
   // === Classic Pipeline State ===
   const [classicIsSpeaking, setClassicIsSpeaking] = useState(false);
   const [classicVolume, setClassicVolume] = useState(0);
@@ -85,10 +88,8 @@ export default function StandaloneVoicePipelineLab() {
   const [robustIsSpeaking, setRobustIsSpeaking] = useState(false);
   const [robustVolume, setRobustVolume] = useState(0);
   const [robustAudioClips, setRobustAudioClips] = useState([]);
-  const [filteredAudioClips, setFilteredAudioClips] = useState([]);
   const robustProcessorRef = useRef(null);
   const robustChunksRef = useRef([]);
-  const filteredChunksRef = useRef([]);
 
   // === Real-time Diagnostics Matrix (Robust) ===
   const [currentDiag, setCurrentDiag] = useState({
@@ -101,6 +102,13 @@ export default function StandaloneVoicePipelineLab() {
     ambientRms: 0,
     isStreaming: false,
   });
+
+  // === Real-time Event Flags History ===
+  const [eventFlags, setEventFlags] = useState([]);
+
+  // === Time-Series Buffer for Graphs ===
+  // Stores history: { t, vadProb, rms, rollingRms, ambientRms, classification, energyState, isStreaming, flag }
+  const timeSeriesRef = useRef([]);
 
   // === Diagnostic Logs & Stats ===
   const [frameLogs, setFrameLogs] = useState([]);
@@ -118,10 +126,9 @@ export default function StandaloneVoicePipelineLab() {
     droppedChunks: 0,
   });
 
-  // === Visualizer Canvas Ref ===
-  const canvasRef = useRef(null);
+  // Canvas Refs
+  const timelineCanvasRef = useRef(null);
   const animFrameIdRef = useRef(null);
-  const waveformHistoryRef = useRef([]);
 
   // === UX Alerts ===
   const [ambientAlert, setAmbientAlert] = useState(null);
@@ -158,65 +165,227 @@ export default function StandaloneVoicePipelineLab() {
     }
   }, [frameLogs, autoScrollLogs]);
 
-  // Live Canvas Waveform & Metric Renderer
+  // ==========================================
+  // Multi-Track Synchronized Timeline Canvas
+  // ==========================================
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const canvas = timelineCanvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let history = waveformHistoryRef.current;
+    const maxHistoryPoints = timeWindowSec * 32; // ~32 frames per second
 
     const render = () => {
-      const width = canvas.width;
-      const height = canvas.height;
+      const w = canvas.width;
+      const h = canvas.height;
+      const history = timeSeriesRef.current;
 
-      // Clear with dark slate background
-      ctx.fillStyle = '#090d16';
-      ctx.fillRect(0, 0, width, height);
+      // Background
+      ctx.fillStyle = '#070b14';
+      ctx.fillRect(0, 0, w, h);
 
-      // Draw grid lines
+      // Sub-track layout definitions:
+      // Track 1: RMS Energy Curve & Thresholds (top 0 to 110px)
+      // Track 2: VAD Probability Curve (115 to 200px)
+      // Track 3: Classification Ribbon (205 to 225px)
+      // Track 4: Audio Gate & State Machine Ribbon (230 to 250px)
+
+      const t1Top = 15;
+      const t1H = 95;
+      const t2Top = 125;
+      const t2H = 80;
+      const t3Top = 220;
+      const t3H = 18;
+      const t4Top = 246;
+      const t4H = 18;
+
+      // Draw Sub-track Backgrounds & Borders
+      ctx.fillStyle = '#0d1527';
+      ctx.fillRect(50, t1Top, w - 60, t1H);
+      ctx.fillRect(50, t2Top, w - 60, t2H);
+      ctx.fillRect(50, t3Top, w - 60, t3H);
+      ctx.fillRect(50, t4Top, w - 60, t4H);
+
       ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, height / 2);
-      ctx.lineTo(width, height / 2);
-      ctx.stroke();
+      ctx.strokeRect(50, t1Top, w - 60, t1H);
+      ctx.strokeRect(50, t2Top, w - 60, t2H);
+      ctx.strokeRect(50, t3Top, w - 60, t3H);
+      ctx.strokeRect(50, t4Top, w - 60, t4H);
 
-      // Draw RMS threshold reference line
-      const threshY = height - Math.min(height, (tuningParams.rmsHighThreshold / 0.05) * height);
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      // Track Labels
+      ctx.font = '10px Inter, monospace';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('ENERGY (RMS)', 5, t1Top + 20);
+      ctx.fillText('& THRESH', 5, t1Top + 34);
+
+      ctx.fillStyle = '#10b981';
+      ctx.fillText('VAD PROB', 5, t2Top + 20);
+      ctx.fillText('(0 - 100%)', 5, t2Top + 34);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.fillText('CLASS', 5, t3Top + 13);
+      ctx.fillText('GATE', 5, t4Top + 13);
+
+      // ----------------------------------------------------
+      // Track 1: RMS & Near-Field Floor
+      // ----------------------------------------------------
+      // Grid lines
+      const maxRmsPlot = 0.040;
+      const rmsY = (val) => t1Top + t1H - Math.min(t1H, (val / maxRmsPlot) * t1H);
+
+      // Draw RMS High threshold line
+      const highThreshY = rmsY(tuningParams.rmsHighThreshold);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
-      ctx.moveTo(0, threshY);
-      ctx.lineTo(width, threshY);
+      ctx.moveTo(50, highThreshY);
+      ctx.lineTo(w - 10, highThreshY);
+      ctx.stroke();
+
+      // Draw Ambient Noise threshold line
+      const ambientThreshY = rmsY(tuningParams.ambientNoiseThreshold);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.beginPath();
+      ctx.moveTo(50, ambientThreshY);
+      ctx.lineTo(w - 10, ambientThreshY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
-      ctx.font = '10px monospace';
-      ctx.fillText(`RMS High Floor: ${tuningParams.rmsHighThreshold.toFixed(3)}`, 8, threshY - 4);
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
+      ctx.fillText(`Floor: ${tuningParams.rmsHighThreshold.toFixed(3)}`, w - 100, highThreshY - 3);
 
-      // Render Waveform bars
-      if (history.length > 0) {
-        const barWidth = width / Math.max(1, history.length);
-        for (let i = 0; i < history.length; i++) {
-          const item = history[i];
-          const x = i * barWidth;
-          const barHeight = Math.min(height - 10, (item.rms / 0.05) * height);
-          const y = height - barHeight;
+      // ----------------------------------------------------
+      // Track 2: VAD Probability Markers
+      // ----------------------------------------------------
+      const vadY = (val) => t2Top + t2H - Math.min(t2H, val * t2H);
+      const posVadY = vadY(tuningParams.positiveSpeechThreshold);
+      const negVadY = vadY(tuningParams.negativeSpeechThreshold);
 
-          if (item.classification === 'SPEECH_NEAR') {
-            ctx.fillStyle = '#10b981'; // Green
-          } else if (item.classification === 'SPEECH_FAR') {
-            ctx.fillStyle = '#f59e0b'; // Amber
-          } else if (item.classification === 'NOISE_ONLY') {
-            ctx.fillStyle = '#ef4444'; // Red
-          } else {
-            ctx.fillStyle = '#334155'; // Dark Slate
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.6)';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(50, posVadY);
+      ctx.lineTo(w - 10, posVadY);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(50, negVadY);
+      ctx.lineTo(w - 10, negVadY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#10b981';
+      ctx.fillText(`Pos: ${(tuningParams.positiveSpeechThreshold * 100).toFixed(0)}%`, w - 95, posVadY - 3);
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillText(`Neg: ${(tuningParams.negativeSpeechThreshold * 100).toFixed(0)}%`, w - 95, negVadY + 10);
+
+      // ----------------------------------------------------
+      // Draw Curves & Ribbons from History
+      // ----------------------------------------------------
+      if (history.length > 1) {
+        const plotWidth = w - 60;
+        const stepX = plotWidth / maxHistoryPoints;
+        const startIndex = Math.max(0, history.length - maxHistoryPoints);
+        const activeHistory = history.slice(startIndex);
+
+        // 1. Draw Classification Ribbon (Track 3)
+        for (let i = 0; i < activeHistory.length; i++) {
+          const pt = activeHistory[i];
+          const x = 50 + i * stepX;
+          const barW = Math.max(1, stepX + 0.5);
+
+          if (pt.classification === 'SPEECH_NEAR') ctx.fillStyle = '#10b981';
+          else if (pt.classification === 'SPEECH_FAR') ctx.fillStyle = '#f59e0b';
+          else if (pt.classification === 'NOISE_ONLY') ctx.fillStyle = '#ef4444';
+          else ctx.fillStyle = '#1e293b';
+
+          ctx.fillRect(x, t3Top, barW, t3H);
+        }
+
+        // 2. Draw Audio Gate & State Ribbon (Track 4)
+        for (let i = 0; i < activeHistory.length; i++) {
+          const pt = activeHistory[i];
+          const x = 50 + i * stepX;
+          const barW = Math.max(1, stepX + 0.5);
+
+          if (pt.isStreaming) ctx.fillStyle = '#059669'; // Passed
+          else if (pt.energyState === 'ENERGY_EVALUATING') ctx.fillStyle = '#6366f1'; // Evaluating
+          else if (pt.energyState === 'ENERGY_FLAGGED_QUIET') ctx.fillStyle = '#d97706'; // Blocked Far
+          else ctx.fillStyle = '#0f172a';
+
+          ctx.fillRect(x, t4Top, barW, t4H);
+        }
+
+        // 3. Draw VAD Curve (Track 2)
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < activeHistory.length; i++) {
+          const x = 50 + i * stepX;
+          const y = vadY(activeHistory[i].vadProbability);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 4. Draw RMS Energy Curve (Track 1)
+        // Area under rolling RMS
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(50, t1Top + t1H);
+        for (let i = 0; i < activeHistory.length; i++) {
+          const x = 50 + i * stepX;
+          const y = rmsY(activeHistory[i].rollingRms);
+          ctx.lineTo(x, y);
+        }
+        ctx.lineTo(50 + (activeHistory.length - 1) * stepX, t1Top + t1H);
+        ctx.closePath();
+        ctx.fill();
+
+        // Rolling RMS Line
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < activeHistory.length; i++) {
+          const x = 50 + i * stepX;
+          const y = rmsY(activeHistory[i].rollingRms);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Raw RMS instantaneous line (fainter)
+        ctx.strokeStyle = 'rgba(129, 140, 248, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < activeHistory.length; i++) {
+          const x = 50 + i * stepX;
+          const y = rmsY(activeHistory[i].rmsEnergy);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 5. Draw Event Pins / Flag Markers
+        for (let i = 0; i < activeHistory.length; i++) {
+          const pt = activeHistory[i];
+          if (pt.flag) {
+            const x = 50 + i * stepX;
+            ctx.fillStyle = pt.flag === 'SPEAK_CLOSER' ? '#f59e0b' : '#ef4444';
+            ctx.beginPath();
+            ctx.arc(x, t1Top + 8, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = ctx.fillStyle;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x, t1Top + 12);
+            ctx.lineTo(x, t4Top + t4H);
+            ctx.stroke();
           }
-
-          ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
         }
       }
 
@@ -228,7 +397,7 @@ export default function StandaloneVoicePipelineLab() {
     return () => {
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
     };
-  }, [tuningParams.rmsHighThreshold]);
+  }, [tuningParams, timeWindowSec]);
 
   // === Start Classic Pipeline (No WebSocket) ===
   const startClassic = async () => {
@@ -296,7 +465,6 @@ export default function StandaloneVoicePipelineLab() {
     stopRobust();
 
     robustChunksRef.current = [];
-    filteredChunksRef.current = [];
 
     const processor = new AudioProcessorRobust({
       ...tuningParams,
@@ -325,24 +493,32 @@ export default function StandaloneVoicePipelineLab() {
             sizeKb: (blob.size / 1024).toFixed(1),
           };
           setRobustAudioClips((prev) => [clip, ...prev.slice(0, 19)]);
-          toast.success(`[Robust] Streamed ${durationSec}s near-field speech`);
+          toast.success(`[Robust] Passed ${durationSec}s near-field speech`);
         }
       },
       onFrameClassified: (diag) => {
         setCurrentDiag(diag);
 
-        // Feed waveform history
-        waveformHistoryRef.current.push({
-          rms: diag.rollingRms,
-          classification: diag.classification,
-        });
-        if (waveformHistoryRef.current.length > 200) {
-          waveformHistoryRef.current.shift();
-        }
+        // Check if there is an active flag
+        let currentFlag = null;
+        if (diag.energyState === 'ENERGY_FLAGGED_QUIET') currentFlag = 'SPEAK_CLOSER';
 
-        // Collect filtered/dropped audio frames for analysis
-        if (!diag.isStreaming && (diag.classification === 'SPEECH_FAR' || diag.classification === 'NOISE_ONLY')) {
-          // If needed, we accumulate rejected frames
+        // Add to Time-Series Graph History
+        timeSeriesRef.current.push({
+          t: Date.now(),
+          vadProbability: diag.vadProbability,
+          rmsEnergy: diag.rmsEnergy,
+          rollingRms: diag.rollingRms,
+          ambientRms: diag.ambientRms,
+          classification: diag.classification,
+          energyState: diag.energyState,
+          isStreaming: diag.isStreaming,
+          flag: currentFlag,
+        });
+
+        // Cap in-memory history to 1000 points (~30 seconds)
+        if (timeSeriesRef.current.length > 1000) {
+          timeSeriesRef.current.shift();
         }
 
         // Add to frame logs
@@ -362,10 +538,14 @@ export default function StandaloneVoicePipelineLab() {
       },
       onSpeechTooQuiet: (data) => {
         setSpeakCloserAlert({
-          message: '⚠️ Speech Too Quiet / Far-Field (Audio Gated Out)',
+          message: '⚠️ Speech Too Quiet / Far-Field (Gated Out)',
           timestamp: Date.now(),
         });
-        toast.warning('⚠️ Speech too quiet / far away — gated out to prevent STT noise errors');
+        setEventFlags((prev) => [
+          { id: Date.now(), time: new Date().toLocaleTimeString(), type: 'SPEAK_CLOSER', desc: `RMS ${data.rollingRms.toFixed(4)} < Floor ${data.threshold}` },
+          ...prev.slice(0, 9),
+        ]);
+        toast.warning('⚠️ Speech too quiet / far away — audio gated out to prevent noise errors');
         setTimeout(() => setSpeakCloserAlert(null), 4000);
       },
       onHighBackgroundNoise: (data) => {
@@ -373,6 +553,10 @@ export default function StandaloneVoicePipelineLab() {
           setAmbientAlert({
             message: `⚠️ High Ambient Noise Detected: RMS ${(data.ambientRms * 100).toFixed(2)}%`,
           });
+          setEventFlags((prev) => [
+            { id: Date.now(), time: new Date().toLocaleTimeString(), type: 'HIGH_AMBIENT_NOISE', desc: `Ambient RMS ${(data.ambientRms * 100).toFixed(2)}%` },
+            ...prev.slice(0, 9),
+          ]);
         } else {
           setAmbientAlert(null);
         }
@@ -414,9 +598,9 @@ export default function StandaloneVoicePipelineLab() {
   const clearAllData = () => {
     setClassicAudioClips([]);
     setRobustAudioClips([]);
-    setFilteredAudioClips([]);
     setFrameLogs([]);
-    waveformHistoryRef.current = [];
+    setEventFlags([]);
+    timeSeriesRef.current = [];
     if (robustProcessorRef.current) {
       robustProcessorRef.current.resetStats();
     }
@@ -436,9 +620,9 @@ export default function StandaloneVoicePipelineLab() {
       case 'SPEECH_NEAR':
         return <span style={{ backgroundColor: '#059669', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟢 SPEECH_NEAR (Passed)</span>;
       case 'SPEECH_FAR':
-        return <span style={{ backgroundColor: '#d97706', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟡 SPEECH_FAR (Gated / Dropped)</span>;
+        return <span style={{ backgroundColor: '#d97706', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟡 SPEECH_FAR (Gated)</span>;
       case 'NOISE_ONLY':
-        return <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🔴 NOISE_ONLY (Gated / Dropped)</span>;
+        return <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🔴 NOISE_ONLY (Dropped)</span>;
       default:
         return <span style={{ backgroundColor: '#475569', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>⚫ SILENT</span>;
     }
@@ -452,22 +636,27 @@ export default function StandaloneVoicePipelineLab() {
   const totalEvaluated = stats.speechNearFrames + stats.speechFarFrames + stats.noiseFrames + stats.silentFrames;
   const bandwidthSavedPct = totalEvaluated > 0 ? (((totalEvaluated - stats.speechNearFrames) / totalEvaluated) * 100).toFixed(1) : '0.0';
 
+  // Compute Signal-to-Noise Ratio (SNR) estimation in dB
+  const estimatedSnrDb = currentDiag.ambientRms > 0 && currentDiag.rollingRms > 0
+    ? (20 * Math.log10(currentDiag.rollingRms / currentDiag.ambientRms)).toFixed(1)
+    : '0.0';
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0b1120', color: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#070b14', color: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', padding: '24px' }}>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, background: 'linear-gradient(90deg, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              🎙️ Frontend Audio Processor & Proximity Triage Lab
+              🔬 Audio Processing, VAD & Energy Triage Visualizer
             </h1>
             <span style={{ backgroundColor: '#10b981', color: '#064e3b', fontWeight: 700, fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px' }}>
-              100% CLIENT-SIDE ONLY (NO BACKEND / ZERO WS)
+              100% CLIENT-SIDE STANDALONE (ZERO BACKEND)
             </span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-            Test microphone capture, Silero VAD, 85Hz HPF, and RMS near-field energy gating with live audio playback.
+            Inspect multi-track timeline graphs of RMS energy, Silero VAD probability, classifications, gate status, and audio clips.
           </p>
         </div>
 
@@ -489,7 +678,7 @@ export default function StandaloneVoicePipelineLab() {
             onClick={clearAllData}
             style={{ backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '10px 14px', borderRadius: '6px', cursor: 'pointer' }}
           >
-            🧹 Clear Clips & Logs
+            🧹 Clear Data
           </button>
         </div>
       </div>
@@ -498,7 +687,7 @@ export default function StandaloneVoicePipelineLab() {
       {ambientAlert && (
         <div style={{ backgroundColor: 'rgba(220, 38, 38, 0.2)', border: '1px solid #dc2626', color: '#fca5a5', padding: '10px 16px', borderRadius: '6px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚠️</span>
-          <strong>{ambientAlert.message}</strong> — High background noise level detected in room.
+          <strong>{ambientAlert.message}</strong> — High background noise level in environment.
         </div>
       )}
       {speakCloserAlert && (
@@ -508,35 +697,113 @@ export default function StandaloneVoicePipelineLab() {
         </div>
       )}
 
-      {/* Live Audio Oscilloscope Canvas */}
-      <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#38bdf8' }}>
-            📈 LIVE AUDIO ENERGY OSCILLOSCOPE (RMS vs. Near-Field Threshold)
+      {/* ========================================================================= */}
+      {/* 📊 MULTI-TRACK REAL-TIME SYNCHRONIZED TIMELINE GRAPH                      */}
+      {/* ========================================================================= */}
+      <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', padding: '16px', marginBottom: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#38bdf8' }}>
+              📈 Multi-Track Time-Series Oscilloscope (Energy, VAD, Classification & Gate)
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>60 FPS Real-time Stream</span>
           </div>
-          <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem' }}>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+              <span>Time Window:</span>
+              {[5, 10, 20].map((sec) => (
+                <button
+                  key={sec}
+                  onClick={() => setTimeWindowSec(sec)}
+                  style={{
+                    backgroundColor: timeWindowSec === sec ? '#38bdf8' : '#1e293b',
+                    color: timeWindowSec === sec ? '#0f172a' : '#cbd5e1',
+                    border: '1px solid #334155',
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Canvas Strip Chart */}
+        <canvas
+          ref={timelineCanvasRef}
+          width={1120}
+          height={275}
+          style={{ width: '100%', height: '275px', borderRadius: '6px', backgroundColor: '#070b14' }}
+        />
+
+        {/* Legend */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', fontSize: '0.72rem', color: '#94a3b8', borderTop: '1px solid #1e293b', paddingTop: '8px' }}>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <span><strong style={{ color: '#38bdf8' }}>— Blue Line:</strong> Rolling RMS Energy</span>
+            <span><strong style={{ color: '#34d399' }}>— Green Line:</strong> Silero VAD Probability</span>
+            <span><strong style={{ color: 'rgba(56,189,248,0.7)' }}>-- Dashed Line:</strong> Near-Field Floor</span>
+            <span><strong style={{ color: '#f59e0b' }}>● Amber Pin:</strong> Speak-Closer Flag</span>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
             <span style={{ color: '#10b981' }}>■ SPEECH_NEAR (Passed)</span>
             <span style={{ color: '#f59e0b' }}>■ SPEECH_FAR (Gated)</span>
             <span style={{ color: '#ef4444' }}>■ NOISE_ONLY (Dropped)</span>
             <span style={{ color: '#64748b' }}>■ SILENT</span>
           </div>
         </div>
-        <canvas ref={canvasRef} width={1100} height={100} style={{ width: '100%', height: '100px', borderRadius: '4px', backgroundColor: '#090d16' }} />
       </div>
 
-      {/* Side-by-Side Audio Processing Comparison */}
+      {/* Real-time Diagnostics Matrix & Gauges */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '4px' }}>CURRENT CLASSIFICATION</div>
+          {getClassificationBadge(currentDiag.classification)}
+        </div>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '4px' }}>ENERGY STATE MACHINE</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: currentDiag.energyState.includes('CONFIRMED') ? '#10b981' : currentDiag.energyState.includes('PAUSE') ? '#fbbf24' : '#94a3b8' }}>
+            {currentDiag.energyState}
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '4px' }}>AUDIO GATE STREAMING</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: currentDiag.isStreaming ? '#10b981' : '#f87171' }}>
+            {currentDiag.isStreaming ? '🟢 PASSED (WAV Chunk)' : '🔴 BLOCKED (Gated)'}
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '4px' }}>ENERGY & DECIBELS</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#38bdf8' }}>
+            {currentDiag.rollingRms.toFixed(4)} <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>({currentDiag.rmsDb.toFixed(1)} dB)</span>
+          </div>
+        </div>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #334155', padding: '12px', borderRadius: '6px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '4px' }}>ESTIMATED SNR (dB)</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 800, color: parseFloat(estimatedSnrDb) > 10 ? '#10b981' : '#f59e0b' }}>
+            +{estimatedSnrDb} dB SNR
+          </div>
+        </div>
+      </div>
+
+      {/* Side-by-Side Audio Capture Comparison */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
         
         {/* === LEFT: Classic Audio Processor === */}
         <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #334155', padding: '16px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '14px' }}>
             <div>
-              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: '#94a3b8' }}>🏛️ Classic AudioProcessor</h2>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Streams EVERYTHING that triggers Silero VAD (including distant voices & noise)</span>
+              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: '#94a3b8' }}>🏛️ Classic AudioProcessor Output</h2>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Streams EVERYTHING that triggers Silero VAD (noise, distant voices)</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: classicIsSpeaking ? '#10b981' : '#475569', color: '#fff', fontWeight: 700 }}>
-                {classicIsSpeaking ? 'SPEECH DETECTED' : 'IDLE'}
+                {classicIsSpeaking ? 'VAD SPEECH' : 'IDLE'}
               </span>
               {!classicProcessorRef.current ? (
                 <button onClick={startClassic} disabled={!vadLoaded} style={{ backgroundColor: '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Start</button>
@@ -558,7 +825,7 @@ export default function StandaloneVoicePipelineLab() {
           </div>
 
           {/* Recorded Audio Output List */}
-          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '260px', maxHeight: '320px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '220px', maxHeight: '280px', overflowY: 'auto' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginBottom: '8px' }}>
               🔊 CAPTURED AUDIO CLIPS ({classicAudioClips.length})
             </div>
@@ -585,7 +852,7 @@ export default function StandaloneVoicePipelineLab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '14px' }}>
             <div>
               <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 800, color: '#38bdf8' }}>🚀 Robust AudioProcessor (Energy Gated)</h2>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>GATES OUT distant voices, mumbles & noise before audio ever leaves browser</span>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>GATES OUT distant voices, mumbles & noise before audio leaves browser</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: robustIsSpeaking ? '#10b981' : '#475569', color: '#fff', fontWeight: 700 }}>
@@ -599,28 +866,8 @@ export default function StandaloneVoicePipelineLab() {
             </div>
           </div>
 
-          {/* Diagnostic Metrics Matrix */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', marginBottom: '12px', border: '1px solid #334155' }}>
-            <div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>CLASSIFICATION</div>
-              <div style={{ marginTop: '3px' }}>{getClassificationBadge(currentDiag.classification)}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>ENERGY STATE</div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: currentDiag.energyState.includes('CONFIRMED') ? '#34d399' : currentDiag.energyState.includes('PAUSE') ? '#fbbf24' : '#94a3b8' }}>
-                {currentDiag.energyState}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>AUDIO GATE STATUS</div>
-              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: currentDiag.isStreaming ? '#34d399' : '#f87171' }}>
-                {currentDiag.isStreaming ? '🟢 PASSED (Streaming)' : '🔴 DROPPED (Gated)'}
-              </div>
-            </div>
-          </div>
-
-          {/* Live Meter Bars */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+          {/* Meter Bars */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '3px' }}>
                 <span>VAD Probability</span>
@@ -628,7 +875,7 @@ export default function StandaloneVoicePipelineLab() {
                   {(currentDiag.vadProbability * 100).toFixed(0)}%
                 </span>
               </div>
-              <div style={{ height: '7px', backgroundColor: '#0f172a', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ height: '8px', backgroundColor: '#0f172a', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: `${Math.min(100, currentDiag.vadProbability * 100)}%`, height: '100%', backgroundColor: currentDiag.vadProbability >= tuningParams.positiveSpeechThreshold ? '#10b981' : '#64748b', transition: 'width 0.05s' }} />
               </div>
             </div>
@@ -640,14 +887,14 @@ export default function StandaloneVoicePipelineLab() {
                   {currentDiag.rollingRms.toFixed(4)} ({currentDiag.rmsDb.toFixed(1)} dB)
                 </span>
               </div>
-              <div style={{ height: '7px', backgroundColor: '#0f172a', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(100, (currentDiag.rollingRms / 0.05) * 100)}%`, height: '100%', backgroundColor: currentDiag.rollingRms >= tuningParams.rmsHighThreshold ? '#38bdf8' : '#f59e0b', transition: 'width 0.05s' }} />
+              <div style={{ height: '8px', backgroundColor: '#0f172a', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${Math.min(100, (currentDiag.rollingRms / 0.04) * 100)}%`, height: '100%', backgroundColor: currentDiag.rollingRms >= tuningParams.rmsHighThreshold ? '#38bdf8' : '#f59e0b', transition: 'width 0.05s' }} />
               </div>
             </div>
           </div>
 
           {/* Processed & Passed Audio Output List */}
-          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '260px', maxHeight: '320px', overflowY: 'auto' }}>
+          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '220px', maxHeight: '280px', overflowY: 'auto' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', marginBottom: '8px' }}>
               🔊 CLEANED & PASSED AUDIO CLIPS ({robustAudioClips.length})
             </div>
@@ -670,14 +917,14 @@ export default function StandaloneVoicePipelineLab() {
         </div>
       </div>
 
-      {/* Aggregate Statistics & Efficiency Summary */}
+      {/* Aggregate Statistics & Noise Reduction Summary */}
       <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
           📊 Real-Time Efficiency & Noise Reduction Statistics
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Frames Processed</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Frames</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc' }}>{stats.totalFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
@@ -685,15 +932,15 @@ export default function StandaloneVoicePipelineLab() {
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981' }}>{stats.speechNearFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Far (Gated Out)</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Far (Gated)</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f59e0b' }}>{stats.speechFarFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Noise Frames (Dropped)</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Noise Only (Dropped)</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ef4444' }}>{stats.noiseFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Valid Chunks Streamed</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Streamed Chunks</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8' }}>{stats.streamedChunks}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
@@ -703,7 +950,7 @@ export default function StandaloneVoicePipelineLab() {
         </div>
       </div>
 
-      {/* Interactive Parameter Tuning Sliders Panel */}
+      {/* Interactive Parameter Tuning Sliders */}
       <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
           <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
@@ -832,7 +1079,7 @@ export default function StandaloneVoicePipelineLab() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
-              🔬 Real-Time Frame-by-Frame Diagnostic Stream (Last 100)
+              🔬 Frame-by-Frame Diagnostic Stream (Last 100)
             </h3>
             <div style={{ display: 'flex', gap: '4px' }}>
               {['ALL', 'SPEECH_NEAR', 'SPEECH_FAR', 'NOISE_ONLY', 'SILENT'].map((filter) => (
@@ -879,7 +1126,7 @@ export default function StandaloneVoicePipelineLab() {
             backgroundColor: '#0f172a',
             border: '1px solid #334155',
             borderRadius: '6px',
-            height: '240px',
+            height: '220px',
             overflowY: 'auto',
             fontFamily: 'monospace',
             fontSize: '0.75rem',
