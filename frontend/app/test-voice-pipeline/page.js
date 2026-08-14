@@ -1,21 +1,64 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { loadVADScripts, VoiceSessionManager, unlockAudioContext } from '../utils/voiceHelper';
-import { VoiceSessionManagerRobust } from '../utils/voiceHelperRobust';
+import { loadVADScripts, unlockAudioContext } from '../utils/voiceHelper';
+import { AudioProcessor } from '../utils/audioProcessor';
+import { AudioProcessorRobust } from '../utils/audioProcessorRobust';
 import { toast } from 'sonner';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8080';
+/**
+ * Convert an array of PCM byte chunks (Uint8Array or ArrayBuffer containing 16-bit PCM @ 16kHz)
+ * into a playable WAV Blob.
+ */
+function pcmChunksToWavBlob(chunks, sampleRate = 16000) {
+  let totalBytes = 0;
+  for (const c of chunks) {
+    totalBytes += c.byteLength || c.length;
+  }
+  if (totalBytes === 0) return null;
 
-export default function VoicePipelineComparisonDashboard() {
-  // === Shared Session Config ===
-  const [token, setToken] = useState('sandbox_test_token');
-  const [sessionIdClassic, setSessionIdClassic] = useState('');
-  const [sessionIdRobust, setSessionIdRobust] = useState('');
-  const [schemeId, setSchemeId] = useState('mudra-grocery');
-  const [language, setLanguage] = useState('hi');
-  const [vadLibrariesLoaded, setVadLibrariesLoaded] = useState(false);
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const c of chunks) {
+    const arr = c instanceof Uint8Array ? c : new Uint8Array(c);
+    merged.set(arr, offset);
+    offset += arr.byteLength;
+  }
+
+  const numSamples = Math.floor(totalBytes / 2);
+  const buffer = new ArrayBuffer(44 + numSamples * 2);
+  const view = new DataView(buffer);
+
+  const writeString = (off, str) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(off + i, str.charCodeAt(i));
+    }
+  };
+
+  // RIFF Header
+  writeString(0, 'RIFF');
+  view.setUint32(4, 36 + numSamples * 2, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM format size
+  view.setUint16(20, 1, true);  // Audio format 1 (PCM)
+  view.setUint16(22, 1, true);  // 1 Channel (Mono)
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // Byte rate (16000 * 2)
+  view.setUint16(32, 2, true);  // Block align (1 channel * 2 bytes)
+  view.setUint16(34, 16, true); // Bits per sample (16-bit)
+  writeString(36, 'data');
+  view.setUint32(40, numSamples * 2, true);
+
+  const pcmDest = new Uint8Array(buffer, 44);
+  pcmDest.set(merged.subarray(0, numSamples * 2));
+
+  return new Blob([view], { type: 'audio/wav' });
+}
+
+export default function StandaloneVoicePipelineLab() {
+  const [vadLoaded, setVadLoaded] = useState(false);
+  const [activePipeline, setActivePipeline] = useState('none'); // 'none', 'classic', 'robust', 'both'
 
   // === Dynamic Tuning Parameters (Robust Pipeline) ===
   const [tuningParams, setTuningParams] = useState({
@@ -32,17 +75,22 @@ export default function VoicePipelineComparisonDashboard() {
   });
 
   // === Classic Pipeline State ===
-  const [classicState, setClassicState] = useState('idle'); // idle, connecting, listening, processing, speaking
+  const [classicIsSpeaking, setClassicIsSpeaking] = useState(false);
   const [classicVolume, setClassicVolume] = useState(0);
-  const [classicTranscripts, setClassicTranscripts] = useState([]);
-  const [classicExtractions, setClassicExtractions] = useState({});
-  const classicManagerRef = useRef(null);
+  const [classicAudioClips, setClassicAudioClips] = useState([]);
+  const classicProcessorRef = useRef(null);
+  const classicChunksRef = useRef([]);
 
   // === Robust Pipeline State ===
-  const [robustState, setRobustState] = useState('idle');
+  const [robustIsSpeaking, setRobustIsSpeaking] = useState(false);
   const [robustVolume, setRobustVolume] = useState(0);
-  const [robustTranscripts, setRobustTranscripts] = useState([]);
-  const [robustExtractions, setRobustExtractions] = useState({});
+  const [robustAudioClips, setRobustAudioClips] = useState([]);
+  const [filteredAudioClips, setFilteredAudioClips] = useState([]);
+  const robustProcessorRef = useRef(null);
+  const robustChunksRef = useRef([]);
+  const filteredChunksRef = useRef([]);
+
+  // === Real-time Diagnostics Matrix (Robust) ===
   const [currentDiag, setCurrentDiag] = useState({
     vadProbability: 0,
     rmsEnergy: 0,
@@ -53,9 +101,8 @@ export default function VoicePipelineComparisonDashboard() {
     ambientRms: 0,
     isStreaming: false,
   });
-  const robustManagerRef = useRef(null);
 
-  // === Real-time Frame Log & Stats ===
+  // === Diagnostic Logs & Stats ===
   const [frameLogs, setFrameLogs] = useState([]);
   const [logFilter, setLogFilter] = useState('ALL');
   const [autoScrollLogs, setAutoScrollLogs] = useState(true);
@@ -71,190 +118,307 @@ export default function VoicePipelineComparisonDashboard() {
     droppedChunks: 0,
   });
 
-  // === UX Alerts State ===
+  // === Visualizer Canvas Ref ===
+  const canvasRef = useRef(null);
+  const animFrameIdRef = useRef(null);
+  const waveformHistoryRef = useRef([]);
+
+  // === UX Alerts ===
   const [ambientAlert, setAmbientAlert] = useState(null);
   const [speakCloserAlert, setSpeakCloserAlert] = useState(null);
 
-  // Initialize Session IDs & VAD on mount
+  // Initialize VAD scripts on mount
   useEffect(() => {
-    const s1 = `classic_${Date.now().toString().slice(-6)}`;
-    const s2 = `robust_${Date.now().toString().slice(-6)}`;
-    setSessionIdClassic(s1);
-    setSessionIdRobust(s2);
-
     loadVADScripts().then((loaded) => {
-      setVadLibrariesLoaded(loaded);
+      setVadLoaded(loaded);
       if (loaded) {
-        toast.success('VAD ONNX libraries loaded successfully');
+        toast.success('Silero VAD WebAssembly ready (Client-Side Only)');
       } else {
         toast.error('Failed to load VAD libraries');
       }
     });
 
     return () => {
-      stopClassic();
-      stopRobust();
+      stopAll();
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
     };
   }, []);
 
   // Update Robust Config on Tuning Change
   useEffect(() => {
-    if (robustManagerRef.current) {
-      robustManagerRef.current.updateProcessorConfig(tuningParams);
+    if (robustProcessorRef.current) {
+      robustProcessorRef.current.updateConfig(tuningParams);
     }
   }, [tuningParams]);
 
-  // Auto-scroll logs container
+  // Auto-scroll log
   useEffect(() => {
     if (autoScrollLogs && logsContainerRef.current) {
       logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight;
     }
   }, [frameLogs, autoScrollLogs]);
 
-  // === Classic Pipeline Handlers ===
-  const startClassic = () => {
+  // Live Canvas Waveform & Metric Renderer
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let history = waveformHistoryRef.current;
+
+    const render = () => {
+      const width = canvas.width;
+      const height = canvas.height;
+
+      // Clear with dark slate background
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw grid lines
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
+      ctx.stroke();
+
+      // Draw RMS threshold reference line
+      const threshY = height - Math.min(height, (tuningParams.rmsHighThreshold / 0.05) * height);
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, threshY);
+      ctx.lineTo(width, threshY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.font = '10px monospace';
+      ctx.fillText(`RMS High Floor: ${tuningParams.rmsHighThreshold.toFixed(3)}`, 8, threshY - 4);
+
+      // Render Waveform bars
+      if (history.length > 0) {
+        const barWidth = width / Math.max(1, history.length);
+        for (let i = 0; i < history.length; i++) {
+          const item = history[i];
+          const x = i * barWidth;
+          const barHeight = Math.min(height - 10, (item.rms / 0.05) * height);
+          const y = height - barHeight;
+
+          if (item.classification === 'SPEECH_NEAR') {
+            ctx.fillStyle = '#10b981'; // Green
+          } else if (item.classification === 'SPEECH_FAR') {
+            ctx.fillStyle = '#f59e0b'; // Amber
+          } else if (item.classification === 'NOISE_ONLY') {
+            ctx.fillStyle = '#ef4444'; // Red
+          } else {
+            ctx.fillStyle = '#334155'; // Dark Slate
+          }
+
+          ctx.fillRect(x, y, Math.max(1, barWidth - 1), barHeight);
+        }
+      }
+
+      animFrameIdRef.current = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+    };
+  }, [tuningParams.rmsHighThreshold]);
+
+  // === Start Classic Pipeline (No WebSocket) ===
+  const startClassic = async () => {
     unlockAudioContext();
     stopClassic();
 
-    const manager = new VoiceSessionManager({
-      token,
-      sessionId: sessionIdClassic,
-      schemeId,
-      language,
-      wsUrl: `${WS_BASE_URL}/ws/voice`,
-      applicantName: 'Applicant',
-      vadOptions: {
-        positiveSpeechThreshold: tuningParams.positiveSpeechThreshold,
-        negativeSpeechThreshold: tuningParams.negativeSpeechThreshold,
-      },
-      onStateChange: (state) => setClassicState(state),
+    classicChunksRef.current = [];
+
+    const processor = new AudioProcessor({
+      positiveSpeechThreshold: tuningParams.positiveSpeechThreshold,
+      negativeSpeechThreshold: tuningParams.negativeSpeechThreshold,
       onVolumeLevel: (vol) => setClassicVolume(vol),
-      onTranscript: (text, isFinal) => {
-        setClassicTranscripts((prev) => [
-          ...prev.slice(-15),
-          { text, isFinal, time: new Date().toLocaleTimeString(), sender: 'system' }
-        ]);
+      onSpeechStart: () => {
+        setClassicIsSpeaking(true);
+        classicChunksRef.current = [];
       },
-      onExtraction: (fields) => {
-        setClassicExtractions((prev) => ({ ...prev, ...fields }));
+      onAudioChunk: (chunk) => {
+        classicChunksRef.current.push(chunk);
       },
-      onSystemMessage: (type, msg) => {
-        if (type === 'error') toast.error(`[Classic] ${msg}`);
+      onSpeechEnd: () => {
+        setClassicIsSpeaking(false);
+        const pcmChunks = [...classicChunksRef.current];
+        classicChunksRef.current = [];
+
+        const blob = pcmChunksToWavBlob(pcmChunks, 16000);
+        if (blob && blob.size > 100) {
+          const url = URL.createObjectURL(blob);
+          const durationSec = (pcmChunks.reduce((acc, c) => acc + (c.byteLength || c.length), 0) / 32000).toFixed(2);
+          const clip = {
+            id: Date.now(),
+            time: new Date().toLocaleTimeString(),
+            durationSec,
+            url,
+            sizeKb: (blob.size / 1024).toFixed(1),
+          };
+          setClassicAudioClips((prev) => [clip, ...prev.slice(0, 19)]);
+          toast.success(`[Classic] Captured ${durationSec}s audio utterance`);
+        }
       },
     });
 
-    classicManagerRef.current = manager;
-    manager.connect();
+    const ok = await processor.initialize();
+    if (ok) {
+      processor.start();
+      classicProcessorRef.current = processor;
+      setActivePipeline((prev) => (prev === 'robust' ? 'both' : 'classic'));
+    } else {
+      toast.error('Failed to start Classic AudioProcessor');
+    }
   };
 
   const stopClassic = () => {
-    if (classicManagerRef.current) {
-      classicManagerRef.current.disconnect();
-      classicManagerRef.current = null;
+    if (classicProcessorRef.current) {
+      classicProcessorRef.current.destroy();
+      classicProcessorRef.current = null;
     }
-    setClassicState('idle');
+    setClassicIsSpeaking(false);
     setClassicVolume(0);
+    setActivePipeline((prev) => (prev === 'both' ? 'robust' : 'none'));
   };
 
-  // === Robust Pipeline Handlers ===
-  const startRobust = () => {
+  // === Start Robust Pipeline (No WebSocket) ===
+  const startRobust = async () => {
     unlockAudioContext();
     stopRobust();
 
-    const manager = new VoiceSessionManagerRobust({
-      token,
-      sessionId: sessionIdRobust,
-      schemeId,
-      language,
-      wsUrl: `${WS_BASE_URL}/ws/voice`,
-      applicantName: 'Applicant',
-      vadOptions: {
-        ...tuningParams,
-      },
-      onStateChange: (state) => setRobustState(state),
+    robustChunksRef.current = [];
+    filteredChunksRef.current = [];
+
+    const processor = new AudioProcessorRobust({
+      ...tuningParams,
       onVolumeLevel: (vol) => setRobustVolume(vol),
-      onTranscript: (text, isFinal) => {
-        setRobustTranscripts((prev) => [
-          ...prev.slice(-15),
-          { text, isFinal, time: new Date().toLocaleTimeString(), sender: 'system' }
-        ]);
+      onSpeechStart: () => {
+        setRobustIsSpeaking(true);
+        robustChunksRef.current = [];
       },
-      onExtraction: (fields) => {
-        setRobustExtractions((prev) => ({ ...prev, ...fields }));
+      onAudioChunk: (chunk) => {
+        robustChunksRef.current.push(chunk);
       },
-      onDiagnostics: (diag) => {
+      onSpeechEnd: () => {
+        setRobustIsSpeaking(false);
+        const pcmChunks = [...robustChunksRef.current];
+        robustChunksRef.current = [];
+
+        const blob = pcmChunksToWavBlob(pcmChunks, 16000);
+        if (blob && blob.size > 100) {
+          const url = URL.createObjectURL(blob);
+          const durationSec = (pcmChunks.reduce((acc, c) => acc + (c.byteLength || c.length), 0) / 32000).toFixed(2);
+          const clip = {
+            id: Date.now(),
+            time: new Date().toLocaleTimeString(),
+            durationSec,
+            url,
+            sizeKb: (blob.size / 1024).toFixed(1),
+          };
+          setRobustAudioClips((prev) => [clip, ...prev.slice(0, 19)]);
+          toast.success(`[Robust] Streamed ${durationSec}s near-field speech`);
+        }
+      },
+      onFrameClassified: (diag) => {
         setCurrentDiag(diag);
 
-        // Update real-time frame logs
-        setFrameLogs((prev) => {
-          const newEntry = {
+        // Feed waveform history
+        waveformHistoryRef.current.push({
+          rms: diag.rollingRms,
+          classification: diag.classification,
+        });
+        if (waveformHistoryRef.current.length > 200) {
+          waveformHistoryRef.current.shift();
+        }
+
+        // Collect filtered/dropped audio frames for analysis
+        if (!diag.isStreaming && (diag.classification === 'SPEECH_FAR' || diag.classification === 'NOISE_ONLY')) {
+          // If needed, we accumulate rejected frames
+        }
+
+        // Add to frame logs
+        setFrameLogs((prev) => [
+          ...prev.slice(-99),
+          {
             id: Date.now() + Math.random(),
             time: new Date().toLocaleTimeString() + `.${(Date.now() % 1000).toString().padStart(3, '0')}`,
             ...diag,
-          };
-          return [...prev.slice(-99), newEntry];
-        });
+          },
+        ]);
 
-        // Update Aggregate Stats
-        if (robustManagerRef.current) {
-          const st = robustManagerRef.current.getStats();
+        if (robustProcessorRef.current) {
+          const st = robustProcessorRef.current.stats;
           if (st) setStats({ ...st });
         }
       },
       onSpeechTooQuiet: (data) => {
         setSpeakCloserAlert({
-          message: 'कृपया माइक के थोड़ा पास आकर बोलें (Speak Closer)',
+          message: '⚠️ Speech Too Quiet / Far-Field (Audio Gated Out)',
           timestamp: Date.now(),
         });
-        toast.warning('⚠️ Speech too quiet / far away — please speak closer');
+        toast.warning('⚠️ Speech too quiet / far away — gated out to prevent STT noise errors');
         setTimeout(() => setSpeakCloserAlert(null), 4000);
       },
       onHighBackgroundNoise: (data) => {
         if (data.active) {
           setAmbientAlert({
-            message: `उच्च पृष्ठभूमि शोर (High Background Noise: RMS ${(data.ambientRms * 100).toFixed(2)}%)`,
+            message: `⚠️ High Ambient Noise Detected: RMS ${(data.ambientRms * 100).toFixed(2)}%`,
           });
         } else {
           setAmbientAlert(null);
         }
       },
-      onSystemMessage: (type, msg) => {
-        if (type === 'error') toast.error(`[Robust] ${msg}`);
-      },
     });
 
-    robustManagerRef.current = manager;
-    manager.connect();
+    const ok = await processor.initialize();
+    if (ok) {
+      processor.start();
+      robustProcessorRef.current = processor;
+      setActivePipeline((prev) => (prev === 'classic' ? 'both' : 'robust'));
+    } else {
+      toast.error('Failed to start Robust AudioProcessor');
+    }
   };
 
   const stopRobust = () => {
-    if (robustManagerRef.current) {
-      robustManagerRef.current.disconnect();
-      robustManagerRef.current = null;
+    if (robustProcessorRef.current) {
+      robustProcessorRef.current.destroy();
+      robustProcessorRef.current = null;
     }
-    setRobustState('idle');
+    setRobustIsSpeaking(false);
     setRobustVolume(0);
     setCurrentDiag((prev) => ({ ...prev, classification: 'SILENT', isStreaming: false }));
+    setActivePipeline((prev) => (prev === 'both' ? 'classic' : 'none'));
   };
 
-  const startBoth = () => {
-    startClassic();
-    startRobust();
+  const startBoth = async () => {
+    await startClassic();
+    await startRobust();
   };
 
-  const stopBoth = () => {
+  const stopAll = () => {
     stopClassic();
     stopRobust();
+    setActivePipeline('none');
   };
 
   const clearAllData = () => {
-    setClassicTranscripts([]);
-    setRobustTranscripts([]);
-    setClassicExtractions({});
-    setRobustExtractions({});
+    setClassicAudioClips([]);
+    setRobustAudioClips([]);
+    setFilteredAudioClips([]);
     setFrameLogs([]);
-    if (robustManagerRef.current) {
-      robustManagerRef.current.resetStats();
+    waveformHistoryRef.current = [];
+    if (robustProcessorRef.current) {
+      robustProcessorRef.current.resetStats();
     }
     setStats({
       totalFrames: 0,
@@ -267,15 +431,14 @@ export default function VoicePipelineComparisonDashboard() {
     });
   };
 
-  // Helper formatting for classification badge
   const getClassificationBadge = (cls) => {
     switch (cls) {
       case 'SPEECH_NEAR':
-        return <span style={{ backgroundColor: '#059669', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟢 SPEECH_NEAR (Near-field)</span>;
+        return <span style={{ backgroundColor: '#059669', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟢 SPEECH_NEAR (Passed)</span>;
       case 'SPEECH_FAR':
-        return <span style={{ backgroundColor: '#d97706', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟡 SPEECH_FAR (Too Quiet/Far)</span>;
+        return <span style={{ backgroundColor: '#d97706', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🟡 SPEECH_FAR (Gated / Dropped)</span>;
       case 'NOISE_ONLY':
-        return <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🔴 NOISE_ONLY (Ambient Noise)</span>;
+        return <span style={{ backgroundColor: '#dc2626', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>🔴 NOISE_ONLY (Gated / Dropped)</span>;
       default:
         return <span style={{ backgroundColor: '#475569', color: '#fff', padding: '3px 8px', borderRadius: 4, fontWeight: 700, fontSize: '0.78rem' }}>⚫ SILENT</span>;
     }
@@ -290,44 +453,52 @@ export default function VoicePipelineComparisonDashboard() {
   const bandwidthSavedPct = totalEvaluated > 0 ? (((totalEvaluated - stats.speechNearFrames) / totalEvaluated) * 100).toFixed(1) : '0.0';
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', color: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', padding: '24px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#0b1120', color: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', padding: '24px' }}>
+      
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '16px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #1e293b', paddingBottom: '16px', marginBottom: '20px' }}>
         <div>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, margin: 0, background: 'linear-gradient(90deg, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            ⚡ Voice Pipeline Hardening & A/B Comparison Dashboard
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, background: 'linear-gradient(90deg, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              🎙️ Frontend Audio Processor & Proximity Triage Lab
+            </h1>
+            <span style={{ backgroundColor: '#10b981', color: '#064e3b', fontWeight: 700, fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px' }}>
+              100% CLIENT-SIDE ONLY (NO BACKEND / ZERO WS)
+            </span>
+          </div>
           <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#94a3b8' }}>
-            Side-by-Side Real-Time Benchmark: Classic VAD vs. Robust RMS Energy-Gated Triage Pipeline
+            Test microphone capture, Silero VAD, 85Hz HPF, and RMS near-field energy gating with live audio playback.
           </p>
         </div>
+
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
             onClick={startBoth}
-            style={{ backgroundColor: '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.3)' }}
+            disabled={!vadLoaded}
+            style={{ backgroundColor: activePipeline === 'both' ? '#10b981' : '#2563eb', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 12px rgba(37,99,235,0.3)' }}
           >
-            ▶️ Start Both Pipelines
+            {activePipeline === 'both' ? '🟢 Both Running' : '▶️ Test Both Pipelines'}
           </button>
           <button
-            onClick={stopBoth}
-            style={{ backgroundColor: '#475569', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+            onClick={stopAll}
+            style={{ backgroundColor: '#334155', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
           >
-            ⏹️ Stop Both
+            ⏹️ Stop All
           </button>
           <button
             onClick={clearAllData}
-            style={{ backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #475569', padding: '10px 14px', borderRadius: '6px', cursor: 'pointer' }}
+            style={{ backgroundColor: '#1e293b', color: '#cbd5e1', border: '1px solid #334155', padding: '10px 14px', borderRadius: '6px', cursor: 'pointer' }}
           >
-            🧹 Clear Logs
+            🧹 Clear Clips & Logs
           </button>
         </div>
       </div>
 
-      {/* Global Alerts Banner */}
+      {/* Real-time Alerts */}
       {ambientAlert && (
         <div style={{ backgroundColor: 'rgba(220, 38, 38, 0.2)', border: '1px solid #dc2626', color: '#fca5a5', padding: '10px 16px', borderRadius: '6px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span>⚠️</span>
-          <strong>{ambientAlert.message}</strong> — Consider moving to a quieter area or lowering mic boost.
+          <strong>{ambientAlert.message}</strong> — High background noise level detected in room.
         </div>
       )}
       {speakCloserAlert && (
@@ -337,77 +508,48 @@ export default function VoicePipelineComparisonDashboard() {
         </div>
       )}
 
-      {/* Shared Config Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', backgroundColor: '#1e293b', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #334155' }}>
-        <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Scheme ID</label>
-          <input
-            type="text"
-            value={schemeId}
-            onChange={(e) => setSchemeId(e.target.value)}
-            style={{ width: '100%', backgroundColor: '#0f172a', border: '1px solid #475569', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '0.85rem' }}
-          />
+      {/* Live Audio Oscilloscope Canvas */}
+      <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#38bdf8' }}>
+            📈 LIVE AUDIO ENERGY OSCILLOSCOPE (RMS vs. Near-Field Threshold)
+          </div>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem' }}>
+            <span style={{ color: '#10b981' }}>■ SPEECH_NEAR (Passed)</span>
+            <span style={{ color: '#f59e0b' }}>■ SPEECH_FAR (Gated)</span>
+            <span style={{ color: '#ef4444' }}>■ NOISE_ONLY (Dropped)</span>
+            <span style={{ color: '#64748b' }}>■ SILENT</span>
+          </div>
         </div>
-        <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Language</label>
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            style={{ width: '100%', backgroundColor: '#0f172a', border: '1px solid #475569', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '0.85rem' }}
-          >
-            <option value="hi">Hindi (hi)</option>
-            <option value="mr">Marathi (mr)</option>
-            <option value="en">English (en)</option>
-            <option value="fr">French (fr)</option>
-            <option value="ar">Arabic (ar)</option>
-          </select>
-        </div>
-        <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Classic Session ID</label>
-          <input
-            type="text"
-            value={sessionIdClassic}
-            onChange={(e) => setSessionIdClassic(e.target.value)}
-            style={{ width: '100%', backgroundColor: '#0f172a', border: '1px solid #475569', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '0.85rem' }}
-          />
-        </div>
-        <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Robust Session ID</label>
-          <input
-            type="text"
-            value={sessionIdRobust}
-            onChange={(e) => setSessionIdRobust(e.target.value)}
-            style={{ width: '100%', backgroundColor: '#0f172a', border: '1px solid #475569', color: '#fff', padding: '6px 8px', borderRadius: '4px', fontSize: '0.85rem' }}
-          />
-        </div>
+        <canvas ref={canvasRef} width={1100} height={100} style={{ width: '100%', height: '100px', borderRadius: '4px', backgroundColor: '#090d16' }} />
       </div>
 
-      {/* Main Side-by-Side Comparison Grid */}
+      {/* Side-by-Side Audio Processing Comparison */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
         
-        {/* === LEFT: Classic Pipeline Card === */}
+        {/* === LEFT: Classic Audio Processor === */}
         <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #334155', padding: '16px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '14px' }}>
             <div>
-              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: '#94a3b8' }}>🏛️ Classic Pipeline (Basic VAD)</h2>
-              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Standard @ricky0123/vad-web without energy gating</span>
+              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 700, color: '#94a3b8' }}>🏛️ Classic AudioProcessor</h2>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Streams EVERYTHING that triggers Silero VAD (including distant voices & noise)</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: classicState === 'listening' ? '#059669' : classicState === 'speaking' ? '#2563eb' : '#475569' }}>
-                {classicState.toUpperCase()}
+              <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: classicIsSpeaking ? '#10b981' : '#475569', color: '#fff', fontWeight: 700 }}>
+                {classicIsSpeaking ? 'SPEECH DETECTED' : 'IDLE'}
               </span>
-              {classicState === 'idle' ? (
-                <button onClick={startClassic} style={{ backgroundColor: '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Start</button>
+              {!classicProcessorRef.current ? (
+                <button onClick={startClassic} disabled={!vadLoaded} style={{ backgroundColor: '#059669', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Start</button>
               ) : (
                 <button onClick={stopClassic} style={{ backgroundColor: '#dc2626', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Stop</button>
               )}
             </div>
           </div>
 
-          {/* Meters */}
+          {/* Volume Meter */}
           <div style={{ marginBottom: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
-              <span>Volume Level</span>
+              <span>Microphone Volume Level</span>
               <span>{(classicVolume * 100).toFixed(0)}%</span>
             </div>
             <div style={{ height: '8px', backgroundColor: '#0f172a', borderRadius: '4px', overflow: 'hidden' }}>
@@ -415,43 +557,42 @@ export default function VoicePipelineComparisonDashboard() {
             </div>
           </div>
 
-          {/* Transcripts Box */}
-          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '10px', border: '1px solid #334155', minHeight: '180px', maxHeight: '220px', overflowY: 'auto', marginBottom: '12px' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>TRANSCRIPTION STREAM</div>
-            {classicTranscripts.length === 0 ? (
-              <div style={{ color: '#475569', fontSize: '0.8rem', fontStyle: 'italic' }}>No transcripts yet...</div>
+          {/* Recorded Audio Output List */}
+          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '260px', maxHeight: '320px', overflowY: 'auto' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', marginBottom: '8px' }}>
+              🔊 CAPTURED AUDIO CLIPS ({classicAudioClips.length})
+            </div>
+            {classicAudioClips.length === 0 ? (
+              <div style={{ color: '#475569', fontSize: '0.8rem', fontStyle: 'italic', padding: '10px 0' }}>
+                Speak into microphone to capture audio...
+              </div>
             ) : (
-              classicTranscripts.map((t, idx) => (
-                <div key={idx} style={{ fontSize: '0.82rem', marginBottom: '4px', color: t.isFinal ? '#38bdf8' : '#94a3b8' }}>
-                  <span style={{ color: '#64748b', fontSize: '0.7rem', marginRight: '6px' }}>[{t.time}]</span>
-                  {t.text}
+              classicAudioClips.map((clip) => (
+                <div key={clip.id} style={{ backgroundColor: '#1e293b', padding: '8px 10px', borderRadius: '6px', marginBottom: '8px', border: '1px solid #334155' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '4px' }}>
+                    <span>🕒 {clip.time} ({clip.durationSec}s, {clip.sizeKb} KB)</span>
+                    <a href={clip.url} download={`classic_${clip.id}.wav`} style={{ color: '#38bdf8', textDecoration: 'none' }}>⬇️ Download</a>
+                  </div>
+                  <audio controls src={clip.url} style={{ width: '100%', height: '32px' }} />
                 </div>
               ))
             )}
           </div>
-
-          {/* Extractions Box */}
-          <div style={{ backgroundColor: '#0f172a', borderRadius: '6px', padding: '10px', border: '1px solid #334155', minHeight: '100px', maxHeight: '120px', overflowY: 'auto' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '6px' }}>EXTRACTED FIELDS</div>
-            <pre style={{ margin: 0, fontSize: '0.75rem', color: '#a7f3d0' }}>
-              {JSON.stringify(classicExtractions, null, 2)}
-            </pre>
-          </div>
         </div>
 
-        {/* === RIGHT: Robust Pipeline Card === */}
+        {/* === RIGHT: Robust Audio Processor === */}
         <div style={{ backgroundColor: '#1e293b', borderRadius: '8px', border: '1px solid #38bdf8', padding: '16px', display: 'flex', flexDirection: 'column', boxShadow: '0 0 15px rgba(56, 189, 248, 0.15)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #334155', paddingBottom: '10px', marginBottom: '14px' }}>
             <div>
-              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 800, color: '#38bdf8' }}>🚀 Robust Pipeline (Energy-Gated Triage)</h2>
-              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Two-Layer VAD + RMS Near-Field Proximity Gate</span>
+              <h2 style={{ fontSize: '1.1rem', margin: 0, fontWeight: 800, color: '#38bdf8' }}>🚀 Robust AudioProcessor (Energy Gated)</h2>
+              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>GATES OUT distant voices, mumbles & noise before audio ever leaves browser</span>
             </div>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: robustState === 'listening' ? '#059669' : robustState === 'speaking' ? '#2563eb' : '#475569' }}>
-                {robustState.toUpperCase()}
+              <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: robustIsSpeaking ? '#10b981' : '#475569', color: '#fff', fontWeight: 700 }}>
+                {robustIsSpeaking ? 'STREAMING NEAR-FIELD' : 'IDLE / GATED'}
               </span>
-              {robustState === 'idle' ? (
-                <button onClick={startRobust} style={{ backgroundColor: '#38bdf8', color: '#0f172a', fontWeight: 700, border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Start</button>
+              {!robustProcessorRef.current ? (
+                <button onClick={startRobust} disabled={!vadLoaded} style={{ backgroundColor: '#38bdf8', color: '#0f172a', fontWeight: 700, border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Start</button>
               ) : (
                 <button onClick={stopRobust} style={{ backgroundColor: '#dc2626', color: '#fff', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Stop</button>
               )}
@@ -471,9 +612,9 @@ export default function VoicePipelineComparisonDashboard() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>STREAMING TO BACKEND</div>
+              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>AUDIO GATE STATUS</div>
               <div style={{ fontSize: '0.82rem', fontWeight: 800, color: currentDiag.isStreaming ? '#34d399' : '#f87171' }}>
-                {currentDiag.isStreaming ? '🟢 ACTIVE (PCM Sent)' : '🔴 DROPPED (Gated)'}
+                {currentDiag.isStreaming ? '🟢 PASSED (Streaming)' : '🔴 DROPPED (Gated)'}
               </div>
             </div>
           </div>
@@ -505,27 +646,26 @@ export default function VoicePipelineComparisonDashboard() {
             </div>
           </div>
 
-          {/* Transcripts Box */}
-          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '10px', border: '1px solid #334155', minHeight: '180px', maxHeight: '220px', overflowY: 'auto', marginBottom: '12px' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8', marginBottom: '6px' }}>ROBUST TRANSCRIPTION STREAM</div>
-            {robustTranscripts.length === 0 ? (
-              <div style={{ color: '#475569', fontSize: '0.8rem', fontStyle: 'italic' }}>No transcripts yet...</div>
+          {/* Processed & Passed Audio Output List */}
+          <div style={{ flex: 1, backgroundColor: '#0f172a', borderRadius: '6px', padding: '12px', border: '1px solid #334155', minHeight: '260px', maxHeight: '320px', overflowY: 'auto' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', marginBottom: '8px' }}>
+              🔊 CLEANED & PASSED AUDIO CLIPS ({robustAudioClips.length})
+            </div>
+            {robustAudioClips.length === 0 ? (
+              <div style={{ color: '#475569', fontSize: '0.8rem', fontStyle: 'italic', padding: '10px 0' }}>
+                Speak near the mic (10-30cm) to pass the energy gate...
+              </div>
             ) : (
-              robustTranscripts.map((t, idx) => (
-                <div key={idx} style={{ fontSize: '0.82rem', marginBottom: '4px', color: t.isFinal ? '#38bdf8' : '#94a3b8' }}>
-                  <span style={{ color: '#64748b', fontSize: '0.7rem', marginRight: '6px' }}>[{t.time}]</span>
-                  {t.text}
+              robustAudioClips.map((clip) => (
+                <div key={clip.id} style={{ backgroundColor: '#1e293b', padding: '8px 10px', borderRadius: '6px', marginBottom: '8px', border: '1px solid rgba(56, 189, 248, 0.4)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#38bdf8', marginBottom: '4px' }}>
+                    <span>🕒 {clip.time} ({clip.durationSec}s, {clip.sizeKb} KB)</span>
+                    <a href={clip.url} download={`robust_${clip.id}.wav`} style={{ color: '#38bdf8', textDecoration: 'none' }}>⬇️ Download</a>
+                  </div>
+                  <audio controls src={clip.url} style={{ width: '100%', height: '32px' }} />
                 </div>
               ))
             )}
-          </div>
-
-          {/* Extractions Box */}
-          <div style={{ backgroundColor: '#0f172a', borderRadius: '6px', padding: '10px', border: '1px solid #334155', minHeight: '100px', maxHeight: '120px', overflowY: 'auto' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#38bdf8', marginBottom: '6px' }}>EXTRACTED FIELDS</div>
-            <pre style={{ margin: 0, fontSize: '0.75rem', color: '#a7f3d0' }}>
-              {JSON.stringify(robustExtractions, null, 2)}
-            </pre>
           </div>
         </div>
       </div>
@@ -533,19 +673,19 @@ export default function VoicePipelineComparisonDashboard() {
       {/* Aggregate Statistics & Efficiency Summary */}
       <div style={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
         <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 700, color: '#f1f5f9' }}>
-          📊 Real-Time Efficiency & Triage Statistics
+          📊 Real-Time Efficiency & Noise Reduction Statistics
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px' }}>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Frames</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total Frames Processed</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f8fafc' }}>{stats.totalFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Near (Streamed)</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Near (Passed)</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981' }}>{stats.speechNearFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Far (Blocked)</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Speech Far (Gated Out)</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f59e0b' }}>{stats.speechFarFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
@@ -553,11 +693,11 @@ export default function VoicePipelineComparisonDashboard() {
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#ef4444' }}>{stats.noiseFrames}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Streamed Chunks</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Valid Chunks Streamed</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8' }}>{stats.streamedChunks}</div>
           </div>
           <div style={{ backgroundColor: '#0f172a', padding: '10px', borderRadius: '6px', border: '1px solid #334155' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Estimated Bandwidth Saved</div>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Unwanted Audio Filtered</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#a855f7' }}>{bandwidthSavedPct}%</div>
           </div>
         </div>
@@ -623,7 +763,7 @@ export default function VoicePipelineComparisonDashboard() {
 
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: '#94a3b8' }}>
-              <span>RMS High Threshold (Near-field)</span>
+              <span>RMS High Threshold (Near-field floor)</span>
               <strong style={{ color: '#38bdf8' }}>{tuningParams.rmsHighThreshold.toFixed(3)}</strong>
             </div>
             <input
@@ -766,7 +906,7 @@ export default function VoicePipelineComparisonDashboard() {
                 <span>dB: {log.rmsDb.toFixed(1)}</span>
                 <span>RollRMS: {log.rollingRms.toFixed(4)}</span>
                 <span>{log.energyState}</span>
-                <span>{log.isStreaming ? '🟢 STREAMING' : '🔴 GATED'}</span>
+                <span>{log.isStreaming ? '🟢 PASSED (WAV)' : '🔴 GATED (DROP)'}</span>
               </div>
             ))
           )}
