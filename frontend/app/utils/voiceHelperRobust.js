@@ -1,0 +1,677 @@
+// Client-side Robust Voice Assistant Helper
+// Uses AudioProcessorRobust for two-layer VAD + RMS energy gating and frame classification diagnostics.
+
+export function floatTo16BitPCM(float32Array) {
+  const buffer = new ArrayBuffer(float32Array.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+  }
+  return buffer;
+}
+
+export function unlockAudioContext() {
+  if (typeof window === 'undefined') return;
+  window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+  const ctx = window.globalAudioContext;
+  if (ctx.state === 'suspended') {
+    try { ctx.resume(); } catch (e) {}
+  }
+  // Play a silent 0.1s buffer to fully wake up the audio hardware
+  const buffer = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(ctx.destination);
+  source.start(0);
+}
+
+if (typeof window !== 'undefined') {
+  window._vadLoadingPromises = window._vadLoadingPromises || {};
+}
+
+function loadSingleScript(src, id, expectedGlobal) {
+  if (typeof window !== 'undefined' && window[expectedGlobal]) {
+    return Promise.resolve();
+  }
+
+  if (window._vadLoadingPromises && window._vadLoadingPromises[id]) {
+    return window._vadLoadingPromises[id];
+  }
+
+  const p = new Promise((resolve, reject) => {
+    const existing = document.getElementById(id);
+    if (existing) {
+      existing.addEventListener('load', () => {
+        if (window[expectedGlobal]) resolve();
+        else reject(new Error(`window.${expectedGlobal} is still undefined after load`));
+      });
+      existing.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.id = id;
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.onload = () => {
+      if (window[expectedGlobal]) {
+        resolve();
+      } else {
+        reject(new Error(`Script ${id} loaded but window.${expectedGlobal} is still undefined`));
+      }
+    };
+    script.onerror = () => {
+      reject(new Error(`Failed to load script: ${src}`));
+    };
+    document.body.appendChild(script);
+  });
+
+  window._vadLoadingPromises[id] = p;
+
+  return p.catch((err) => {
+    delete window._vadLoadingPromises[id];
+    const existing = document.getElementById(id);
+    if (existing) existing.remove();
+    throw err;
+  });
+}
+
+async function loadWithRetry(src, id, expectedGlobal, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await loadSingleScript(src, id, expectedGlobal);
+      return true;
+    } catch (err) {
+      console.warn(`[voiceHelperRobust] Attempt ${attempt}/${maxRetries} failed for ${id}: ${err.message}`);
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+  return false;
+}
+
+export async function loadVADScripts() {
+  if (typeof window === 'undefined') return false;
+
+  if (window.ort && window.vad && window.vad.MicVAD) {
+    return true;
+  }
+
+  const ortLoaded = await loadWithRetry(
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js",
+    "ort-script",
+    "ort"
+  );
+
+  if (!ortLoaded) {
+    console.error('[voiceHelperRobust] Failed to load ONNX Runtime after retries');
+    return false;
+  }
+
+  const vadLoaded = await loadWithRetry(
+    "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/bundle.min.js",
+    "vad-script",
+    "vad"
+  );
+
+  if (!vadLoaded) {
+    console.error('[voiceHelperRobust] Failed to load VAD library after retries');
+    return false;
+  }
+
+  if (!window.vad || !window.vad.MicVAD) {
+    console.error('[voiceHelperRobust] VAD loaded but MicVAD constructor is missing');
+    return false;
+  }
+
+  return true;
+}
+
+import { AudioProcessorRobust } from './audioProcessorRobust';
+
+export class VoiceSessionManagerRobust {
+  constructor(options = {}) {
+    this.token = options.token;
+    this.sessionId = options.sessionId;
+    this.applicationId = options.applicationId;
+    this.applicantName = options.applicantName;
+    this.schemeId = options.schemeId;
+    this.language = options.language || 'hi';
+    this.wsUrl = options.wsUrl || 'ws://localhost:8080/ws/voice';
+
+    // Standard Callbacks
+    this.onStateChange = options.onStateChange || (() => {});
+    this.onTranscript = options.onTranscript || (() => {});
+    this.onProgress = options.onProgress || (() => {});
+    this.onNodeChange = options.onNodeChange || (() => {});
+    this.onExtraction = options.onExtraction || (() => {});
+    this.onComplete = options.onComplete || (() => {});
+    this.onSystemMessage = options.onSystemMessage || (() => {});
+    this.onError = options.onError || (() => {});
+    this.onConnected = options.onConnected || (() => {});
+    this.onControlSignal = options.onControlSignal || (() => {});
+    this.onDisconnect = options.onDisconnect || (() => {});
+    this.onVolumeLevelCallback = options.onVolumeLevel || (() => {});
+    this.onSpeechEndCallback = options.onSpeechEnd || (() => {});
+
+    // Robust Specific Diagnostic & UX Callbacks
+    this.onDiagnostics = options.onDiagnostics || (() => {});
+    this.onSpeechTooQuiet = options.onSpeechTooQuiet || (() => {});
+    this.onHighBackgroundNoise = options.onHighBackgroundNoise || (() => {});
+
+    // Audio & WS Refs
+    this.ws = null;
+    this.audioProcessor = null;
+    this.audioContext = null;
+    this.currentAudioSource = null;
+    this.audioQueue = [];
+    this.keepAliveSource = null;
+    this.lastTextFired = null;
+    this.isFirstQuestion = true;
+
+    // State flags
+    this.isRecording = false;
+    this.isPlayingAudio = false;
+    this.audioEndReceived = false;
+    this.isProcessing = false;
+    this.isSpeaking = false;
+    this.pendingText = '';
+    this._disconnected = false;
+    this._inCaptureMode = false;
+    this.pendingComplete = null;
+    this._waitingForCaptureTransition = false;
+    this.vadOptions = options.vadOptions || {};
+  }
+
+  async connect() {
+    this.disconnect();
+    this._disconnected = false;
+    this.onStateChange('connecting');
+    this.onSystemMessage('connecting', 'माइक और सर्वर से जुड़ रहे हैं...');
+
+    try {
+      if (typeof window === 'undefined') {
+        throw new Error('Not in browser environment');
+      }
+
+      if (window.ort && window.ort.env) {
+        window.ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/";
+      }
+
+      if (!window.ort || !window.vad || !window.vad.MicVAD) {
+        throw new Error('VAD libraries not loaded. Please reload the page.');
+      }
+
+      // Initialize Robust AudioProcessor
+      this.audioProcessor = new AudioProcessorRobust({
+        sampleRate: 16000,
+        ...this.vadOptions,
+
+        onAudioChunk: (chunk) => {
+          if (this.isRecording && !this._disconnected && !this.isPlayingAudio && this.audioQueue.length === 0 && !this.isProcessing) {
+            if (this.ws?.readyState === WebSocket.OPEN) {
+              this.ws.send(chunk);
+            }
+          }
+        },
+
+        onSpeechStart: () => {
+          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.audioQueue.length > 0 || this.isProcessing || this._inCaptureMode) return;
+          console.log('[voiceHelperRobust] Sending speech_start to WS');
+          this.ws?.send(JSON.stringify({ signal: 'speech_start' }));
+          this.onStateChange('listening');
+        },
+
+        onSpeechEnd: (audio) => {
+          if (!this.isRecording || this._disconnected || this.isPlayingAudio || this.audioQueue.length > 0 || this.isProcessing || this._inCaptureMode) return;
+
+          this.tSpeechEnd = performance.now();
+          console.log(`[voiceHelperRobust] Speech ended. Sending speech_end to WS`);
+          this.ws?.send(JSON.stringify({ signal: 'speech_end' }));
+          this.isProcessing = true;
+          this.onStateChange('processing');
+          if (typeof this.onSpeechEndCallback === 'function') {
+            this.onSpeechEndCallback(audio);
+          }
+        },
+
+        onVolumeLevel: (level) => {
+          if (typeof this.onVolumeLevelCallback === 'function') {
+            this.onVolumeLevelCallback(level);
+          }
+        },
+
+        onFrameClassified: (diag) => {
+          if (typeof this.onDiagnostics === 'function') {
+            this.onDiagnostics(diag);
+          }
+        },
+
+        onSpeechTooQuiet: (data) => {
+          if (typeof this.onSpeechTooQuiet === 'function') {
+            this.onSpeechTooQuiet(data);
+          }
+        },
+
+        onHighBackgroundNoise: (data) => {
+          if (typeof this.onHighBackgroundNoise === 'function') {
+            this.onHighBackgroundNoise(data);
+          }
+        },
+      });
+
+      const vadLoaded = await this.audioProcessor.initialize();
+      if (!vadLoaded) {
+        console.warn('[voiceHelperRobust] VAD initialization failed. Disabling microphone input.');
+        this.audioProcessor = null;
+        this.onSystemMessage('warning', 'माइक एक्सेस उपलब्ध नहीं है।');
+      }
+
+      if (this._disconnected) return;
+
+      // Connect WebSocket
+      const ws = new WebSocket(this.wsUrl);
+      this.ws = ws;
+      ws.binaryType = 'arraybuffer';
+
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('WebSocket connection timed out (10s)'));
+        }, 10000);
+
+        ws.onopen = () => {
+          clearTimeout(timeout);
+          this.startKeepAliveLoop();
+          resolve();
+        };
+
+        ws.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('WebSocket connection failed'));
+        };
+      });
+
+      if (this._disconnected) return;
+
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        this.onSystemMessage('error', 'सर्वर से संपर्क टूट गया。');
+        this.disconnect();
+        return;
+      }
+
+      ws.onclose = () => {
+        console.warn('[voiceHelperRobust] WebSocket connection closed.');
+        if (!this._disconnected) {
+          this.onDisconnect();
+        }
+      };
+
+      ws.onmessage = async (e) => {
+        if (this._disconnected) return;
+
+        if (e.data instanceof ArrayBuffer) {
+          if (this.isProcessing && !this._inCaptureMode) {
+            return;
+          }
+          const isFirst = !this.isPlayingAudio && this.audioQueue.length === 0;
+          this.audioQueue.push({ buffer: e.data, text: this.pendingText, receivedAt: performance.now() });
+          this.pendingText = '';
+          this.playNextAudioChunk(isFirst);
+        } else {
+          try {
+            const data = JSON.parse(e.data);
+            if (data.error) {
+              const errMsg = typeof data.error === 'object' ? data.error.message || JSON.stringify(data.error) : data.error;
+              this.onSystemMessage('error', `त्रुटि: ${errMsg}`);
+              this.disconnect();
+              return;
+            }
+
+            if (data.type === 'status') {
+              if (data.status === 'connected') {
+                this.onSystemMessage('success', 'वॉइस इंजन कनेक्ट हो गया है।');
+                this.onConnected();
+              }
+              if (!this.isPlayingAudio) {
+                if (data.status === 'listening') {
+                  this.isProcessing = false;
+                  this.isSpeaking = false;
+                  this.onStateChange('listening');
+                } else if (data.status === 'processing') {
+                  this.isProcessing = true;
+                  this.onStateChange('processing');
+                } else if (data.status === 'speaking') {
+                  this.isProcessing = false;
+                  this.isSpeaking = true;
+                  this.onStateChange('speaking');
+                }
+              }
+            } else if (data.type === 'transcription') {
+              if (data.is_final) {
+                this.onTranscript(data.text, true);
+              }
+            } else if (data.type === 'audio_chunk') {
+              if (this.isProcessing) {
+                this.pendingText = '';
+              } else {
+                this.pendingText = data.text || '';
+              }
+            } else if (data.type === 'progress') {
+              this.onProgress(data.current_step, data.total_steps, data.current_node_id);
+            } else if (data.type === 'node_change') {
+              if (data.node_type === 'capture' || data.node_type === 'video_capture') {
+                this._inCaptureMode = true;
+                this.isProcessing = false;
+                this.isSpeaking = false;
+                this.isRecording = false;
+                if (this.audioProcessor) {
+                  try { this.audioProcessor.stop(); } catch (e) {}
+                }
+                this.onStateChange('idle');
+              } else if (data.node_type === 'voice-qa') {
+                this._inCaptureMode = false;
+                this.isRecording = true;
+                this.isProcessing = true;
+                if (this.audioProcessor) {
+                  try { this.audioProcessor.start(); } catch (e) {}
+                }
+              }
+              this.onNodeChange(data.node_type, data.document_id, data.manifest_id, data.page_id);
+            } else if (data.type === 'control_signal') {
+              if (this.onControlSignal) {
+                this.onControlSignal(data.signal, data.payload);
+              }
+            } else if (data.type === 'extraction') {
+              try {
+                const fields = JSON.parse(data.json_fields);
+                this.onExtraction(fields);
+              } catch (ex) {}
+            } else if (data.type === 'audio_end') {
+              this.audioEndReceived = true;
+              if (!this.isPlayingAudio && this.audioQueue.length === 0) {
+                this.finalizeSpeakingTurn();
+              }
+            } else if (data.type === 'complete') {
+              this.onStateChange('idle');
+              if (this.isPlayingAudio || this.audioQueue.length > 0) {
+                this.pendingComplete = data;
+              } else {
+                this.disconnect();
+                this.onComplete(data);
+              }
+            }
+          } catch (ex) {
+            console.error('Failed to parse WS text message:', ex);
+          }
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error('WebSocket error:', err);
+        this.onSystemMessage('error', 'सर्वर से संपर्क टूट गया。');
+        this.onError('WebSocket connection error');
+        this.onStateChange('idle');
+      };
+
+      ws.onclose = () => {
+        if (!this._disconnected) {
+          this.onSystemMessage('error', 'The connection to the AI Assistant was unexpectedly closed.');
+          this.onStateChange('error');
+          this.disconnect();
+        }
+      };
+
+      this.isRecording = true;
+      this.isProcessing = true;
+      if (this.audioProcessor) {
+        this.audioProcessor.start();
+      }
+      this.onStateChange('connecting');
+
+      this.onSystemMessage('info', 'सफलतापूर्वक जुड़े! प्रश्नोत्तर शुरू हो रहा है...');
+      this.ws.send(JSON.stringify({
+        token: this.token,
+        scheme_id: this.schemeId,
+        session_id: this.sessionId,
+        language: this.language,
+        applicant_name: this.applicantName,
+        application_id: this.applicationId || ''
+      }));
+
+    } catch (err) {
+      console.error('VoiceSessionManagerRobust start failure:', err);
+      this.onSystemMessage('error', err.message || 'माइक अनुमति अस्वीकार कर दी गई है या सर्वर अनुपलब्ध है।');
+      this.onError(err.message);
+      this.disconnect();
+    }
+  }
+
+  playNextAudioChunk(isFirstOfTurn = false) {
+    if (this._disconnected) return;
+    if (this.isPlayingAudio && !isFirstOfTurn) return;
+
+    if (this.audioQueue.length === 0) {
+      if (this.audioEndReceived || this.pendingComplete) {
+        this.finalizeSpeakingTurn();
+      }
+      return;
+    }
+
+    const chunk = this.audioQueue.shift();
+    this.isPlayingAudio = true;
+    this.onStateChange('speaking');
+
+    if (chunk.text && chunk.text.trim().length > 0) {
+      this.lastTextFired = chunk.text;
+      const isLast = this.audioQueue.length === 0 && this.audioEndReceived;
+      this.onTranscript(chunk.text, isLast);
+    }
+
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      this.audioContext = window.globalAudioContext;
+    }
+    if (this.audioContext.state === 'suspended') {
+      try { this.audioContext.resume(); } catch {}
+    }
+
+    if (!chunk.buffer || chunk.buffer.byteLength < 44) {
+      this.isPlayingAudio = false;
+      this.playNextAudioChunk(false);
+      return;
+    }
+
+    const bufferCopy = chunk.buffer.slice(0);
+    this.audioContext.decodeAudioData(
+      bufferCopy,
+      (decodedData) => {
+        if (this._disconnected) return;
+
+        const source = this.audioContext.createBufferSource();
+        source.buffer = decodedData;
+        source.connect(this.audioContext.destination);
+        this.currentAudioSource = source;
+
+        source.onended = () => {
+          this.isPlayingAudio = false;
+          if (this.currentAudioSource === source) {
+            this.currentAudioSource = null;
+          }
+          this.playNextAudioChunk(false);
+        };
+
+        try {
+          if (isFirstOfTurn) {
+            const scheduledDelay = this.isFirstQuestion ? 300 : 50;
+            if (this.isFirstQuestion) {
+              this.isFirstQuestion = false;
+            }
+            source.start(this.audioContext.currentTime + (scheduledDelay / 1000));
+          } else {
+            source.start(0);
+          }
+        } catch (playErr) {
+          console.warn('[voiceHelperRobust] Audio start error:', playErr.message);
+          this.isPlayingAudio = false;
+          this.playNextAudioChunk(false);
+        }
+      },
+      (error) => {
+        console.error("Error decoding audio data:", error);
+        this.isPlayingAudio = false;
+        this.playNextAudioChunk(false);
+      }
+    );
+  }
+
+  finalizeSpeakingTurn() {
+    this.isSpeaking = false;
+    this.isPlayingAudio = false;
+    this.audioEndReceived = false;
+    this.isProcessing = false;
+
+    if (this.lastTextFired) {
+      this.onTranscript(this.lastTextFired, true);
+      this.lastTextFired = null;
+    }
+
+    if (this._disconnected) return;
+
+    if (this._waitingForCaptureTransition) {
+      this._waitingForCaptureTransition = false;
+      this.sendControlSignal('capture_complete');
+      return;
+    }
+
+    if (this.pendingComplete) {
+      const completeData = this.pendingComplete;
+      this.pendingComplete = null;
+      this.disconnect();
+      this.onComplete(completeData);
+      return;
+    }
+
+    if (this.isRecording) {
+      this.onStateChange('listening');
+      this.ws?.send(JSON.stringify({ signal: 'playback_complete' }));
+      if (this.audioProcessor && this.audioProcessor.isSpeaking) {
+        this.ws?.send(JSON.stringify({ signal: 'speech_start' }));
+      }
+    } else {
+      this.onStateChange('idle');
+    }
+  }
+
+  sendTextInput(text) {
+    if (this._disconnected || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.stopAudioPlayback();
+    this.isProcessing = true;
+    this.onStateChange('processing');
+    this.ws.send(JSON.stringify({ text_input: text }));
+  }
+
+  sendControlSignal(action) {
+    if (action && action.startsWith('capture_speak:')) {
+      this.isProcessing = false;
+    }
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ signal: action }));
+    }
+  }
+
+  stopAudioPlayback() {
+    if (this.currentAudioSource) {
+      try {
+        this.currentAudioSource.onended = null;
+        this.currentAudioSource.stop();
+      } catch (e) {}
+      this.currentAudioSource = null;
+    }
+    this.audioQueue = [];
+    this.pendingText = '';
+    this.isPlayingAudio = false;
+    this.audioEndReceived = false;
+  }
+
+  startKeepAliveLoop() {
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      window.globalAudioContext = window.globalAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+      this.audioContext = window.globalAudioContext;
+    }
+    if (this.audioContext.state === 'suspended') {
+      try { this.audioContext.resume(); } catch {}
+    }
+    this.stopKeepAliveLoop();
+    try {
+      const buffer = this.audioContext.createBuffer(1, this.audioContext.sampleRate, this.audioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = (Math.random() - 0.5) * 0.00001;
+      }
+      const source = this.audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(this.audioContext.destination);
+      source.start(0);
+      this.keepAliveSource = source;
+    } catch (e) {
+      console.warn('Failed to start silent audio keep-alive loop:', e);
+    }
+  }
+
+  stopKeepAliveLoop() {
+    if (this.keepAliveSource) {
+      try {
+        this.keepAliveSource.stop();
+      } catch (e) {}
+      this.keepAliveSource = null;
+    }
+  }
+
+  disconnect() {
+    this._disconnected = true;
+    this.isRecording = false;
+    this.isProcessing = false;
+    this.audioEndReceived = false;
+    this.lastTextFired = null;
+
+    this.stopAudioPlayback();
+    this.stopKeepAliveLoop();
+
+    if (this.ws) {
+      try { this.ws.close(); } catch (e) {}
+      this.ws = null;
+    }
+
+    if (this.audioProcessor) {
+      try {
+        this.audioProcessor.destroy();
+      } catch (e) {}
+      this.audioProcessor = null;
+    }
+
+    if (this.audioContext) {
+      this.audioContext = null;
+    }
+
+    this.onStateChange('idle');
+  }
+
+  updateProcessorConfig(config) {
+    if (this.audioProcessor) {
+      this.audioProcessor.updateConfig(config);
+    }
+  }
+
+  getStats() {
+    return this.audioProcessor ? this.audioProcessor.stats : null;
+  }
+
+  resetStats() {
+    if (this.audioProcessor) {
+      this.audioProcessor.resetStats();
+    }
+  }
+}
