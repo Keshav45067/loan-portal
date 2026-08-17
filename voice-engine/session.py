@@ -442,6 +442,40 @@ class VoiceSession:
         except Exception as e:
             logger.error(f"Failed to fetch scheme config from Config Registry: {e}",
                          session_id=self.session_id, error=str(e))
+            # Fallback: Load directly from disk via shared_config_loader
+            try:
+                import sys, os
+                sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+                from shared.shared_config_loader import load_resolved_scheme_config
+                raw_scheme = load_resolved_scheme_config(self.scheme_id)
+                if raw_scheme and "interview_graph" in raw_scheme:
+                    logger.info("Successfully recovered scheme config from disk fallback", session_id=self.session_id)
+                    fallback_graph = raw_scheme.get("interview_graph", {})
+                    fallback_graph["scheme_id"] = self.scheme_id
+                    fallback_graph["context_map"] = raw_scheme.get("context_map", {})
+                    for k, v in raw_scheme.items():
+                        if k not in fallback_graph:
+                            fallback_graph[k] = v
+                    fallback_fields = raw_scheme.get("field_instructions", {})
+                    fallback_media = {}
+                    if self.language in raw_scheme.get("languages", []):
+                        tts_info = raw_scheme.get("tts", {}).get(self.language, {})
+                        stt_info = raw_scheme.get("stt", {}).get(self.language, {})
+                        fallback_media = {
+                            "tts_voice_name": tts_info.get("voice_name", ""),
+                            "tts_engine": tts_info.get("engine", "google"),
+                            "tts_sample_rate": tts_info.get("sample_rate", 24000),
+                            "stt_engine": stt_info.get("engine", "google"),
+                            "stt_language_code": stt_info.get("language_code", ""),
+                        }
+                    self.set_graph(fallback_graph, fallback_fields, fallback_media)
+                    await self._sync_extracted_data()
+                    self._status = "active"
+                    logger.info("Session initialized from fallback config", session_id=self.session_id)
+                    return
+            except Exception as disk_err:
+                logger.error(f"Disk config fallback also failed: {disk_err}", session_id=self.session_id)
+
             # Fallback to a basic empty graph to avoid crash
             self.set_graph({"nodes": {}, "start_node_id": "START", "context_map": {}})
 

@@ -146,7 +146,9 @@ class GraphWalker:
 
     def _get_node_text(self, node: dict) -> str:
         lang_key = f"text_template_{self._language}"
-        return node.get(lang_key, "") or node.get("text_template_en", "") or node.get("text_template", "")
+        if self._language == "hi":
+            return node.get("text_template_hi") or node.get("text_template") or node.get("text_template_en", "")
+        return node.get(lang_key) or node.get("text_template") or node.get("text_template_en", "")
 
     def get_prompt(self, node: Optional[dict] = None) -> str:
         """Return localized, interpolated question text for current or given node."""
