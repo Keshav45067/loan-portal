@@ -1011,6 +1011,12 @@ db_mapping:
   business_purpose: proposed_business_activity
   is_married: is_married
   spouse_phone: spouse_phone
+  cibil_score: cibil_score
+  applicant_cibil_score: applicant_cibil_score
+  spouse_cibil_score: spouse_cibil_score
+  applicant_cibil_status: applicant_cibil_status
+  spouse_cibil_status: spouse_cibil_status
+  is_rejected_due_to_cibil: is_rejected_due_to_cibil
 
 # ─── Dynamic Post-processing Pipelines ───
 post_processing_pipelines:
