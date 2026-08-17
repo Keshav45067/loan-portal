@@ -177,6 +177,7 @@ export default function CaptureFlowPage({ params }) {
   const [qaState, setQaState] = useState('idle');
   const [transcript, setTranscript] = useState('');
   const [textInputValue, setTextInputValue] = useState('');
+  const [highNoiseAlert, setHighNoiseAlert] = useState(null);
   const voiceSessionRef = useRef(null);
   
   // Final Extraction Results State
@@ -474,6 +475,17 @@ export default function CaptureFlowPage({ params }) {
                     if (onControlSignalRef.current) {
                         onControlSignalRef.current(sigType, payload);
                     }
+                },
+                onHighBackgroundNoise: (data) => {
+                    console.log('[DEBUG Capture] onHighBackgroundNoise:', data);
+                    setHighNoiseAlert(data.active ? data : null);
+                },
+                onSpeechTooQuiet: () => {
+                    toast.warning(
+                        language === 'hi'
+                            ? 'कृपया माइक के थोड़ा पास आकर बोलें (Please speak closer)'
+                            : 'Please speak closer to the microphone'
+                    );
                 }
             });
             voiceSessionRef.current = manager;
@@ -1363,6 +1375,39 @@ export default function CaptureFlowPage({ params }) {
 
   return (
     <div className={styles.container}>
+      {/* ─── Top High Background Noise Alert Overlay ─── */}
+      {highNoiseAlert && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          backgroundColor: 'rgba(220, 38, 38, 0.95)',
+          color: '#ffffff',
+          padding: '12px 24px',
+          borderRadius: '30px',
+          boxShadow: '0 10px 25px rgba(220, 38, 38, 0.4), 0 2px 8px rgba(0,0,0,0.3)',
+          backdropFilter: 'blur(8px)',
+          fontSize: '0.88rem',
+          fontWeight: 600,
+          pointerEvents: 'none',
+          maxWidth: '90vw',
+          textAlign: 'center',
+          transition: 'all 0.3s ease-in-out'
+        }}>
+          <span style={{ fontSize: '1.25rem' }}>⚠️</span>
+          <span>
+            {language === 'hi'
+              ? 'आसपास का शोर अधिक है — कृपया किसी शांत जगह पर जाएं'
+              : 'High background noise detected — please move to a quieter area'}
+          </span>
+        </div>
+      )}
+
       {/* ─── Background Camera Layer ─── */}
       <div className={styles.fullScreenCamera}>
         {!previewUrl ? (

@@ -163,6 +163,11 @@ export class VoiceSessionManager {
     this.onConnected = options.onConnected || (() => {});
     this.onControlSignal = options.onControlSignal || (() => {});
     this.onDisconnect = options.onDisconnect || (() => {});
+    this.onVolumeLevelCallback = options.onVolumeLevel || (() => {});
+    this.onSpeechEndCallback = options.onSpeechEnd || (() => {});
+    this.onHighBackgroundNoise = options.onHighBackgroundNoise || (() => {});
+    this.onSpeechTooQuiet = options.onSpeechTooQuiet || (() => {});
+    this.onDiagnostics = options.onDiagnostics || (() => {});
 
     // Audio Refs
     this.ws = null;
@@ -249,6 +254,24 @@ export class VoiceSessionManager {
         onVolumeLevel: (level) => {
           if (typeof this.onVolumeLevelCallback === 'function') {
             this.onVolumeLevelCallback(level);
+          }
+        },
+
+        onHighBackgroundNoise: (data) => {
+          if (typeof this.onHighBackgroundNoise === 'function') {
+            this.onHighBackgroundNoise(data);
+          }
+        },
+
+        onSpeechTooQuiet: (data) => {
+          if (typeof this.onSpeechTooQuiet === 'function') {
+            this.onSpeechTooQuiet(data);
+          }
+        },
+
+        onFrameClassified: (diag) => {
+          if (typeof this.onDiagnostics === 'function') {
+            this.onDiagnostics(diag);
           }
         }
       });
@@ -700,5 +723,11 @@ export class VoiceSessionManager {
     }
 
     this.onStateChange('idle');
+  }
+
+  updateProcessorConfig(config) {
+    if (this.audioProcessor && typeof this.audioProcessor.updateConfig === 'function') {
+      this.audioProcessor.updateConfig(config);
+    }
   }
 }

@@ -32,6 +32,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from generated import stt_pb2, stt_pb2_grpc
 from engines.google_speech import GoogleSpeechEngine
+from engines.rnnoise_denoiser import RNNoiseStreamDenoiser
 from config import STT_SERVICE_PORT, DEFAULT_ENGINE
 
 logger = get_logger("stt-service")
@@ -46,7 +47,7 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
         google_engine = GoogleSpeechEngine()
         google_engine.load()
         self._engines["google"] = google_engine
-        logger.info("STT engines loaded", details={"engines": list(self._engines.keys())})
+        logger.info("STT engines loaded with RNNoise noise suppression active", details={"engines": list(self._engines.keys())})
 
     def _get_engine(self, engine_name: str):
         """Get engine by name, defaulting to Google."""
@@ -57,9 +58,10 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
         return self._engines[name]
 
     async def Transcribe(self, request, context):
-        """Batch transcription (unary)."""
+        """Batch transcription (unary) with RNNoise noise suppression."""
         req_id = extract_req_id(context)
         engine = self._get_engine(request.engine)
+        sample_rate = request.sample_rate or 16000
 
         logger.info("Transcribe called",
                      req_id=req_id,
@@ -70,10 +72,15 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
 
         try:
             with LatencyTracker() as t:
+                # 1. Apply RNNoise Denoising
+                denoised_audio = RNNoiseStreamDenoiser.denoise_bytes(
+                    request.audio_data, sample_rate=sample_rate
+                )
+                # 2. Transcribe clean audio
                 result = await engine.transcribe(
-                    audio_data=request.audio_data,
+                    audio_data=denoised_audio,
                     language=request.language,
-                    sample_rate=request.sample_rate or 16000,
+                    sample_rate=sample_rate,
                 )
 
             logger.info("Transcribe completed",
@@ -94,7 +101,7 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
             return stt_pb2.TranscribeResponse()
 
     async def StreamTranscribe(self, request_iterator, context):
-        """Bidirectional streaming transcription."""
+        """Bidirectional streaming transcription with real-time RNNoise streaming suppression."""
         req_id = extract_req_id(context)
 
         logger.info("StreamTranscribe started", req_id=req_id, method="StreamTranscribe")
@@ -111,20 +118,35 @@ class SpeechToTextServicer(stt_pb2_grpc.SpeechToTextServicer):
         sample_rate = first_request.sample_rate or 16000
         engine = self._get_engine(engine_name)
 
-        logger.info("StreamTranscribe processing",
+        logger.info("StreamTranscribe processing with RNNoise streaming",
                      req_id=req_id, engine=engine_name, language=language)
 
         async def audio_stream_generator():
-            if getattr(first_request, 'audio_data', None):
-                yield first_request.audio_data
-            if getattr(first_request, 'is_final', False):
-                return
-            
-            async for request in request_iterator:
-                if getattr(request, 'audio_data', None):
-                    yield request.audio_data
-                if getattr(request, 'is_final', False):
-                    break
+            denoiser = RNNoiseStreamDenoiser(sample_rate=sample_rate)
+            try:
+                if getattr(first_request, 'audio_data', None):
+                    clean_chunk = denoiser.process_chunk(first_request.audio_data)
+                    if clean_chunk:
+                        yield clean_chunk
+                if getattr(first_request, 'is_final', False):
+                    clean_flush = denoiser.flush()
+                    if clean_flush:
+                        yield clean_flush
+                    return
+                
+                async for request in request_iterator:
+                    if getattr(request, 'audio_data', None):
+                        clean_chunk = denoiser.process_chunk(request.audio_data)
+                        if clean_chunk:
+                            yield clean_chunk
+                    if getattr(request, 'is_final', False):
+                        break
+
+                clean_flush = denoiser.flush()
+                if clean_flush:
+                    yield clean_flush
+            finally:
+                denoiser.destroy()
 
         try:
             async for result in engine.stream_transcribe(
