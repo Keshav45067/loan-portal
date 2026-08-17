@@ -247,6 +247,7 @@ const DOCUMENT_METADATA = {
   'spouse_pan': { label: 'Spouse PAN', icon: '💳', facingMode: 'environment', tips: ['Keep spouse\'s PAN card ready'] },
   'voter_front': { label: 'Voter ID (Front)', icon: '🪪', facingMode: 'environment', tips: ['Card must be clear and fully visible'] },
   'voter_back': { label: 'Voter ID (Back)', icon: '🪪', facingMode: 'environment', tips: ['Back address details must be readable'] },
+  'driving_license': { label: 'Driving License', icon: '🪪', facingMode: 'environment', tips: ['Full driving license should be visible', 'Name and address must be readable'] },
   'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
   'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
@@ -458,8 +459,8 @@ function InterviewContent() {
     };
 
     return {
-      applicant_name: getVal(['applicant_name', 'doc_aadhaar_name', 'doc_pan_name', 'doc_voter_name', 'holder.full_name', 'extractions.doc_aadhaar_002.doc_aadhaar_name', 'extractions.doc_pan_001.doc_pan_name', 'extractions.voter_front.doc_voter_name']) || applicantNameArg,
-      date_of_birth: getVal(['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'holder.date_of_birth', 'extractions.doc_aadhaar_002.doc_aadhaar_dob', 'extractions.doc_pan_001.doc_pan_dob', 'extractions.voter_front.doc_voter_dob']),
+      applicant_name: getVal(['applicant_name', 'doc_aadhaar_name', 'doc_pan_name', 'doc_voter_name', 'doc_dl_name', 'holder.full_name', 'extractions.doc_aadhaar_002.doc_aadhaar_name', 'extractions.doc_pan_001.doc_pan_name', 'extractions.voter_front.doc_voter_name', 'extractions.doc_dl_001.doc_dl_name']) || applicantNameArg,
+      date_of_birth: getVal(['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'doc_dl_dob', 'holder.date_of_birth', 'extractions.doc_aadhaar_002.doc_aadhaar_dob', 'extractions.doc_pan_001.doc_pan_dob', 'extractions.voter_front.doc_voter_dob', 'extractions.doc_dl_001.doc_dl_dob']),
       gender: getVal(['gender', 'doc_aadhaar_gender', 'doc_voter_gender', 'holder.gender', 'extractions.doc_aadhaar_002.doc_aadhaar_gender', 'extractions.voter_front.doc_voter_gender']),
       phone: getVal(['phone', 'mobile_number']) || phoneArg,
       father_name: getVal(['father_name', 'doc_pan_father_name', 'doc_voter_father_name', 'extractions.doc_pan_001.doc_pan_father_name', 'extractions.voter_front.doc_voter_father_name']),
@@ -467,12 +468,13 @@ function InterviewContent() {
       education_level: getVal(['education_level']),
       number_of_family_members: getVal(['number_of_family_members']),
       number_of_kids: getVal(['number_of_kids']),
-      address: formatAddress(extracted.address) || formatAddress(extracted.doc_aadhaar_address) || formatAddress(extracted.doc_voter_address) || formatAddress(getNested(extractions, ['doc_aadhaar_002', 'doc_aadhaar_address'])) || formatAddress(getNested(extractions, ['doc_voter_001', 'doc_voter_address'])),
+      address: formatAddress(extracted.address) || formatAddress(extracted.doc_aadhaar_address) || formatAddress(extracted.doc_voter_address) || formatAddress(extracted.doc_dl_address) || formatAddress(getNested(extractions, ['doc_aadhaar_002', 'doc_aadhaar_address'])) || formatAddress(getNested(extractions, ['doc_voter_001', 'doc_voter_address'])) || formatAddress(getNested(extractions, ['doc_dl_001', 'doc_dl_address'])),
 
       aadhaar_number: getVal(['aadhaar_number', 'doc_aadhaar_last4', 'extractions.doc_aadhaar_002.doc_aadhaar_last4']),
       pan_number: getVal(['pan_number', 'doc_pan_number', 'extractions.doc_pan_001.doc_pan_number']),
       udyam_number: getVal(['udyam_number', 'doc_udyam_registration_number', 'extractions.doc_udyam_001.doc_udyam_registration_number']),
       epic_number: getVal(['epic_number', 'doc_voter_number', 'extractions.voter_front.doc_voter_number']),
+      dl_number: getVal(['dl_number', 'doc_dl_number', 'extractions.doc_dl_001.doc_dl_number', 'driving_license_number']),
 
       enterprise_name: getVal(['enterprise.enterprise_name', 'enterprise_name', 'doc_udyam_enterprise_name', 'extractions.doc_udyam_001.doc_udyam_enterprise_name']),
       business_type: getVal(['business_type', 'type_of_business', 'doc_udyam_enterprise_type', 'extractions.doc_udyam_001.doc_udyam_enterprise_type']),

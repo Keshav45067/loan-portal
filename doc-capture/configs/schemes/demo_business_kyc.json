@@ -1,14 +1,91 @@
 {
   "scheme_id": "demo_business_kyc",
   "scheme_name": "Demo Business KYC Verification",
-  "description": "Complete verification of business entities and proprietors using Aadhaar, PAN, Udyam, and GST certificates.",
+  "description": "Complete verification of business entities and proprietors using PAN for identity, Aadhaar/Voter ID/Driving License for address, and Udyam/GST for business registration.",
   "required_documents": [
-    "doc_aadhaar_002",
-    "doc_pan_001",
-    "doc_udyam_001",
-    "doc_gst_001"
+    {
+      "slot_id": "identity_proof",
+      "slot_name": {
+        "English": "Identity Proof",
+        "Hindi": "पहचान प्रमाण"
+      },
+      "description": {
+        "English": "PAN Card is mandatory for identity and tax verification.",
+        "Hindi": "पहचान और कर सत्यापन के लिए पैन कार्ड अनिवार्य है।"
+      },
+      "options": [
+        {
+          "doc_id": "doc_pan_001",
+          "name": {
+            "English": "PAN Card",
+            "Hindi": "पैन कार्ड"
+          }
+        }
+      ]
+    },
+    {
+      "slot_id": "address_proof",
+      "slot_name": {
+        "English": "Address Proof",
+        "Hindi": "पता प्रमाण"
+      },
+      "description": {
+        "English": "Please select one valid document for address verification: Aadhaar Card, Voter ID Card, or Driving License.",
+        "Hindi": "कृपया पता सत्यापन के लिए एक मान्य दस्तावेज़ चुनें: आधार कार्ड, वोटर आईडी कार्ड, या ड्राइविंग लाइसेंस।"
+      },
+      "options": [
+        {
+          "doc_id": "doc_aadhaar_002",
+          "name": {
+            "English": "Aadhaar Card",
+            "Hindi": "आधार कार्ड"
+          }
+        },
+        {
+          "doc_id": "doc_voter_001",
+          "name": {
+            "English": "Voter ID Card",
+            "Hindi": "वोटर आईडी कार्ड"
+          }
+        },
+        {
+          "doc_id": "doc_dl_001",
+          "name": {
+            "English": "Driving License",
+            "Hindi": "ड्राइविंग लाइसेंस"
+          }
+        }
+      ]
+    },
+    {
+      "slot_id": "business_proof",
+      "slot_name": {
+        "English": "Business Registration Proof",
+        "Hindi": "व्यवसाय पंजीकरण प्रमाण"
+      },
+      "description": {
+        "English": "Provide valid proof of your business entity using either Udyam Registration Certificate or GST Certificate.",
+        "Hindi": "उद्यम पंजीकरण प्रमाणपत्र या जीएसटी प्रमाणपत्र का उपयोग करके अपने व्यावसायिक इकाई का प्रमाण प्रदान करें।"
+      },
+      "options": [
+        {
+          "doc_id": "doc_udyam_001",
+          "name": {
+            "English": "Udyam Certificate",
+            "Hindi": "उद्यम प्रमाणपत्र"
+          }
+        },
+        {
+          "doc_id": "doc_gst_001",
+          "name": {
+            "English": "GST Certificate",
+            "Hindi": "जीएसटी प्रमाणपत्र"
+          }
+        }
+      ]
+    }
   ],
   "faq_context": {
-    "system_prompt": "You are a helpful assistant guiding a user through capturing their business verification documents. Keep answers under 3 sentences."
+    "system_prompt": "You are a helpful assistant guiding a user through capturing their business verification documents. PAN Card is required for identity. Address Proof can be Aadhaar, Voter ID, or Driving License. Business Proof can be Udyam or GST. Keep answers under 3 sentences."
   }
 }

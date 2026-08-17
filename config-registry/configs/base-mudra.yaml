@@ -79,6 +79,8 @@ system_voice_messages:
       spouse_pan: "पति या पत्नी का पैन कार्ड"
       voter_front: "वोटर आईडी कार्ड का अगला हिस्सा"
       voter_back: "वोटर आईडी कार्ड का पिछला हिस्सा"
+      driving_license: "ड्राइविंग लाइसेंस"
+      doc_dl_001: "ड्राइविंग लाइसेंस"
       udyam: "उद्यम प्रमाणपत्र"
       bank_statement: "बैंक स्टेटमेंट"
       workplace_video: "कार्यस्थल का वीडियो"
@@ -109,6 +111,8 @@ system_voice_messages:
       spouse_pan: "पती किंवा पत्नीचे पॅन कार्ड"
       voter_front: "व्होटर आयडीची समोरील बाजू"
       voter_back: "व्होटर आयडीची मागची बाजू"
+      driving_license: "ड्रायव्हिंग लायसन्स"
+      doc_dl_001: "ड्रायव्हिंग लायसन्स"
       udyam: "उद्यम नोंदणी प्रमाणपत्र"
       bank_statement: "बँक स्टेटमेंट"
       workplace_video: "कामाच्या जागेचा व्हिडिओ"
@@ -138,6 +142,8 @@ system_voice_messages:
       spouse_pan: "spouse PAN card"
       voter_front: "Voter ID front card"
       voter_back: "Voter ID back card"
+      driving_license: "Driving License"
+      doc_dl_001: "Driving License"
       udyam: "Udyam certificate"
       bank_statement: "bank statement"
       workplace_video: "workplace video"
@@ -168,6 +174,8 @@ system_voice_messages:
       spouse_pan: "carte PAN du conjoint"
       voter_front: "recto de la carte d'électeur"
       voter_back: "verso de la carte d'électeur"
+      driving_license: "permis de conduire"
+      doc_dl_001: "permis de conduire"
       udyam: "certificat Udyam"
       bank_statement: "relevé bancaire"
       workplace_video: "vidéo du lieu de travail"
@@ -198,6 +206,8 @@ system_voice_messages:
       spouse_pan: "البطاقة الضريبية للزوج/الزوجة"
       voter_front: "الوجه الأمامي لبطاقة الناخب"
       voter_back: "الوجه الخلفي لبطاقة الناخب"
+      driving_license: "رخصة القيادة"
+      doc_dl_001: "رخصة القيادة"
       udyam: "شهادة تسجيل المنشأة"
       bank_statement: "كشف الحساب البنكي"
       workplace_video: "فيديو مكان العمل"
@@ -230,34 +240,6 @@ interview_graph:
       text_template_en: "Please take a selfie photo of yourself."
       text_template_fr: "Veuillez prendre une photo selfie de vous-même."
       text_template_ar: "يرجى التقاط صورة شخصية (سيلفي) لنفسك."
-      edges:
-        - condition: "always"
-          next: "DOC_AADHAAR_FRONT"
-
-    DOC_AADHAAR_FRONT:
-      type: "capture"
-      document_id: "aadhaar_front"
-      manifest_id: doc_aadhaar_002
-      page_id: front
-      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
-      text_template_mr: "कृपया आपल्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
-      text_template_en: "Please take a photo of the front side of your Aadhaar card."
-      text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
-      text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
-      edges:
-        - condition: "always"
-          next: "DOC_AADHAAR_BACK"
-
-    DOC_AADHAAR_BACK:
-      type: "capture"
-      document_id: "aadhaar_back"
-      manifest_id: doc_aadhaar_002
-      page_id: back
-      text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
-      text_template_mr: "कृपया आपल्या आधार कार्डच्या मागच्या बाजूचा फोटो घ्या."
-      text_template_en: "Please take a photo of the back side of your Aadhaar card."
-      text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
-      text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
       edges:
         - condition: "always"
           next: "Q_NAME_CONFIRMATION"
@@ -433,7 +415,56 @@ interview_graph:
       text_template_ar: "يرجى التقاط صورة لشهادة تسجيل المنشأة الخاصة بك."
       edges:
         - condition: "always"
+          next: "Q_ADDRESS_PROOF_TYPE"
+
+    Q_ADDRESS_PROOF_TYPE:
+      type: "voice-qa"
+      text_template: "पते के प्रमाण (Address Proof) के लिए आप कौन सा दस्तावेज़ देना चाहेंगे — आधार कार्ड, वोटर आईडी, या ड्राइविंग लाइसेंस?"
+      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही कोणते दस्तऐवज देऊ इच्छिता — आधार कार्ड, व्होटर आयडी, की ड्रायव्हिंग लायसन्स?"
+      text_template_en: "Which document would you like to provide for proof of address — Aadhaar Card, Voter ID, or Driving License?"
+      text_template_fr: "Quel document souhaitez-vous fournir comme justificatif de domicile — carte Aadhaar, carte d'électeur ou permis de conduire ?"
+      text_template_ar: "ما هي الوثيقة التي تفضل تقديمها كإثبات للعنوان — بطاقة الهوية (آدهار)، أو بطاقة الناخب، किंवा رخصة القيادة؟"
+      targets: [address_proof_type]
+      inactivity_policy:
+        timeout_seconds: 3.0
+        nudge_guideline: "Ask the user to choose between Aadhaar card, Voter ID, or Driving license for address proof."
+      edges:
+        - condition: "address_proof_type in ['aadhaar', 'aadhar', 'adhaar']"
+          next: "DOC_AADHAAR_FRONT"
+        - condition: "address_proof_type in ['voter_id', 'voter', 'epic', 'voter_card']"
           next: "DOC_VOTER_FRONT"
+        - condition: "address_proof_type in ['driving_license', 'dl', 'license', 'driving']"
+          next: "DOC_DRIVING_LICENSE"
+        - condition: "always"
+          next: "DOC_AADHAAR_FRONT"
+
+    DOC_AADHAAR_FRONT:
+      type: "capture"
+      document_id: "aadhaar_front"
+      manifest_id: doc_aadhaar_002
+      page_id: front
+      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the front side of your Aadhaar card."
+      text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "DOC_AADHAAR_BACK"
+
+    DOC_AADHAAR_BACK:
+      type: "capture"
+      document_id: "aadhaar_back"
+      manifest_id: doc_aadhaar_002
+      page_id: back
+      text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या मागच्या बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the back side of your Aadhaar card."
+      text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "PROMPT_MANUAL_FILLING"
 
     DOC_VOTER_FRONT:
       type: "capture"
@@ -463,13 +494,27 @@ interview_graph:
         - condition: "always"
           next: "PROMPT_MANUAL_FILLING"
 
+    DOC_DRIVING_LICENSE:
+      type: "capture"
+      document_id: "driving_license"
+      manifest_id: doc_dl_001
+      page_id: front
+      text_template: "कृपया अपने ड्राइविंग लाइसेंस के मुख्य हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या ड्रायव्हिंग लायसन्सच्या मुख्य बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the main side of your Driving License."
+      text_template_fr: "Veuillez prendre une photo du recto de votre permis de conduire."
+      text_template_ar: "يرجى التقاط صورة للجهة الرئيسية من رخصة القيادة الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "PROMPT_MANUAL_FILLING"
+
     PROMPT_MANUAL_FILLING:
       type: "manual_filling_prompt"
-      text_template: "वोटर आईडी कार्ड की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
-      text_template_mr: "व्होटर आयडी कार्डची पडताळणी झाली आहे. तुम्हाला उरलेली माहिती स्वतः फॉर्ममध्ये भरायची आहे, की माझ्याशी बोलून पुढे जायचे आहे?"
-      text_template_en: "Voter ID card confirmed. Would you like to fill the remaining details manually in the form, or continue speaking with me?"
-      text_template_fr: "Carte d'électeur confirmée. Souhaitez-vous remplir le reste du formulaire manuellement ou continuer avec l'assistant vocal ?"
-      text_template_ar: "تم تأكيد بطاقة الناخب. هل ترغب في إكمال بقية التفاصيل يدوياً في النموذج، أم تفضل الاستمرار في التحدث معي؟"
+      text_template: "पते के प्रमाण पत्र की पुष्टि हो गई है। क्या आप बाकी की जानकारी खुद फॉर्म में भरना चाहते हैं, या मेरे साथ बोलकर आगे बढ़ना चाहते हैं?"
+      text_template_mr: "पत्याच्या पुराव्याची पडताळणी झाली आहे. तुम्हाला उरलेली माहिती स्वतः फॉर्ममध्ये भरायची आहे, की माझ्याशी बोलून पुढे जायचे आहे?"
+      text_template_en: "Address proof confirmed. Would you like to fill the remaining details manually in the form, or continue speaking with me?"
+      text_template_fr: "Justificatif de domicile confirmé. Souhaitez-vous remplir le reste du formulaire manuellement ou continuer avec l'assistant vocal ?"
+      text_template_ar: "تم تأكيد إثبات العنوان. هل ترغب في إكمال بقية التفاصيل يدوياً في النموذج، أم تفضل الاستمرار في التحدث معي؟"
       targets: []
       edges:
         - condition: "always"

@@ -1,0 +1,81 @@
+{
+  "document_id": "doc_dl_001",
+  "title": {
+    "English": "Driving License",
+    "Hindi": "ड्राइविंग लाइसेंस"
+  },
+  "proves": [
+    "identity",
+    "address"
+  ],
+  "required_when": "always",
+  "expects": [
+    "doc_dl_number",
+    "doc_dl_name",
+    "doc_dl_dob",
+    "doc_dl_address"
+  ],
+  "parts": [
+    {
+      "id": "front",
+      "name": {
+        "English": "Main Side",
+        "Hindi": "मुख्य हिस्सा"
+      },
+      "title": {
+        "English": "main side of driving license",
+        "Hindi": "ड्राइविंग लाइसेंस का मुख्य हिस्सा"
+      },
+      "anchors": [
+        "DRIVING",
+        "LICENCE",
+        "LICENSE",
+        "UNION",
+        "INDIA",
+        "TRANSPORT",
+        "AUTHORITY",
+        "DL",
+        "Name",
+        "DOB",
+        "Address",
+        "Date of Birth"
+      ],
+      "provides": [
+        "doc_dl_number",
+        "doc_dl_name",
+        "doc_dl_dob",
+        "doc_dl_address"
+      ],
+      "orientation": "landscape",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
+  ],
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
+  "quality": {
+    "min_box_confidence": 0.35,
+    "min_anchor_hits": 1,
+    "blur_var_min": 80
+  },
+  "spotting_rules": [],
+  "extraction_rules": []
+}

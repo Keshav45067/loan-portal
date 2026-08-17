@@ -102,6 +102,10 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
                 from utils.prompts import ADDRESS_PROOF_VERIFY_PROMPT
                 target_key = "is_address_proof"
                 fallback_prompt = ADDRESS_PROOF_VERIFY_PROMPT
+            elif "driving" in doc_type or "dl" in doc_type or "license" in doc_type:
+                from utils.prompts import DRIVING_LICENSE_VERIFY_PROMPT
+                target_key = "is_driving_license"
+                fallback_prompt = DRIVING_LICENSE_VERIFY_PROMPT
             elif "selfie" in doc_type:
                 logger.info("Selfie document verification bypassed successfully", req_id=req_id)
                 return pb2.VerifyResponse(is_valid=True, confidence=1.0)
@@ -265,6 +269,10 @@ class DocumentIntelligenceServicer(pb2_grpc.DocumentIntelligenceServicer):
                 from utils.prompts import ADDRESS_PROOF_PROMPT
                 fallback_prompt = ADDRESS_PROOF_PROMPT
                 schema_key = "address_proof"
+            elif "driving" in doc_type or "dl" in doc_type or "license" in doc_type:
+                from utils.prompts import DRIVING_LICENSE_PROMPT
+                fallback_prompt = DRIVING_LICENSE_PROMPT
+                schema_key = "driving_license"
             elif "selfie" in doc_type:
                 return pb2.ExtractDocResponse(success=True, json_data="{}")
             else:

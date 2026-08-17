@@ -78,10 +78,34 @@ def build_faq_system_prompt(session: CaptureSession) -> Tuple[str, str]:
     scheme_faq = session.scheme_config.get("faq_context", {})
     if scheme_faq.get("system_prompt"):
         system_parts.append(scheme_faq["system_prompt"])
-        
+
+    # 1b. Document Slots and Options Summary
+    if session.slots:
+        slot_summary = ["Document Requirements & Slot Options:"]
+        for s in session.slots:
+            s_name = s.get("slot_name", {}).get("English", s.get("slot_id"))
+            s_sel = s.get("selected_doc_id")
+            opts = [o.get("name", {}).get("English", o.get("doc_id")) for o in s.get("options", [])]
+            opts_str = ", ".join(opts)
+            if s_sel:
+                slot_summary.append(f"- {s_name}: SELECTED -> {s_sel} (Available options: {opts_str})")
+            else:
+                slot_summary.append(f"- {s_name}: PENDING SELECTION (Available options: {opts_str})")
+        context_parts.append("\n".join(slot_summary))
+
     # 2. Document FAQ context from Manifest
     manifest = session.current_document_config
-    if manifest:
+    current_slot = session.get_current_slot()
+    
+    if current_slot and not current_slot.get("selected_doc_id"):
+        s_name = current_slot.get("slot_name", {}).get("English", current_slot.get("slot_id"))
+        opts = [o.get("name", {}).get("English", o.get("doc_id")) for o in current_slot.get("options", [])]
+        context_parts.append(
+            f"The user is currently selecting which document to provide for '{s_name}'. "
+            f"Allowed choices: {', '.join(opts)}. "
+            f"If the user tells you which document they have or asks which ones are valid, confirm or explain politely."
+        )
+    elif manifest:
         doc_faq = manifest.get("llm_faq_context", {})
         if doc_faq.get("system_prompt"):
             system_parts.append(doc_faq["system_prompt"])
@@ -211,6 +235,14 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         except Exception:
             intro_data = {}
         intro_data["orientation"] = page_config.get("orientation", "landscape")
+        
+        if page_config.get("is_slot_selection"):
+            intro_data["is_slot_selection"] = True
+            intro_data["slot_id"] = page_config.get("slot_id", "")
+            intro_data["slot_name"] = page_config.get("slot_name", "")
+            intro_data["slot_description"] = page_config.get("slot_description", "")
+            intro_data["options"] = page_config.get("options", [])
+            
         pi.intro_prompt_json = json.dumps(intro_data)
         
         pi.success_prompt_json = page_config.get("success_prompt_json", "{}")
@@ -236,6 +268,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 
             page = session.get_current_page()
             page_info = self._build_page_info(page, session) if page else None
+            total_docs = len(session.slots) if session.slots else len(session.required_documents)
             
             return pb2.CaptureSessionResponse(
                 success=True,
@@ -243,7 +276,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                 current_document_id=session.get_current_document_id(),
                 current_page_id=page.get("page_id") if page else "",
                 current_document_index=session.current_document_index,
-                total_documents=len(session.required_documents),
+                total_documents=total_docs,
                 current_page_index=session.current_page_index,
                 total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
                 current_page_info=page_info,
@@ -259,7 +292,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             return pb2.PageInfoResponse(success=False, error="Session not found")
 
         # Align session to requested document_id/page_id if provided
-        if request.document_id and request.document_id in session.required_documents:
+        if request.document_id:
             expected_part_id = request.page_id or None
             session.set_active_document(request.document_id, expected_part_id)
 
@@ -268,13 +301,14 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             return pb2.PageInfoResponse(success=False, error="No current page")
             
         page_info = self._build_page_info(page, session)
+        total_docs = len(session.slots) if session.slots else len(session.required_documents)
         return pb2.PageInfoResponse(
             success=True,
             page_info=page_info,
             document_id=session.get_current_document_id(),
             document_name=session.current_document_config.get("title", {}).get("English", ""),
             document_index=session.current_document_index,
-            total_documents=len(session.required_documents)
+            total_documents=total_docs
         )
 
     async def AdvancePage(self, request, context):
@@ -283,6 +317,8 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not session:
             return pb2.CaptureSessionResponse(success=False, error="Session not found")
             
+        total_docs = len(session.slots) if session.slots else len(session.required_documents)
+
         # If the current next uncovered part is a variable page count part (page_count == 0),
         # mark it completed because the user explicitly requested to advance past it.
         current_part = session.get_next_uncovered_part()
@@ -301,7 +337,6 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             doc_id = session.get_current_document_id()
             part_id = current_part.get("id", "") if current_part else ""
             
-            # This triggers LLM extraction, confidence routing, retake generation, and DB saving
             pipeline_res = await self._execute_extraction_flow(session, doc_config, doc_id, part_id, req_id)
             if not pipeline_res["success"]:
                 page = session.get_current_page()
@@ -313,7 +348,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
                     current_document_id=session.get_current_document_id(),
                     current_page_id=page.get("page_id") if page else "",
                     current_document_index=session.current_document_index,
-                    total_documents=len(session.required_documents),
+                    total_documents=total_docs,
                     current_page_index=session.current_page_index,
                     total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
                     current_page_info=page_info,
@@ -331,7 +366,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             current_document_id=session.get_current_document_id(),
             current_page_id=page.get("page_id") if page else "",
             current_document_index=session.current_document_index,
-            total_documents=len(session.required_documents),
+            total_documents=total_docs,
             current_page_index=session.current_page_index,
             total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
             current_page_info=page_info,
@@ -345,27 +380,12 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not session:
             return pb2.CaptureSessionResponse(success=False, error="Session not found")
 
-        doc_idx = -1
-        target_doc = (request.document_id or "").lower().strip()
-        for idx, doc_id in enumerate(session.required_documents):
-            manifest = config_loader.get_manifest(doc_id)
-            doc_title = manifest.get("title", {}).get("English", "").lower() if manifest else ""
-            if doc_id.lower() == target_doc or doc_title == target_doc or (target_doc and (target_doc in doc_id.lower() or target_doc in doc_title)):
-                doc_idx = idx
-                break
-
-        if doc_idx != -1:
-            session.current_document_index = doc_idx
-            session._load_current_document()
-            if request.page_id:
-                parts = session.current_document_config.get("parts", [])
-                for p_idx, part in enumerate(parts):
-                    if part.get("id") == request.page_id or part.get("name", {}).get("English", "").lower() == request.page_id.lower():
-                        session.current_page_index = p_idx
-                        break
+        if request.document_id:
+            session.set_active_document(request.document_id, request.page_id or None)
 
         page = session.get_current_page()
         page_info = self._build_page_info(page, session) if page else None
+        total_docs = len(session.slots) if session.slots else len(session.required_documents)
 
         return pb2.CaptureSessionResponse(
             success=True,
@@ -373,7 +393,7 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             current_document_id=session.get_current_document_id(),
             current_page_id=page.get("page_id") if page else "",
             current_document_index=session.current_document_index,
-            total_documents=len(session.required_documents),
+            total_documents=total_docs,
             current_page_index=session.current_page_index,
             total_pages=len(session.current_document_config.get("parts", [])) if session.current_document_config else 0,
             current_page_info=page_info,
@@ -1113,12 +1133,20 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
         if not scheme:
             return pb2.SchemeConfigResponse(success=False, error="Not found")
             
+        req_docs_raw = scheme.get("required_documents", [])
+        req_doc_ids = []
+        for d in req_docs_raw:
+            if isinstance(d, str):
+                req_doc_ids.append(d)
+            elif isinstance(d, dict):
+                req_doc_ids.append(d.get("slot_id", ""))
+
         return pb2.SchemeConfigResponse(
             success=True,
             scheme_id=request.scheme_id,
             scheme_name=scheme.get("scheme_name", ""),
             description=scheme.get("description", ""),
-            required_documents=scheme.get("required_documents", [])
+            required_documents=req_doc_ids
         )
 
     async def GetDocumentConfig(self, request, context):

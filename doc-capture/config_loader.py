@@ -47,6 +47,8 @@ class ConfigLoader:
         LEGACY_MANIFEST_MAPPINGS = {
             "voter_front": "doc_voter_001",
             "voter_back": "doc_voter_001",
+            "driving_license": "doc_dl_001",
+            "dl": "doc_dl_001",
             "aadhaar_front": "doc_aadhaar_002",
             "aadhaar_back": "doc_aadhaar_002",
             "pan": "doc_pan_001",

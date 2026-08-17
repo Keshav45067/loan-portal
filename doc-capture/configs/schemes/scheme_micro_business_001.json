@@ -3,9 +3,42 @@
   "scheme_name": "Small Business Starter Loan",
   "description": "A collateral-free micro-credit scheme providing up to ₹50,000 for starting or expanding small businesses.",
   "required_documents": [
-    "doc_aadhaar_002"
+    {
+      "slot_id": "kyc_proof",
+      "slot_name": {
+        "English": "KYC Identity & Address Proof",
+        "Hindi": "केवाईसी पहचान एवं पता प्रमाण"
+      },
+      "description": {
+        "English": "Select a government-issued document for KYC verification: Aadhaar Card, Voter ID Card, or Driving License.",
+        "Hindi": "केवाईसी सत्यापन के लिए सरकार द्वारा जारी दस्तावेज़ चुनें: आधार कार्ड, वोटर आईडी कार्ड, या ड्राइविंग लाइसेंस।"
+      },
+      "options": [
+        {
+          "doc_id": "doc_aadhaar_002",
+          "name": {
+            "English": "Aadhaar Card",
+            "Hindi": "आधार कार्ड"
+          }
+        },
+        {
+          "doc_id": "doc_voter_001",
+          "name": {
+            "English": "Voter ID Card",
+            "Hindi": "वोटर आईडी कार्ड"
+          }
+        },
+        {
+          "doc_id": "doc_dl_001",
+          "name": {
+            "English": "Driving License",
+            "Hindi": "ड्राइविंग लाइसेंस"
+          }
+        }
+      ]
+    }
   ],
   "faq_context": {
-    "system_prompt": "You are a helpful and professional loan assistant guiding a user through the 'Small Business Starter Loan' application. This scheme provides up to ₹50,000 in collateral-free credit for small business owners. If the user asks why certain documents are needed, explain that Aadhaar is required for mandatory RBI KYC and address verification. Keep your answers supportive, simple, and under 3 sentences."
+    "system_prompt": "You are a helpful and professional loan assistant guiding a user through the 'Small Business Starter Loan' application. This scheme provides up to ₹50,000 in collateral-free credit for small business owners. If the user asks why certain documents are needed, explain that KYC proof (Aadhaar, Voter ID, or DL) is required for mandatory RBI verification. Keep your answers supportive, simple, and under 3 sentences."
   }
 }

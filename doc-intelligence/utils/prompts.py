@@ -248,6 +248,43 @@ JSON SCHEMA:
 }
 """
 
+DRIVING_LICENSE_PROMPT = """
+You are a document extractor for Indian Driving Licenses.
+Decide if the image represents a valid Indian Driving License. If not, return {}.
+If yes, extract only the fields clearly readable with high confidence based on the schema below.
+Omit any key that is not clearly readable. Do not use null, empty strings, or placeholders.
+
+JSON SCHEMA:
+{
+  "is_driving_license": true,
+  "document_type": "driving_license",
+  "holder": {
+    "full_name": "string",
+    "full_name_confidence": "high"|"medium"|"low",
+    "father_or_husband_name": "string",
+    "father_or_husband_name_confidence": "high"|"medium"|"low",
+    "date_of_birth": "DD-MM-YYYY",
+    "date_of_birth_confidence": "high"|"medium"|"low"
+  },
+  "dl_number": "string",
+  "dl_number_confidence": "high"|"medium"|"low",
+  "validity": {
+    "non_transport": "DD-MM-YYYY",
+    "transport": "DD-MM-YYYY"
+  },
+  "address": {
+    "house": "string",
+    "street": "string",
+    "locality": "string",
+    "district": "string",
+    "state": "string",
+    "pincode": "6-digit string"
+  },
+  "warnings": ["array of strings"]
+}
+"""
+
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 2. Verification Prompts (Default Fallbacks)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -312,6 +349,12 @@ ADDRESS_PROOF_VERIFY_PROMPT = """
 Analyze the image. Decide if it acts as a valid address proof (utility bill, rent agreement, etc.).
 Return exactly:
 {"is_address_proof": true/false}
+"""
+
+DRIVING_LICENSE_VERIFY_PROMPT = """
+Analyze the image. Decide if it is a valid Indian Driving License.
+Return exactly:
+{"is_driving_license": true/false}
 """
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -471,5 +514,12 @@ DOCUMENT_SCHEMAS = {
             "house": True, "street": True, "locality": True,
             "district": True, "state": True, "pincode": True, "country": True
         }
+    },
+    "driving_license": {
+        "is_driving_license": True, "document_type": True,
+        "holder": {"full_name": True, "father_or_husband_name": True, "date_of_birth": True},
+        "dl_number": True,
+        "address": {"house": True, "street": True, "locality": True, "district": True, "state": True, "pincode": True},
+        "raw_text": True, "warnings": True
     }
 }
