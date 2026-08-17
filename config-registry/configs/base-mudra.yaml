@@ -328,6 +328,24 @@ interview_graph:
       inactivity_policy:
         timeout_seconds: 3.0
       edges:
+        - condition: "is_married in ['YES', 'HAAN', 'HO', 'MARRIED', 'विवाहित', 'हाँ', 'होय']"
+          next: "Q_SPOUSE_PHONE"
+        - condition: "is_married == 'Yes'"
+          next: "Q_SPOUSE_PHONE"
+        - condition: "always"
+          next: "DOC_PAN"
+
+    Q_SPOUSE_PHONE:
+      type: "voice-qa"
+      text_template: "कृपया अपने पति या पत्नी का मोबाइल नंबर बताइए।"
+      text_template_mr: "कृपया आपल्या पती किंवा पत्नीचा मोबाईल नंबर सांगा."
+      text_template_en: "Please provide your spouse's mobile number."
+      text_template_fr: "Veuillez indiquer le numéro de téléphone de votre conjoint."
+      text_template_ar: "يرجى تقديم رقم هاتف زوجك/زوجتك."
+      targets: [spouse_phone]
+      inactivity_policy:
+        timeout_seconds: 3.0
+      edges:
         - condition: "always"
           next: "DOC_PAN"
 
@@ -341,7 +359,29 @@ interview_graph:
       text_template_en: "Please take a photo of your PAN card."
       text_template_fr: "Veuillez prendre une photo de votre carte PAN."
       text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بك."
+      validation:
+        function: "cibil_fetch"
+        arguments:
+          phone: "{phone}"
+          pan: "{doc_pan_number}"
+          name: "{doc_pan_name}"
+          pan_type: "applicant"
+          min_score: 650
+        on_pass:
+          action: "continue"
+        on_fail:
+          action: "end"
+          messages:
+            hi: "माफ़ कीजिए, सिबिल (CIBIL) स्कोर कम होने के कारण आपका आवेदन आगे नहीं बढ़ाया जा सकता है।"
+            en: "We are sorry, but your application cannot proceed due to an insufficient CIBIL credit score."
+            mr: "माफ करा, कमी सिबिल (CIBIL) स्कोअरमुळे आपला अर्ज पुढे प्रक्रिया केला जाऊ शकत नाही."
+            fr: "Votre demande ne peut pas être traitée en raison d'un score de crédit CIBIL insuffisant."
+            ar: "لا يمكن معالجة طلبك بسبب عدم كفاية درجة الائتمان (CIBIL)."
+        on_error:
+          action: "continue"
       edges:
+        - condition: "is_married in ['YES', 'HAAN', 'HO', 'MARRIED', 'विवाहित', 'हाँ', 'होय']"
+          next: "DOC_SPOUSE_PAN"
         - condition: "is_married == 'Yes'"
           next: "DOC_SPOUSE_PAN"
         - condition: "always"
@@ -357,6 +397,26 @@ interview_graph:
       text_template_en: "Please take a photo of your spouse's PAN card."
       text_template_fr: "Veuillez prendre une photo de la carte PAN de votre conjoint."
       text_template_ar: "يرجى التقاط صورة للبطاقة الضريبية الخاصة بزوجك/زوجتك."
+      validation:
+        function: "cibil_fetch"
+        arguments:
+          phone: "{spouse_phone}"
+          pan: "{doc_spouse_pan_number}"
+          name: "{doc_spouse_pan_name}"
+          pan_type: "spouse"
+          min_score: 650
+        on_pass:
+          action: "continue"
+        on_fail:
+          action: "end"
+          messages:
+            hi: "माफ़ कीजिए, आपके पति या पत्नी का सिबिल (CIBIL) स्कोर कम होने के कारण आवेदन आगे नहीं बढ़ाया जा सकता है।"
+            en: "We are sorry, but the application cannot proceed due to an insufficient spouse CIBIL credit score."
+            mr: "माफ करा, आपल्या पती/पत्नीचा सिबिल (CIBIL) स्कोअर कमी असल्यामुळे अर्ज पुढे प्रक्रिया केला जाऊ शकत नाही."
+            fr: "Votre demande ne peut pas être traitée en raison d'un score CIBIL insuffisant pour votre conjoint."
+            ar: "لا يمكن معالجة الطلب بسبب عدم كفاية درجة الائتمان (CIBIL) للزوج/الزوجة."
+        on_error:
+          action: "continue"
       edges:
         - condition: "always"
           next: "DOC_UDYAM"
@@ -692,6 +752,7 @@ context_map:
   Q_NAME_CONFIRMATION: []
   Q_BUSINESS_PURPOSE: []
   Q_IS_MARRIED: []
+  Q_SPOUSE_PHONE: [Q_IS_MARRIED]
   Q_STATUS: []
   Q_MONTHLY_REV: []
   Q_MONTHLY_PROFIT: [Q_MONTHLY_REV]
@@ -719,6 +780,7 @@ field_instructions:
   business_purpose: "INFER the business name or type of business activity in English."
   business_type: "Deduce the canonical business type from the user's response as one of: 'dairy', 'grocery', 'salon', 'tailor', 'electrician', 'goatry', 'poultry', 'furniture', 'garage', 'csc', 'clothing', or 'other'. Examples: 'दूध का काम' -> 'dairy', 'किराना दुकान' -> 'grocery', 'सिलाई कढ़ाई' -> 'tailor', 'नाई/ब्यूटी पार्लर' -> 'salon', 'बिजली का काम' -> 'electrician', 'बकरी पालन' -> 'goatry', 'मुर्गी पालन' -> 'poultry', 'फर्नीचर बनाना' -> 'furniture', 'गाड़ी मरम्मत/गैरेज' -> 'garage', 'सीएससी जन सेवा केंद्र' -> 'csc', 'कपड़े की दुकान' -> 'clothing'."
   is_married: "INFER as 'Yes' or 'No' based on marital status."
+  spouse_phone: "Extract 10-digit mobile phone number of the spouse as string of digits without spaces, hyphens, or symbols."
   monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
   monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."
   last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
@@ -948,6 +1010,7 @@ db_mapping:
   current_emi_outstanding: existing_loan_outstanding
   business_purpose: proposed_business_activity
   is_married: is_married
+  spouse_phone: spouse_phone
 
 # ─── Dynamic Post-processing Pipelines ───
 post_processing_pipelines:

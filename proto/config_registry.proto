@@ -72,6 +72,7 @@ message GraphNode {
   string text_template_fr = 10;
   string text_template_ar = 11;
   map<string, string> text_templates = 12;
+  string validation_json = 13;
 }
 
 message InterviewGraph {

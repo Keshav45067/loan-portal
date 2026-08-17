@@ -369,6 +369,8 @@ class VoiceSession:
                         "condition": edge.condition,
                         "next": edge.next_node_id
                     })
+                validation_json = getattr(proto_node, "validation_json", "")
+                validation = json.loads(validation_json) if validation_json else {}
                 node_dict = {
                     "node_id": node_id,
                     "text_template": proto_node.text_template,
@@ -380,7 +382,8 @@ class VoiceSession:
                     "edges": edges,
                     "routing_prompt": proto_node.routing_prompt,
                     "type": proto_node.type,
-                    "document_id": proto_node.document_id
+                    "document_id": proto_node.document_id,
+                    "validation": validation,
                 }
                 if hasattr(proto_node, "text_templates") and proto_node.text_templates:
                     for lang_code, tpl_text in proto_node.text_templates.items():
@@ -521,6 +524,73 @@ class VoiceSession:
         self._field_instructions = field_instructions or {}
         self._media_config = media_config or {}
 
+    async def _handle_node_validation(self, current_node: dict):
+        """
+        Execute validation on current_node if configured.
+        Returns:
+            should_stop (bool), outputs_to_yield (list of pb2.VoiceOutput)
+        """
+        validation = current_node.get("validation", {})
+        if not validation or not isinstance(validation, dict) or not validation.get("function"):
+            return False, []
+
+        from validators import execute_node_validation
+        status, details = await execute_node_validation(validation, self)
+
+        if status == "FAIL":
+            on_fail = validation.get("on_fail", {})
+            action = on_fail.get("action", "end")
+            if action == "end":
+                messages = on_fail.get("messages", {})
+                rejection_msg = messages.get(self.language) or messages.get("en") or messages.get("hi") or "Validation check failed."
+
+                outputs = []
+                outputs.append(pb2.VoiceOutput(status=pb2.StatusUpdate(status="speaking")))
+
+                sentences, remainder = split_sentences(rejection_msg)
+                if remainder.strip():
+                    sentences.append(remainder.strip())
+                for s in sentences:
+                    clean = s.replace("|", "").strip()
+                    if clean:
+                        outputs.append(pb2.VoiceOutput(
+                            transcription=pb2.TranscriptionUpdate(text=clean, is_final=False)
+                        ))
+                        async for chunk in self._synthesize_text(clean):
+                            outputs.append(pb2.VoiceOutput(
+                                audio=pb2.AudioData(wav_data=chunk, sample_rate=24000)
+                            ))
+                outputs.append(pb2.VoiceOutput(audio_end=True))
+                outputs.append(pb2.VoiceOutput(status=pb2.StatusUpdate(status="terminated")))
+
+                self._status = "completed"
+                if self._walker:
+                    self._walker._completed = True
+                    self._walker._extracted_data["is_rejected_due_to_cibil"] = True
+                    self._walker._extracted_data["completion_status"] = "REJECTED_CIBIL"
+
+                # Persist rejection to orchestrator
+                if self._orchestrator_stub:
+                    try:
+                        from generated import app_orchestrator_pb2
+                        await self._orchestrator_stub.UpsertExtractedData(
+                            app_orchestrator_pb2.UpsertDataRequest(
+                                application_id=self.session_id,
+                                source="validation-rejected",
+                                json_fields=json.dumps({
+                                    "is_rejected_due_to_cibil": True,
+                                    "completion_status": "REJECTED_CIBIL"
+                                }, ensure_ascii=False)
+                            ),
+                            metadata=[("x-request-id", self.req_id)]
+                        )
+                    except Exception as err:
+                        logger.error(f"Failed to persist rejection to orchestrator: {err}", session_id=self.session_id)
+
+                return True, outputs
+
+        return False, []
+
     async def start(self) -> dict:
         """
         Start or resume the interview. Returns the active question node info.
@@ -651,10 +721,17 @@ class VoiceSession:
 
         # ─── Shortcut: If there are no extraction targets, skip Task A ───
         # For nodes like START and Q_STATUS that have no targets,
-        # any user response is sufficient — advance the graph immediately.
-        if not targets and not routing_prompt:
-            logger.info("No targets and no routing — auto-advancing graph",
+        # or for capture complete events, advance the graph immediately.
+        if (not targets and not routing_prompt) or is_capture_complete:
+            logger.info(f"Advancing graph (no targets / is_capture_complete={is_capture_complete})",
                          session_id=self.session_id, node_id=current_node_id)
+
+            # Check node validation first before advancing
+            should_stop, val_outputs = await self._handle_node_validation(current_node)
+            if should_stop:
+                for out in val_outputs:
+                    yield out
+                return
 
             next_node = self._walker.advance(
                 extracted_fields={},
@@ -886,6 +963,13 @@ class VoiceSession:
                 )
                 # Run extraction asynchronously — don't await
                 asyncio.create_task(self._async_extract(extraction_prompt, targets))
+
+            # Check node validation before advancing
+            should_stop, val_outputs = await self._handle_node_validation(current_node)
+            if should_stop:
+                for out in val_outputs:
+                    yield out
+                return
 
             # Advance graph using routing_decision from Task A
             next_node = self._walker.advance(

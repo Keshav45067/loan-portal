@@ -59,6 +59,9 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
     if "text_template" in node_data and isinstance(node_data["text_template"], str):
         text_templates["hi"] = node_data["text_template"]
 
+    validation_data = node_data.get("validation", {})
+    validation_json = json.dumps(validation_data) if validation_data else ""
+
     return pb2.GraphNode(
         node_id=node_id,
         text_template=node_data.get("text_template", ""),
@@ -72,6 +75,7 @@ def _dict_to_graph_node(node_id: str, node_data: dict) -> pb2.GraphNode:
         text_template_fr=node_data.get("text_template_fr", ""),
         text_template_ar=node_data.get("text_template_ar", ""),
         text_templates=text_templates,
+        validation_json=validation_json,
     )
 
 
