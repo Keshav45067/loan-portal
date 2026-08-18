@@ -114,9 +114,6 @@ def load_resolved_scheme_config(scheme_id: str) -> dict:
     import copy
     import yaml
     
-    if scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b':
-        scheme_id = 'base-mudra'
-        
     config_dir = os.getenv(
         "CONFIG_REGISTRY_PATH",
         os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config-registry", "configs"))

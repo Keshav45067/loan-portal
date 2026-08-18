@@ -92,6 +92,7 @@ async def extract_document(
     longitude: Optional[float] = Form(None),
     manifest_id: Optional[str] = Form(None),
     page_id: Optional[str] = Form(None),
+    language: Optional[str] = Form(None),
     auth: dict = Depends(require_auth),
 ):
     """
@@ -101,13 +102,20 @@ async def extract_document(
     req_id = request.state.req_id
     image_bytes = await file.read()
 
-    logger.info("Extract document via doc-capture",
-                 req_id=req_id,
-                 session_id=session_id,
-                 document_type=document_type,
-                 manifest_id=manifest_id,
-                 page_id=page_id,
-                 details={"file_size": len(image_bytes)})
+    logger.info(
+        "Extract document via doc-capture",
+        req_id=req_id,
+        session_id=session_id,
+        document_type=document_type,
+        manifest_id=manifest_id,
+        page_id=page_id,
+        language=language,
+        details={"file_size": len(image_bytes)}
+    )
+    logger.info(
+        f"🌐 [LANGUAGE-TRACE: Gateway] Received /extract request: doc_type='{document_type}', language='{language}', session_id='{session_id}'",
+        req_id=req_id
+    )
 
     try:
         import json
@@ -206,8 +214,13 @@ async def extract_document(
                 doc_id = document_type
                 part_id = "front"
 
-        # Determine language (can default to "en" or extract from session/auth)
-        language = "en"
+        # Determine language (defaults to "hi" if unspecified)
+        lang = language or "hi"
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: Gateway] Forwarding document extract to doc-capture: doc_id='{doc_id}' | part_id='{part_id}' | language='{lang}'",
+            req_id=req_id,
+            session_id=session_id
+        )
 
         # Call doc-capture ProcessDocumentDirect
         stub = request.app.state.doc_capture_stub
@@ -218,7 +231,7 @@ async def extract_document(
                 image_data=image_bytes,
                 content_type=file.content_type or "image/jpeg",
                 filename=file.filename,
-                language=language,
+                language=lang,
                 session_id=session_id
             ),
             metadata=[("x-request-id", req_id)]

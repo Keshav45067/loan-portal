@@ -273,7 +273,7 @@ function InterviewContent() {
   const [token, setToken] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [applicationId, setApplicationId] = useState('');
-  const [schemeId, setSchemeId] = useState('mudra-grocery');
+  const [schemeId, setSchemeId] = useState('base-mudra');
 
   // Flow State (Driven by backend)
   const [isStarted, setIsStarted] = useState(false);
@@ -604,6 +604,7 @@ function InterviewContent() {
     }
 
     const checkTokenOnMount = async () => {
+      let resolvedSchemeId = 'base-mudra';
       try {
         const res = await fetch(`${API_BASE_URL}/api/applications/${savedSessionId}`, {
           headers: { 'Authorization': `Bearer ${savedToken}` }
@@ -616,6 +617,12 @@ function InterviewContent() {
           router.replace('/');
           return;
         }
+        const data = await res.json();
+        if (data.scheme_id) {
+          resolvedSchemeId = data.scheme_id;
+        } else if (data.extracted_data && data.extracted_data.scheme_id) {
+          resolvedSchemeId = data.extracted_data.scheme_id;
+        }
       } catch (err) {
         console.error('[InterviewPage] Token check failed:', err);
       }
@@ -623,7 +630,7 @@ function InterviewContent() {
       setToken(savedToken);
       setSessionId(savedSessionId);
       setApplicationId(savedSessionId);
-      setSchemeId('mudra-grocery');
+      setSchemeId(resolvedSchemeId);
     };
 
     checkTokenOnMount();
@@ -750,6 +757,8 @@ function InterviewContent() {
       if (!isLoaded) {
         throw new Error('VAD scripts could not be loaded. Please check your connection and try again.');
       }
+
+      console.log('[LANGUAGE-TRACE: Frontend/Interview] Starting VoiceSessionManager with language:', selectedLanguage, 'schemeId:', schemeId);
 
       const manager = new VoiceSessionManager({
         token,
@@ -921,6 +930,14 @@ function InterviewContent() {
     setVerifying(true);
     setErrors(prev => ({ ...prev, [documentId]: null }));
 
+    console.log('[LANGUAGE-TRACE: Frontend/Interview] Uploading document for extract:', {
+      documentId,
+      selectedLanguage,
+      sessionId,
+      manifestId,
+      pageId
+    });
+
     // Stop any in-flight audio prompt and send processing feedback to the voice assistant
     if (voiceSessionRef.current) {
       voiceSessionRef.current.stopAudioPlayback();
@@ -933,6 +950,7 @@ function InterviewContent() {
       formData.append('document_type', documentId);
       formData.append('scheme_id', schemeId);
       formData.append('session_id', sessionId);
+      formData.append('language', selectedLanguage);
       if (manifestId) formData.append('manifest_id', manifestId);
       if (pageId) formData.append('page_id', pageId);
       if (lat !== null && lat !== undefined) formData.append('latitude', String(lat));

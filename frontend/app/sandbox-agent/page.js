@@ -166,7 +166,7 @@ export default function SandboxAgentPage() {
           onChange={(e) => setSchemeId(e.target.value)}
         >
           <option value="sandbox-demo">Sandbox Demo (Aadhaar + PAN + Udyam)</option>
-          <option value="mudra-grocery">Mudra Grocery (Full KYC)</option>
+          <option value="base-mudra">Mudra Loan Scheme (Full KYC)</option>
         </select>
         <button className={styles.initBtn} onClick={handleInit} disabled={isLoading}>
           {isLoading ? 'Initializing...' : 'Start Agent Session'}

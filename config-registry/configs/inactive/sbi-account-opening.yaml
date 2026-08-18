@@ -1,5 +1,7 @@
 schema_version: '1.0'
 scheme_id: sbi-account-opening
+display_name: "SBI Account Opening"
+languages: [hi, en, te]
 description: SBI Account Opening Form
 interview_graph:
   start_node_id: Q_START

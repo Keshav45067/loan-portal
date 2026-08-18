@@ -352,6 +352,10 @@ class VoiceSession:
                      session_id=self.session_id,
                      scheme_id=self.scheme_id,
                      language=self.language)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: VoiceEngine/Session] Initializing session: session_id='{self.session_id}' | scheme_id='{self.scheme_id}' | language='{self.language}'",
+            session_id=self.session_id
+        )
 
         # Fetch from Config Registry via gRPC
         try:
@@ -468,6 +472,7 @@ class VoiceSession:
                             "stt_engine": stt_info.get("engine", "google"),
                             "stt_language_code": stt_info.get("language_code", ""),
                         }
+                    self._system_voice_messages = raw_scheme.get("system_voice_messages", {})
                     self.set_graph(fallback_graph, fallback_fields, fallback_media)
                     await self._sync_extracted_data()
                     self._status = "active"
@@ -1406,11 +1411,11 @@ class VoiceSession:
         svm = self._system_voice_messages.get(self.language, self._system_voice_messages.get("en", {}))
         text = svm.get("processing") or "Your document is processing. Please wait."
         logger.info(
-            f"🌐 [CAPTURE SYSTEM VOICE DIAGNOSTIC - PROCESSING] session_id='{self.session_id}' | "
-            f"self.language='{self.language}' | "
+            f"🌐 [LANGUAGE-TRACE: VoiceEngine/Capture] Processing speech: session_id='{self.session_id}' | "
+            f"language='{self.language}' | "
             f"svm_keys={list(self._system_voice_messages.keys())} | "
             f"resolved_svm_keys={list(svm.keys())} | "
-            f"final_text='{text}'",
+            f"text='{text}'",
             session_id=self.session_id
         )
         
@@ -1462,10 +1467,10 @@ class VoiceSession:
         template = svm.get("success_template") or "Details from your {doc_name} have been extracted."
         text = template.replace("{doc_name}", doc_name)
         logger.info(
-            f"🌐 [CAPTURE SYSTEM VOICE DIAGNOSTIC - SUCCESS] session_id='{self.session_id}' | "
-            f"self.language='{self.language}' | "
-            f"svm_keys={list(self._system_voice_messages.keys())} | "
-            f"final_text='{text}'",
+            f"🌐 [LANGUAGE-TRACE: VoiceEngine/Capture] Success speech: session_id='{self.session_id}' | "
+            f"language='{self.language}' | "
+            f"doc_name='{doc_name}' | "
+            f"text='{text}'",
             session_id=self.session_id
         )
         
@@ -1483,6 +1488,13 @@ class VoiceSession:
     async def process_capture_error(self, error_message: str):
         """Play error audio message."""
         text = self._get_localized_error(error_message)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: VoiceEngine/Capture] Error speech: session_id='{self.session_id}' | "
+            f"language='{self.language}' | "
+            f"raw_error='{error_message}' | "
+            f"text='{text}'",
+            session_id=self.session_id
+        )
         
         # Yield transcription for display
         yield pb2.VoiceOutput(
@@ -1595,7 +1607,10 @@ class RawAgentSession(VoiceSession):
                 logger.info(f"Loaded system_voice_messages for RawAgentSession: {list(self._system_voice_messages.keys())}")
         except Exception as e:
             logger.warning(f"Failed to load system_voice_messages for RawAgentSession: {e}")
-        logger.info("Raw agent session initialized", session_id=self.session_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: VoiceEngine/RawAgentSession] Initialized: session_id='{self.session_id}' | language='{self.language}' | svm_keys={list(self._system_voice_messages.keys())}",
+            session_id=self.session_id
+        )
 
     async def process_turn_streaming(self, transcribed_text: str):
         """
@@ -1606,7 +1621,10 @@ class RawAgentSession(VoiceSession):
         t_turn_start = time.perf_counter()
 
         try:
-            logger.info(f"🌐 [VOICE-ENGINE RawAgentSession TURN START] session_id='{self.session_id}' | self.language='{self.language}' | user_text='{transcribed_text}'")
+            logger.info(
+                f"🌐 [LANGUAGE-TRACE: VoiceEngine/RawAgentSession] Turn start: session_id='{self.session_id}' | language='{self.language}' | user_text='{transcribed_text}'",
+                session_id=self.session_id
+            )
             agent_response_text = ""
             agent_signals = []
 

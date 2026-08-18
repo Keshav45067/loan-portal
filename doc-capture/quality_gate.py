@@ -183,6 +183,10 @@ async def run_quality_gate(
 
                 ocr_hint = "Table Recognition:" if is_table else document_id
 
+                logger.info(
+                    f"🌐 [LANGUAGE-TRACE: DocCapture/QualityGate] Calling OCR for Crop {idx+1}/{total_boxes}: language='{language}' | hint='{ocr_hint}'"
+                )
+
                 # Run ExtractText on layout crop (spotting=False for clean crop text extraction)
                 ocr_res = await ocr_stub.ExtractText(ocr_pb2.OCRRequest(
                     image_data=current_crop_bytes,

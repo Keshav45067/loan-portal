@@ -9,6 +9,7 @@ import styles from './dashboard.module.css';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const SCHEME_ICONS = {
+  'base-mudra': '💼',
   'mudra-grocery': '🛒',
   'mudra-dairy': '🥛',
   'mudra-salon': '💇',
@@ -34,7 +35,7 @@ const STAGE_LABELS = {
 };
 
 const DEFAULT_MUDRA_SCHEMES = [
-  { scheme_id: 'mudra-grocery', display_name: 'Mudra Loan Scheme', languages: ['hi', 'en', 'mr', 'fr', 'ar'], total_nodes: 12 }
+  { scheme_id: 'base-mudra', display_name: 'Mudra Loan Scheme', languages: ['hi', 'en', 'mr', 'fr', 'ar'], total_nodes: 39 }
 ];
 
 function DashboardContent() {
@@ -256,7 +257,7 @@ function DashboardContent() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {myApplications.map((app, idx) => {
-                const schemeId = app.scheme_id || 'mudra-grocery';
+                const schemeId = app.scheme_id || 'base-mudra';
                 const icon = SCHEME_ICONS[schemeId] || SCHEME_ICONS['default'];
                 const formattedName = schemeId.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 const stageLabel = STAGE_LABELS[app.stage] || app.stage || 'In Progress';

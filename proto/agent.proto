@@ -22,7 +22,7 @@ service AgentService {
 // ─── Messages ───
 
 message InitSessionRequest {
-  string scheme_id = 1;           // e.g. "sandbox-demo", "mudra-grocery"
+  string scheme_id = 1;           // e.g. "sandbox-demo", "base-mudra"
   string session_id = 2;          // Optional custom session ID
   string language = 3;            // "en", "hi", "fr", "ar", etc.
 }

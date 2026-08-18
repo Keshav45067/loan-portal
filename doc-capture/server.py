@@ -255,7 +255,10 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
 
     async def StartSession(self, request, context):
         req_id = extract_req_id(context)
-        logger.info(f"StartSession: scheme={request.scheme_id} lang={request.language} reset={getattr(request, 'reset', False)}", req_id=req_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: DocCapture] StartSession: session_id='{request.session_id}' | scheme='{request.scheme_id}' | language='{request.language}' | reset={getattr(request, 'reset', False)}",
+            req_id=req_id
+        )
         
         try:
             # /capture ALWAYS initializes a fresh session — zero DB fetching or state resuming
@@ -715,7 +718,10 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
 
     async def ProcessDocumentDirect(self, request, context):
         req_id = extract_req_id(context)
-        logger.info(f"ProcessDocumentDirect: doc={request.document_id} page={request.page_id} lang={request.language}", req_id=req_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: DocCapture] ProcessDocumentDirect: session_id='{request.session_id}' | doc='{request.document_id}' | page='{request.page_id}' | language='{request.language}'",
+            req_id=req_id
+        )
         
         try:
             # 1. Load manifest directly from config loader
@@ -1117,7 +1123,9 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
     async def GetFAQPrompt(self, request, context):
         session = session_manager.get_session(request.session_id)
         req_lang = getattr(request, "language", "")
-        logger.info(f"🌐 [DOC-CAPTURE GetFAQPrompt] session_id='{request.session_id}' | req_language='{req_lang}' | current_session_lang='{session.language if session else 'NONE'}'")
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: DocCapture] GetFAQPrompt: session_id='{request.session_id}' | req_language='{req_lang}' | active_session_lang='{session.language if session else 'NONE'}'"
+        )
         if not session:
             return pb2.FAQPromptResponse(success=False, error="Session not found")
 
@@ -1125,7 +1133,9 @@ class DocumentCaptureServicer(pb2_grpc.DocumentCaptureServicer):
             session.language = req_lang
 
         sys_prompt, ctx_prompt = build_faq_system_prompt(session)
-        logger.info(f"🌐 [DOC-CAPTURE GetFAQPrompt RESULT] session.language='{session.language}' | sys_prompt_sample='{sys_prompt[:120]}...'")
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: DocCapture] GetFAQPrompt resolved: session.language='{session.language}' | sys_prompt_preview='{sys_prompt[:80]}...'"
+        )
         return pb2.FAQPromptResponse(success=True, system_prompt=sys_prompt, context_prompt=ctx_prompt)
 
     async def GetSchemeConfig(self, request, context):

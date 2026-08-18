@@ -35,6 +35,11 @@ async def start_capture_session(body: StartCaptureRequest, request: Request, aut
     req_id = request.state.req_id
     session_id = auth.get("session_id")
     
+    logger.info(
+        f"🌐 [LANGUAGE-TRACE: Gateway/CaptureStart] Starting capture session: session_id='{session_id}' | scheme_id='{body.scheme_id}' | language='{body.language}'",
+        req_id=req_id
+    )
+    
     try:
         stub = request.app.state.doc_capture_stub
         res = await stub.StartSession(
@@ -278,15 +283,74 @@ def get_scheme_docs(scheme_id: str):
 
 @router.get("/api/schemes")
 async def list_all_schemes(request: Request):
-    """List primary Mudra loan scheme."""
+    """List all available loan schemes dynamically from Config Registry."""
+    req_id = getattr(request.state, "req_id", "schemes-req")
+    try:
+        stub = getattr(request.app.state, "config_registry_stub", None)
+        if stub:
+            from grpc_clients.generated import config_registry_pb2
+            resp = await stub.ListSchemes(
+                config_registry_pb2.ListSchemesRequest(),
+                metadata=[("x-request-id", req_id)]
+            )
+            schemes = []
+            for s in resp.schemes:
+                schemes.append({
+                    "scheme_id": s.scheme_id,
+                    "display_name": s.display_name,
+                    "languages": list(s.languages),
+                    "total_nodes": s.total_nodes,
+                })
+            return {"success": True, "schemes": schemes}
+    except Exception as e:
+        logger.error(f"Failed to fetch schemes from Config Registry: {e}", req_id=req_id)
+
+    # Fallback to direct YAML inspection if gRPC call fails
+    try:
+        import yaml
+        config_dir = os.getenv(
+            "CONFIG_REGISTRY_PATH",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config-registry", "configs"))
+        )
+        if not os.path.exists(config_dir):
+            alt_paths = [
+                os.path.abspath("config-registry/configs"),
+                os.path.abspath("services/config-registry/configs"),
+                "/var/www/augmen/testing-services/config-registry/configs"
+            ]
+            for alt in alt_paths:
+                if os.path.exists(alt):
+                    config_dir = alt
+                    break
+
+        schemes = []
+        if os.path.exists(config_dir):
+            for filename in os.listdir(config_dir):
+                if filename.endswith((".yaml", ".yml")):
+                    filepath = os.path.join(config_dir, filename)
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        cfg = yaml.safe_load(f)
+                        if cfg and "scheme_id" in cfg:
+                            graph = cfg.get("interview_graph", {})
+                            schemes.append({
+                                "scheme_id": cfg.get("scheme_id"),
+                                "display_name": cfg.get("display_name", cfg.get("scheme_id")),
+                                "languages": cfg.get("languages", ["hi", "en"]),
+                                "total_nodes": len(graph.get("nodes", {})),
+                            })
+        if schemes:
+            return {"success": True, "schemes": schemes}
+    except Exception as fallback_err:
+        logger.error(f"Fallback scheme listing failed: {fallback_err}", req_id=req_id)
+
     return {
         "success": True,
         "schemes": [
             {
-                "scheme_id": "mudra-grocery",
+                "scheme_id": "base-mudra",
                 "display_name": "Mudra Loan Scheme",
                 "languages": ["hi", "en", "mr", "fr", "ar"],
-                "total_nodes": 12
+                "total_nodes": 39,
             }
         ]
     }
@@ -494,11 +558,17 @@ async def capture_voice_websocket(websocket: WebSocket):
 
         session_id = payload.get("session_id")
         language = init_data.get("language", "en")
-        logger.info(f"🌐 [GATEWAY CAPTURE-VOICE INIT] session_id='{session_id}' | language='{language}' | raw_init_language='{init_data.get('language')}'", req_id=req_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: Gateway/CaptureWS] WS init: session_id='{session_id}' | language='{language}'",
+            req_id=req_id
+        )
         
         # 1. Fetch system and context prompts from doc-capture service
         doc_capture_stub = websocket.app.state.doc_capture_stub
-        logger.info(f"🌐 [GATEWAY GetFAQPrompt REQUEST] session_id='{session_id}' | language='{language}'", req_id=req_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: Gateway/CaptureWS] Fetching FAQ prompt: session_id='{session_id}' | language='{language}'",
+            req_id=req_id
+        )
         faq_res = await doc_capture_stub.GetFAQPrompt(
             doc_capture_pb2.FAQPromptRequest(session_id=session_id, language=language),
             metadata=[("x-request-id", req_id)]
@@ -506,7 +576,6 @@ async def capture_voice_websocket(websocket: WebSocket):
         
         system_prompt = faq_res.system_prompt if faq_res.success else "You are a helpful assistant."
         context_prompt = faq_res.context_prompt if faq_res.success else ""
-        logger.info(f"🌐 [GATEWAY GetFAQPrompt RESPONSE] success={faq_res.success} | sys_prompt_sample='{system_prompt[:100]}...'", req_id=req_id)
         
         # Send connected confirmation
         await websocket.send_json({
@@ -521,7 +590,10 @@ async def capture_voice_websocket(websocket: WebSocket):
         grpc_queue = asyncio.Queue()
         
         # Start message
-        logger.info(f"🌐 [GATEWAY RawAgentInput AGENT_START] session_id='{session_id}' | language='{language}'", req_id=req_id)
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: Gateway/CaptureWS] Starting RawAgentSession: session_id='{session_id}' | language='{language}'",
+            req_id=req_id
+        )
         start_req = voice_engine_pb2.RawAgentInput(
             agent_start=voice_engine_pb2.AgentStart(
                 session_id=session_id,

@@ -3,7 +3,7 @@
 # ================================================================
 
 scheme_id: base-mudra
-display_name: "Base Mudra Loan Configuration"
+display_name: "Mudra Loan Scheme"
 languages: [hi, en, mr, fr, ar]
 
 # ─── TTS/STT Configuration ───

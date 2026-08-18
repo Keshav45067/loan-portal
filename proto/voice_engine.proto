@@ -31,7 +31,7 @@ message VoiceInput {
 }
 
 message SessionStart {
-  string scheme_id = 1;           // e.g. "mudra-grocery"
+  string scheme_id = 1;           // e.g. "base-mudra"
   string session_id = 2;         // Application/user session ID
   string language = 3;            // "hi", "en", "ar"
   string applicant_name = 4;     // For personalized questions

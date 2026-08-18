@@ -89,7 +89,15 @@ async def startup():
     from grpc_clients.generated import voice_engine_pb2_grpc
     from grpc_clients.generated import tts_pb2_grpc
     from grpc_clients.generated import doc_capture_pb2_grpc
-    from config import APP_ORCHESTRATOR_ADDR, DOC_INTELLIGENCE_ADDR, VOICE_ENGINE_ADDR, TTS_SERVICE_ADDR, DOC_CAPTURE_ADDR
+    from grpc_clients.generated import config_registry_pb2_grpc
+    from config import (
+        APP_ORCHESTRATOR_ADDR,
+        DOC_INTELLIGENCE_ADDR,
+        VOICE_ENGINE_ADDR,
+        TTS_SERVICE_ADDR,
+        DOC_CAPTURE_ADDR,
+        CONFIG_REGISTRY_ADDR,
+    )
 
     # Max message size to 100MB for image data transferring
     channel_options = [
@@ -112,6 +120,9 @@ async def startup():
     app.state.doc_capture_channel = grpc.aio.insecure_channel(DOC_CAPTURE_ADDR, options=channel_options)
     app.state.doc_capture_stub = doc_capture_pb2_grpc.DocumentCaptureStub(app.state.doc_capture_channel)
 
+    app.state.config_registry_channel = grpc.aio.insecure_channel(CONFIG_REGISTRY_ADDR, options=channel_options)
+    app.state.config_registry_stub = config_registry_pb2_grpc.ConfigRegistryStub(app.state.config_registry_channel)
+
     logger.info("Gateway ready ✅")
 
 
@@ -125,6 +136,7 @@ async def shutdown():
     await app.state.voice_engine_channel.close()
     await app.state.tts_channel.close()
     await app.state.doc_capture_channel.close()
+    await app.state.config_registry_channel.close()
 
     logger.info("Gateway stopped")
 

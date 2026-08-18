@@ -26,7 +26,7 @@ SCHEME_DOCUMENTS = {
         "doc_pan_001",
         "doc_udyam_001",
     ],
-    "mudra-grocery": [
+    "base-mudra": [
         "doc_aadhaar_002",
         "doc_pan_001",
         "doc_gst_001",

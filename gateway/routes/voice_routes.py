@@ -67,6 +67,11 @@ async def voice_websocket(websocket: WebSocket):
                      req_id=req_id,
                      session_id=session_id,
                      details={"scheme_id": scheme_id, "language": language})
+        logger.info(
+            f"🌐 [LANGUAGE-TRACE: Gateway/VoiceWS] WS authenticated: session_id='{session_id}' | scheme_id='{scheme_id}' | language='{language}'",
+            req_id=req_id,
+            session_id=session_id
+        )
 
         # Send connected confirmation
         await websocket.send_json({
