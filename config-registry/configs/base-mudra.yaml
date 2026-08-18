@@ -242,6 +242,34 @@ interview_graph:
       text_template_ar: "يرجى التقاط صورة شخصية (سيلفي) لنفسك."
       edges:
         - condition: "always"
+          next: "DOC_AADHAAR_FRONT"
+
+    DOC_AADHAAR_FRONT:
+      type: "capture"
+      document_id: "aadhaar_front"
+      manifest_id: doc_aadhaar_002
+      page_id: front
+      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the front side of your Aadhaar card."
+      text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "DOC_AADHAAR_BACK"
+
+    DOC_AADHAAR_BACK:
+      type: "capture"
+      document_id: "aadhaar_back"
+      manifest_id: doc_aadhaar_002
+      page_id: back
+      text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या आधार कार्डच्या मागच्या बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the back side of your Aadhaar card."
+      text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
+      text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
+      edges:
+        - condition: "always"
           next: "Q_NAME_CONFIRMATION"
 
     Q_NAME_CONFIRMATION:
@@ -419,50 +447,22 @@ interview_graph:
 
     Q_ADDRESS_PROOF_TYPE:
       type: "voice-qa"
-      text_template: "पते के प्रमाण (Address Proof) के लिए आप कौन सा दस्तावेज़ देना चाहेंगे — आधार कार्ड, वोटर आईडी, या ड्राइविंग लाइसेंस?"
-      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही कोणते दस्तऐवज देऊ इच्छिता — आधार कार्ड, व्होटर आयडी, की ड्रायव्हिंग लायसन्स?"
-      text_template_en: "Which document would you like to provide for proof of address — Aadhaar Card, Voter ID, or Driving License?"
-      text_template_fr: "Quel document souhaitez-vous fournir comme justificatif de domicile — carte Aadhaar, carte d'électeur ou permis de conduire ?"
-      text_template_ar: "ما هي الوثيقة التي تفضل تقديمها كإثبات للعنوان — بطاقة الهوية (آدهار)، أو بطاقة الناخب، किंवा رخصة القيادة؟"
+      text_template: "क्या आप पते के प्रमाण (Address Proof) के लिए अपने आधार कार्ड का उपयोग करना चाहेंगे, या कोई अन्य दस्तावेज़ जैसे वोटर आईडी या ड्राइविंग लाइसेंस देना चाहेंगे?"
+      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही तुमच्या आधार कार्डचा वापर करू इच्छिता, की व्होटर आयडी किंवा ड्रायव्हिंग लायसन्ससारखे दुसरे दस्तऐवज देऊ इच्छिता?"
+      text_template_en: "Would you like to use your Aadhaar card as proof of address, or would you prefer to provide another document such as Voter ID or Driving License?"
+      text_template_fr: "Souhaitez-vous utiliser votre carte Aadhaar comme justificatif de domicile, ou préférez-vous fournir un autre document comme une carte d'électeur ou un permis de conduire ?"
+      text_template_ar: "هل ترغب في استخدام بطاقة الهوية (آدهار) الخاصة بك كإثبات للعنوان، أم تفضل تقديم وثيقة أخرى مثل بطاقة الناخب أو رخصة القيادة؟"
       targets: [address_proof_type]
       inactivity_policy:
         timeout_seconds: 3.0
-        nudge_guideline: "Ask the user to choose between Aadhaar card, Voter ID, or Driving license for address proof."
+        nudge_guideline: "Ask if they want to use their Aadhaar card as address proof or provide Voter ID / Driving License."
       edges:
-        - condition: "address_proof_type in ['aadhaar', 'aadhar', 'adhaar']"
-          next: "DOC_AADHAAR_FRONT"
-        - condition: "address_proof_type in ['voter_id', 'voter', 'epic', 'voter_card']"
+        - condition: "address_proof_type in ['aadhaar', 'aadhar', 'adhaar', 'yes', 'haan', 'ho', 'same', 'हाँ', 'होय', 'आधार']"
+          next: "PROMPT_MANUAL_FILLING"
+        - condition: "address_proof_type in ['voter_id', 'voter', 'epic', 'voter_card', 'वोटर', 'मतदान']"
           next: "DOC_VOTER_FRONT"
-        - condition: "address_proof_type in ['driving_license', 'dl', 'license', 'driving']"
+        - condition: "address_proof_type in ['driving_license', 'dl', 'license', 'driving', 'लाइसेंस', 'ड्राइविंग']"
           next: "DOC_DRIVING_LICENSE"
-        - condition: "always"
-          next: "DOC_AADHAAR_FRONT"
-
-    DOC_AADHAAR_FRONT:
-      type: "capture"
-      document_id: "aadhaar_front"
-      manifest_id: doc_aadhaar_002
-      page_id: front
-      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
-      text_template_mr: "कृपया आपल्या आधार कार्डच्या समोरील बाजूचा फोटो घ्या."
-      text_template_en: "Please take a photo of the front side of your Aadhaar card."
-      text_template_fr: "Veuillez prendre une photo du recto de votre carte Aadhaar."
-      text_template_ar: "يرجى التقاط صورة للوجه الأمامي من بطاقة الهوية الخاصة بك."
-      edges:
-        - condition: "always"
-          next: "DOC_AADHAAR_BACK"
-
-    DOC_AADHAAR_BACK:
-      type: "capture"
-      document_id: "aadhaar_back"
-      manifest_id: doc_aadhaar_002
-      page_id: back
-      text_template: "कृपया अपने आधार कार्ड के पीछे वाले हिस्से की फोटो लें।"
-      text_template_mr: "कृपया आपल्या आधार कार्डच्या मागच्या बाजूचा फोटो घ्या."
-      text_template_en: "Please take a photo of the back side of your Aadhaar card."
-      text_template_fr: "Veuillez prendre une photo du verso de votre carte Aadhaar."
-      text_template_ar: "يرجى التقاط صورة للوجه الخلفي من بطاقة الهوية الخاصة بك."
-      edges:
         - condition: "always"
           next: "PROMPT_MANUAL_FILLING"
 
@@ -818,6 +818,7 @@ context_map:
   Q_FAMILY: [Q_IS_MARRIED]
   Q_EDUCATION: []
   Q_COBORROWER: [Q_FAMILY, Q_PERSONS_INVOLVED]
+  Q_ADDRESS_PROOF_TYPE: []
 
 # ─── Field Extraction Instructions ───
 field_instructions:
@@ -826,6 +827,7 @@ field_instructions:
   business_type: "Deduce the canonical business type from the user's response as one of: 'dairy', 'grocery', 'salon', 'tailor', 'electrician', 'goatry', 'poultry', 'furniture', 'garage', 'csc', 'clothing', or 'other'. Examples: 'दूध का काम' -> 'dairy', 'किराना दुकान' -> 'grocery', 'सिलाई कढ़ाई' -> 'tailor', 'नाई/ब्यूटी पार्लर' -> 'salon', 'बिजली का काम' -> 'electrician', 'बकरी पालन' -> 'goatry', 'मुर्गी पालन' -> 'poultry', 'फर्नीचर बनाना' -> 'furniture', 'गाड़ी मरम्मत/गैरेज' -> 'garage', 'सीएससी जन सेवा केंद्र' -> 'csc', 'कपड़े की दुकान' -> 'clothing'."
   is_married: "INFER as 'Yes' or 'No' based on marital status."
   spouse_phone: "Extract 10-digit mobile phone number of the spouse as string of digits without spaces, hyphens, or symbols."
+  address_proof_type: "Deduce address proof preference as 'aadhaar' (if user prefers Aadhaar/already uploaded/same/yes/haan), 'voter_id' (if user mentions Voter ID/card/EPIC), or 'driving_license' (if user mentions Driving license/DL)."
   monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
   monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."
   last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
