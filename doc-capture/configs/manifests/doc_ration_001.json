@@ -1,0 +1,79 @@
+{
+  "document_id": "doc_ration_001",
+  "title": {
+    "English": "Ration Card",
+    "Hindi": "राशन कार्ड"
+  },
+  "proves": [
+    "address"
+  ],
+  "required_when": "optional",
+  "expects": [
+    "doc_ration_number",
+    "doc_ration_name",
+    "doc_ration_family_head",
+    "doc_ration_address"
+  ],
+  "parts": [
+    {
+      "id": "front",
+      "name": {
+        "English": "Main Page",
+        "Hindi": "मुख्य पृष्ठ"
+      },
+      "title": {
+        "English": "main page of ration card",
+        "Hindi": "राशन कार्ड का मुख्य पृष्ठ"
+      },
+      "anchors": [
+        "RATION",
+        "CARD",
+        "खाद्य",
+        "नागरिक",
+        "आपूर्ति",
+        "राशन",
+        "उपभोक्ता",
+        "Address",
+        "पता",
+        "Head",
+        "परिवार"
+      ],
+      "provides": [
+        "doc_ration_number",
+        "doc_ration_name",
+        "doc_ration_family_head",
+        "doc_ration_address"
+      ],
+      "orientation": "landscape",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
+  ],
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
+  "quality": {
+    "min_box_confidence": 0.40,
+    "min_anchor_hits": 1,
+    "blur_var_min": 100
+  },
+  "spotting_rules": [],
+  "extraction_rules": []
+}

@@ -197,7 +197,7 @@ def build_prompt(manifest: dict, all_page_texts: Dict[str, str]) -> str:
             elif slot_type == "date":
                 desc += ". Normalize date to YYYY-MM-DD. If only Year is present, return YYYY-01-01."
                 
-            if "pattern" in slot_def:
+            if "pattern" in slot_def and not (pii == "masked" and slot_id == "doc_aadhaar_last4"):
                 p = slot_def.get("pattern")
                 if isinstance(p, list):
                     desc += f", Pattern/Regex constraints (must match at least one): {', '.join(p)}"

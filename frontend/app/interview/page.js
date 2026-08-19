@@ -248,6 +248,8 @@ const DOCUMENT_METADATA = {
   'voter_front': { label: 'Voter ID (Front)', icon: '🪪', facingMode: 'environment', tips: ['Card must be clear and fully visible'] },
   'voter_back': { label: 'Voter ID (Back)', icon: '🪪', facingMode: 'environment', tips: ['Back address details must be readable'] },
   'driving_license': { label: 'Driving License', icon: '🪪', facingMode: 'environment', tips: ['Full driving license should be visible', 'Name and address must be readable'] },
+  'ration_card': { label: 'Ration Card', icon: '📄', facingMode: 'environment', tips: ['Family head name and address must be readable', 'Keep card flat under good light'] },
+  'electricity_bill': { label: 'Electricity Bill', icon: '⚡', facingMode: 'environment', tips: ['Consumer name and address must be clear', 'Bill should be recent (within 3 months)'] },
   'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
   'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },

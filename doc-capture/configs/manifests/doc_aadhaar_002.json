@@ -63,8 +63,7 @@
         "PIN"
       ],
       "provides": [
-        "doc_aadhaar_address",
-        "doc_aadhaar_last4"
+        "doc_aadhaar_address"
       ],
       "orientation": "landscape",
       "spotting": true

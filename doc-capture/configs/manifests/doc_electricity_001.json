@@ -1,0 +1,82 @@
+{
+  "document_id": "doc_electricity_001",
+  "title": {
+    "English": "Electricity Bill",
+    "Hindi": "बिजली का बिल"
+  },
+  "proves": [
+    "address"
+  ],
+  "required_when": "optional",
+  "expects": [
+    "doc_electricity_consumer_number",
+    "doc_electricity_consumer_name",
+    "doc_electricity_bill_date",
+    "doc_electricity_bill_amount",
+    "doc_electricity_address"
+  ],
+  "parts": [
+    {
+      "id": "bill",
+      "name": {
+        "English": "Bill Page",
+        "Hindi": "बिल का मुख्य पृष्ठ"
+      },
+      "title": {
+        "English": "main page of electricity bill",
+        "Hindi": "बिजली बिल का मुख्य पृष्ठ"
+      },
+      "anchors": [
+        "ELECTRICITY",
+        "BILL",
+        "POWER",
+        "DISCOM",
+        "Consumer",
+        "विद्युत",
+        "बिजली",
+        "Address",
+        "पता",
+        "Amount",
+        "राशि",
+        "देय"
+      ],
+      "provides": [
+        "doc_electricity_consumer_number",
+        "doc_electricity_consumer_name",
+        "doc_electricity_bill_date",
+        "doc_electricity_bill_amount",
+        "doc_electricity_address"
+      ],
+      "orientation": "portrait",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_mb": 10
+    },
+    {
+      "type": "camera"
+    }
+  ],
+  "ocr": {
+    "lang": [
+      "en",
+      "hi"
+    ],
+    "table_mode": false
+  },
+  "quality": {
+    "min_box_confidence": 0.40,
+    "min_anchor_hits": 1,
+    "blur_var_min": 100
+  },
+  "spotting_rules": [],
+  "extraction_rules": []
+}

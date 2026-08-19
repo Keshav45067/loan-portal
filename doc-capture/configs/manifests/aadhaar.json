@@ -18,7 +18,7 @@
       "name": { "English": "Back Side", "Hindi": "पीछे का हिस्सा" },
       "title": { "English": "back side", "Hindi": "पीछे का हिस्सा" },
       "anchors": ["Address", "address", "Unique Identification Authority of India", "Unique identification authority of india", "S/O", "D/O", "W/O", "C/O", "PIN"],
-      "provides": ["doc_aadhaar_address", "doc_aadhaar_last4"],
+      "provides": ["doc_aadhaar_address"],
       "spotting": false
     }
   ],

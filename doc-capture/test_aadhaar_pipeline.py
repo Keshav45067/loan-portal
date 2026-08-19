@@ -100,7 +100,7 @@ async def main():
             page_id="front",
             image_data=p1_bytes,
             content_type="image/jpeg",
-            filename=os.path.basename(p1_path)
+        filename=os.path.basename(p1_path)
         )
         
         p1_res = await stub.ProcessDocument(p1_req, timeout=60.0)

@@ -68,6 +68,22 @@
   "state": { "label": {"English":"State"}, "type":"text", "criticality":"standard" },
   "district": { "label": {"English":"District"}, "type":"text", "criticality":"standard" },
 
+  "doc_dl_number": { "label": {"English":"Driving License Number","Hindi":"ड्राइविंग लाइसेंस नंबर"}, "type":"text", "criticality":"critical" },
+  "doc_dl_name": { "label": {"English":"Full Name","Hindi":"पूरा नाम"}, "type":"text", "criticality":"critical" },
+  "doc_dl_dob": { "label": {"English":"Date of Birth","Hindi":"जन्म तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"critical" },
+  "doc_dl_address": { "label": {"English":"Address","Hindi":"पता"}, "type":"text", "criticality":"standard" },
+
+  "doc_ration_number": { "label": {"English":"Ration Card Number","Hindi":"राशन कार्ड नंबर"}, "type":"text", "criticality":"critical" },
+  "doc_ration_name": { "label": {"English":"Card Holder Name","Hindi":"कार्ड धारक का नाम"}, "type":"text", "criticality":"critical" },
+  "doc_ration_family_head": { "label": {"English":"Head of Family","Hindi":"परिवार का मुखिया"}, "type":"text", "criticality":"standard" },
+  "doc_ration_address": { "label": {"English":"Address","Hindi":"पता"}, "type":"text", "criticality":"standard" },
+
+  "doc_electricity_consumer_number": { "label": {"English":"Consumer Number / Account ID","Hindi":"उपभोक्ता संख्या / खाता संख्या"}, "type":"text", "criticality":"critical" },
+  "doc_electricity_consumer_name": { "label": {"English":"Consumer Name","Hindi":"उपभोक्ता का नाम"}, "type":"text", "criticality":"critical" },
+  "doc_electricity_bill_date": { "label": {"English":"Bill Date","Hindi":"बिल तिथि"}, "type":"date", "normalize":"iso_date", "criticality":"standard" },
+  "doc_electricity_bill_amount": { "label": {"English":"Bill Amount","Hindi":"बिल राशि"}, "type":"number", "criticality":"standard" },
+  "doc_electricity_address": { "label": {"English":"Service Address","Hindi":"पते का विवरण"}, "type":"text", "criticality":"standard" },
+
   "_defaults": {
     "confidence_bands": {
       "critical": { "accept": 0.85, "confirm": 0.50 },

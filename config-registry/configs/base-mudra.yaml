@@ -292,10 +292,13 @@ interview_graph:
       text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous ce micro-crédit ?"
       text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على القرض المصغر لأجله؟"
       targets: [business_purpose, business_type]
+      routing_prompt: "Evaluate if the business is related to livestock or animal farming (such as dairy, milk, cows/buffaloes, goatry/goats, poultry/chickens). Set 'routing_decision' to 'YES' if livestock or animal farming, 'NO' otherwise."
       inactivity_policy:
         timeout_seconds: 3.0
         nudge_guideline: "Ask if they need help describing their business activity."
       edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_HAVE_SHADE"
         - condition: "business_type in ['dairy', 'goatry', 'poultry', 'goatory']"
           next: "Q_HAVE_SHADE"
         - condition: "always"
@@ -307,10 +310,13 @@ interview_graph:
       text_template_mr: "जनावरांना/पक्ष्यांना ठेवण्यासाठी तुमच्याकडे शेड किंवा जागा उपलब्ध आहे का?"
       text_template_en: "Do you have a shade/shelter available for keeping livestock or poultry?"
       targets: [have_shade]
+      routing_prompt: "Evaluate if the user has a shade, shed, or shelter available for animals. Set 'routing_decision' to 'YES' if they have a shade, 'NO' if not."
       inactivity_policy:
         timeout_seconds: 3.0
       edges:
-        - condition: "have_shade == 'YES'"
+        - condition: "routing_decision == 'YES'"
+          next: "Q_SHADE_DETAILS"
+        - condition: "have_shade in ['YES', 'HAAN', 'HO', 'हाँ', 'होय', 'Yes', 'yes']"
           next: "Q_SHADE_DETAILS"
         - condition: "always"
           next: "Q_IS_MARRIED"
@@ -335,12 +341,13 @@ interview_graph:
       text_template_fr: "D'accord. Êtes-vous marié(e) ?"
       text_template_ar: "حسناً. هل أنت متزوج؟"
       targets: [is_married]
+      routing_prompt: "Evaluate if the user is married. Set 'routing_decision' to 'YES' if married, 'NO' if unmarried or single."
       inactivity_policy:
         timeout_seconds: 3.0
       edges:
-        - condition: "is_married in ['YES', 'HAAN', 'HO', 'MARRIED', 'विवाहित', 'हाँ', 'होय']"
+        - condition: "routing_decision == 'YES'"
           next: "Q_SPOUSE_PHONE"
-        - condition: "is_married == 'Yes'"
+        - condition: "is_married in ['YES', 'HAAN', 'HO', 'MARRIED', 'विवाहित', 'हाँ', 'होय', 'Yes', 'yes']"
           next: "Q_SPOUSE_PHONE"
         - condition: "always"
           next: "DOC_PAN"
@@ -447,24 +454,35 @@ interview_graph:
 
     Q_ADDRESS_PROOF_TYPE:
       type: "voice-qa"
-      text_template: "क्या आप पते के प्रमाण (Address Proof) के लिए अपने आधार कार्ड का उपयोग करना चाहेंगे, या कोई अन्य दस्तावेज़ जैसे वोटर आईडी या ड्राइविंग लाइसेंस देना चाहेंगे?"
-      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही तुमच्या आधार कार्डचा वापर करू इच्छिता, की व्होटर आयडी किंवा ड्रायव्हिंग लायसन्ससारखे दुसरे दस्तऐवज देऊ इच्छिता?"
-      text_template_en: "Would you like to use your Aadhaar card as proof of address, or would you prefer to provide another document such as Voter ID or Driving License?"
-      text_template_fr: "Souhaitez-vous utiliser votre carte Aadhaar comme justificatif de domicile, ou préférez-vous fournir un autre document comme une carte d'électeur ou un permis de conduire ?"
-      text_template_ar: "هل ترغب في استخدام بطاقة الهوية (آدهار) الخاصة بك كإثبات للعنوان، أم تفضل تقديم وثيقة أخرى مثل بطاقة الناخب أو رخصة القيادة؟"
+      text_template: "पते के प्रमाण (Address Proof) के लिए आप कौन सा दस्तावेज़ देना चाहेंगे—वोटर आईडी, राशन कार्ड, बिजली का बिल, या ड्राइविंग लाइसेंस?"
+      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही कोणते दस्तऐवज देऊ इच्छिता—व्होटर आयडी, रेशन कार्ड, वीज बिल, की ड्रायव्हिंग लायसन्स?"
+      text_template_en: "Which document would you like to provide as proof of address—Voter ID, Ration Card, Electricity Bill, or Driving License?"
+      text_template_fr: "Quel document souhaitez-vous fournir comme justificatif de domicile : carte d'électeur, carte de rationnement, facture d'électricité ou permis de conduire ?"
+      text_template_ar: "ما هي الوثيقة التي ترغب في تقديمها كإثبات للعنوان—بطاقة الناخب، بطاقة التموين، فاتورة الكهرباء، أم رخصة القيادة؟"
       targets: [address_proof_type]
+      routing_prompt: "Identify the user's address proof preference. Set 'routing_decision' to: 'VOTER' if Voter ID/card/EPIC, 'RATION' if Ration Card, 'ELECTRICITY' if Electricity Bill/Bijli Bill, 'DL' if Driving License."
       inactivity_policy:
         timeout_seconds: 3.0
-        nudge_guideline: "Ask if they want to use their Aadhaar card as address proof or provide Voter ID / Driving License."
+        nudge_guideline: "Ask which address proof document they would like to provide among Voter ID, Ration Card, Electricity Bill, or Driving License."
       edges:
-        - condition: "address_proof_type in ['aadhaar', 'aadhar', 'adhaar', 'yes', 'haan', 'ho', 'same', 'हाँ', 'होय', 'आधार']"
-          next: "PROMPT_MANUAL_FILLING"
+        - condition: "routing_decision == 'VOTER'"
+          next: "DOC_VOTER_FRONT"
+        - condition: "routing_decision == 'RATION'"
+          next: "DOC_RATION_CARD"
+        - condition: "routing_decision == 'ELECTRICITY'"
+          next: "DOC_ELECTRICITY_BILL"
+        - condition: "routing_decision == 'DL'"
+          next: "DOC_DRIVING_LICENSE"
         - condition: "address_proof_type in ['voter_id', 'voter', 'epic', 'voter_card', 'वोटर', 'मतदान']"
           next: "DOC_VOTER_FRONT"
+        - condition: "address_proof_type in ['ration_card', 'ration', 'राशन', 'रेशन']"
+          next: "DOC_RATION_CARD"
+        - condition: "address_proof_type in ['electricity_bill', 'electricity', 'bijli_bill', 'बिजली', 'वीज']"
+          next: "DOC_ELECTRICITY_BILL"
         - condition: "address_proof_type in ['driving_license', 'dl', 'license', 'driving', 'लाइसेंस', 'ड्राइविंग']"
           next: "DOC_DRIVING_LICENSE"
         - condition: "always"
-          next: "PROMPT_MANUAL_FILLING"
+          next: "DOC_VOTER_FRONT"
 
     DOC_VOTER_FRONT:
       type: "capture"
@@ -490,6 +508,35 @@ interview_graph:
       text_template_en: "Please take a photo of the back side of your Voter ID card."
       text_template_fr: "Veuillez prendre une photo du verso de votre carte d'électeur."
       text_template_ar: "يرجى التقاط صورة للوجه الخلفي لبطاقة الناخب الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "PROMPT_MANUAL_FILLING"
+
+
+    DOC_RATION_CARD:
+      type: "capture"
+      document_id: "ration_card"
+      manifest_id: doc_ration_001
+      page_id: front
+      text_template: "कृपया अपने राशन कार्ड के मुख्य पृष्ठ की फोटो लें।"
+      text_template_mr: "कृपया आपल्या रेशन कार्डच्या मुख्य पानाचा फोटो घ्या."
+      text_template_en: "Please take a photo of the main page of your Ration Card."
+      text_template_fr: "Veuillez prendre une photo de la page principale de votre carte de rationnement."
+      text_template_ar: "يرجى التقاط صورة للصفحة الرئيسية من بطاقة التموين الخاصة بك."
+      edges:
+        - condition: "always"
+          next: "PROMPT_MANUAL_FILLING"
+
+    DOC_ELECTRICITY_BILL:
+      type: "capture"
+      document_id: "electricity_bill"
+      manifest_id: doc_electricity_001
+      page_id: bill
+      text_template: "कृपया अपने बिजली बिल की साफ फोटो लें।"
+      text_template_mr: "कृपया आपल्या वीज बिलाचा स्पष्ट फोटो घ्या."
+      text_template_en: "Please take a clear photo of your Electricity Bill."
+      text_template_fr: "Veuillez prendre une photo nette de votre facture d'électricité."
+      text_template_ar: "يرجى التقاط صورة واضحة لفاتورة الكهرباء الخاصة بك."
       edges:
         - condition: "always"
           next: "PROMPT_MANUAL_FILLING"
@@ -842,7 +889,7 @@ field_instructions:
   business_type: "Deduce the canonical business type from the user's response as one of: 'dairy', 'grocery', 'salon', 'tailor', 'electrician', 'goatry', 'poultry', 'furniture', 'garage', 'csc', 'clothing', or 'other'. Examples: 'दूध का काम' -> 'dairy', 'किराना दुकान' -> 'grocery', 'सिलाई कढ़ाई' -> 'tailor', 'नाई/ब्यूटी पार्लर' -> 'salon', 'बिजली का काम' -> 'electrician', 'बकरी पालन' -> 'goatry', 'मुर्गी पालन' -> 'poultry', 'फर्नीचर बनाना' -> 'furniture', 'गाड़ी मरम्मत/गैरेज' -> 'garage', 'सीएससी जन सेवा केंद्र' -> 'csc', 'कपड़े की दुकान' -> 'clothing'."
   is_married: "INFER as 'Yes' or 'No' based on marital status."
   spouse_phone: "Extract 10-digit mobile phone number of the spouse as string of digits without spaces, hyphens, or symbols."
-  address_proof_type: "Deduce address proof preference as 'aadhaar' (if user prefers Aadhaar/already uploaded/same/yes/haan), 'voter_id' (if user mentions Voter ID/card/EPIC), or 'driving_license' (if user mentions Driving license/DL)."
+  address_proof_type: "Deduce address proof preference as 'voter_id' (if user mentions Voter ID/card/EPIC), 'ration_card' (if user mentions Ration card), 'electricity_bill' (if user mentions Electricity bill/Bijli bill/light bill), or 'driving_license' (if user mentions Driving license/DL)."
   monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
   monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."
   last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
