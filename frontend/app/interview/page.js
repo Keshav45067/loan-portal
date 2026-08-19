@@ -266,6 +266,82 @@ const DOCUMENT_METADATA = {
   }
 };
 
+const VIDEO_CAPTURE_INSTRUCTIONS = {
+  hi: [
+    { offset: 0, text: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।" },
+    { offset: 10, text: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।" },
+    { offset: 20, text: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।" }
+  ],
+  en: [
+    { offset: 0, text: "Please turn on the camera and pan around your shop to show your workplace." },
+    { offset: 10, text: "Now show the main stock or inventory area of the shop up close." },
+    { offset: 20, text: "Thank you. You may now complete the video recording." }
+  ],
+  mr: [
+    { offset: 0, text: "कृपया कॅमेरा सुरू करा आणि आपल्या दुकानाच्या सर्व बाजूंनी फिरवून कामाची जागा दाखवा." },
+    { offset: 10, text: "आता दुकानातील मुख्य माल किंवा साठवणुकीचा भाग जवळून दाखवा." },
+    { offset: 20, text: "धन्यवाद. आता तुम्ही व्हिडिओ रेकॉर्डिंग समाप्त करू शकता." }
+  ],
+  fr: [
+    { offset: 0, text: "Veuillez allumer la caméra et faire un panoramique de votre magasin pour montrer votre lieu de travail." },
+    { offset: 10, text: "Montrez maintenant de près la zone de stock principal ou d'inventaire du magasin." },
+    { offset: 20, text: "Merci. Vous pouvez maintenant terminer l'enregistrement vidéo." }
+  ],
+  ar: [
+    { offset: 0, text: "يرجى تشغيل الكاميرا وتحريكها حول متجرك لإظهار مكان عملك." },
+    { offset: 10, text: "الآن أظهر منطقة المخزون أو البضائع الرئيسية في المتجر عن قرب." },
+    { offset: 20, text: "شكراً لك. يمكنك الآن إنهاء تسجيل الفيديو." }
+  ]
+};
+
+const VIDEO_CAPTURE_UI_TEXT = {
+  hi: {
+    title: "कार्यस्थल का वीडियो रिकॉर्ड करें",
+    desc: "सत्यापन के लिए अपना कार्यस्थल दिखाएं",
+    locationTitle: "स्थान अनुमति आवश्यक है",
+    locationDesc: "इस ऋण आवेदन के लिए आपके कार्यस्थल के जियोटैग्ड वीडियो की आवश्यकता है। कृपया ब्राउज़र सेटिंग्स में स्थान अनुमति सक्षम करें और पुनः प्रयास करें।",
+    retryLocation: "स्थान अनुमति पुनः प्रयास करें",
+    startRecord: "🔴 रिकॉर्डिंग शुरू करें",
+    stopRecord: "⏹️ रिकॉर्डिंग समाप्त करें"
+  },
+  en: {
+    title: "Record Workplace Video",
+    desc: "Show your workplace for verification",
+    locationTitle: "Location Permission Required",
+    locationDesc: "This micro-loan application requires a geotagged video of your workplace. Please enable location permissions for this website in your browser settings and try again.",
+    retryLocation: "Retry Location Access",
+    startRecord: "🔴 Start Recording",
+    stopRecord: "⏹️ Stop Recording"
+  },
+  mr: {
+    title: "कामाच्या जागेचा व्हिडिओ रेकॉर्ड करा",
+    desc: "पडताळणीसाठी आपली कामाची जागा दाखवा",
+    locationTitle: "स्थान परवानगी आवश्यक आहे",
+    locationDesc: "या कर्ज अर्जासाठी आपल्या कामाच्या जागेच्या जिओटॅग केलेल्या व्हिडिओची आवश्यकता आहे. कृपया ब्राऊझर सेटिंग्जमध्ये स्थान परवानगी सक्षम करा आणि पुन्हा प्रयत्न करा.",
+    retryLocation: "स्थान परवानगी पुन्हा प्रयत्न करा",
+    startRecord: "🔴 रेकॉर्डिंग सुरू करा",
+    stopRecord: "⏹️ रेकॉर्डिंग थांबवा"
+  },
+  fr: {
+    title: "Enregistrer la vidéo du lieu de travail",
+    desc: "Montrez votre lieu de travail pour vérification",
+    locationTitle: "Autorisation de localisation requise",
+    locationDesc: "Cette demande de micro-crédit nécessite une vidéo géolocalisée de votre lieu de travail. Veuillez activer l'accès à la localisation dans les paramètres de votre navigateur.",
+    retryLocation: "Réessayer l'accès à la localisation",
+    startRecord: "🔴 Démarrer l'enregistrement",
+    stopRecord: "⏹️ Arrêter l'enregistrement"
+  },
+  ar: {
+    title: "تسجيل فيديو لمكان العمل",
+    desc: "أظهر مكان عملك للتحقق",
+    locationTitle: "إذن تحديد الموقع مطلوب",
+    locationDesc: "يتطلب هذا الطلب مقطع فيديو محدد جغرافياً لمكان عملك. يرجى تفعيل إذن الموقع في إعدادات المتصفح وإعادة المحاولة.",
+    retryLocation: "إعادة محاولة الوصول للموقع",
+    startRecord: "🔴 بدء التسجيل",
+    stopRecord: "⏹️ إيقاف التسجيل"
+  }
+};
+
 function InterviewContent() {
   const router = useRouter();
 
@@ -1134,11 +1210,8 @@ function InterviewContent() {
       setIsRecordingVideo(true);
 
       // Timed Vocal Instructions via Central WebSocket TTS Service
-      const videoInstructions = [
-        { offset: 0, text: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।" },
-        { offset: 10, text: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।" },
-        { offset: 20, text: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।" }
-      ];
+      const currentLang = selectedLanguage || 'hi';
+      const videoInstructions = VIDEO_CAPTURE_INSTRUCTIONS[currentLang] || VIDEO_CAPTURE_INSTRUCTIONS['en'] || VIDEO_CAPTURE_INSTRUCTIONS['hi'];
 
       let secondsElapsed = 0;
       const speakInstruction = (text) => {
@@ -1343,14 +1416,16 @@ function InterviewContent() {
   const renderVideoUI = () => {
     const meta = DOCUMENT_METADATA[documentId] || { label: 'Workplace Video', icon: '📹' };
     const docData = docs[documentId];
+    const currentLang = selectedLanguage || 'hi';
+    const uiText = VIDEO_CAPTURE_UI_TEXT[currentLang] || VIDEO_CAPTURE_UI_TEXT['en'] || VIDEO_CAPTURE_UI_TEXT['hi'];
 
     return (
       <div className={styles.detailCard}>
         <div className={styles.cardHeader}>
           <div className={styles.cardIconLarge}>📹</div>
           <div style={{ flex: 1 }}>
-            <h3 className={styles.cardTitle}>Record {meta.label}</h3>
-            <p className={styles.cardDesc}>Show your workplace for verification</p>
+            <h3 className={styles.cardTitle}>{uiText.title}</h3>
+            <p className={styles.cardDesc}>{uiText.desc}</p>
           </div>
         </div>
 
@@ -1371,9 +1446,9 @@ function InterviewContent() {
                 color: '#fca5a5'
               }}>
                 <span style={{ fontSize: '3rem', marginBottom: '16px' }}>📍</span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: '#fff' }}>Location Permission Required</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '8px', color: '#fff' }}>{uiText.locationTitle}</h3>
                 <p style={{ fontSize: '0.875rem', color: '#cbd5e1', marginBottom: '24px', maxWidth: '380px', lineHeight: '1.5' }}>
-                  This micro-loan application requires a geotagged video of your workplace. Please enable location permissions for this website in your browser settings and try again.
+                  {uiText.locationDesc}
                 </p>
                 <button 
                   onClick={async () => {
@@ -1401,7 +1476,7 @@ function InterviewContent() {
                     transition: 'transform 0.2s'
                   }}
                 >
-                  🔄 Retry Location Access
+                  🔄 {uiText.retryLocation}
                 </button>
               </div>
             ) : (
@@ -1484,7 +1559,7 @@ function InterviewContent() {
                         boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
                       }}
                     >
-                      🔴 Start Recording
+                      {uiText.startRecord}
                     </button>
                   ) : (
                     <button 
@@ -1501,7 +1576,7 @@ function InterviewContent() {
                         boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
                       }}
                     >
-                      ⏹ Stop ({recordingTimeRemaining}s)
+                      {uiText.stopRecord} ({recordingTimeRemaining}s)
                     </button>
                   )}
                 </div>

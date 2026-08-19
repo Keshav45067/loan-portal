@@ -785,10 +785,25 @@ interview_graph:
       instructions:
         - offset_seconds: 0
           text: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।"
+          text_hi: "कृपया कैमरे को चालू करें और अपनी दुकान के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।"
+          text_en: "Please turn on the camera and pan around your shop to show your workplace."
+          text_mr: "कृपया कॅमेरा सुरू करा आणि आपल्या दुकानाच्या सर्व बाजूंनी फिरवून कामाची जागा दाखवा."
+          text_fr: "Veuillez allumer la caméra et faire un panoramique de votre magasin pour montrer votre lieu de travail."
+          text_ar: "يرجى تشغيل الكاميرا وتحريكها حول متجرك لإظهار مكان عملك."
         - offset_seconds: 10
           text: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।"
+          text_hi: "अब दुकान के मुख्य माल या इन्वेंटरी वाले हिस्से को करीब से दिखाएं।"
+          text_en: "Now show the main stock or inventory area of the shop up close."
+          text_mr: "आता दुकानातील मुख्य माल किंवा साठवणुकीचा भाग जवळून दाखवा."
+          text_fr: "Montrez maintenant de près la zone de stock principal ou d'inventaire du magasin."
+          text_ar: "الآن أظهر منطقة المخزون أو البضائع الرئيسية في المتجر عن قرب."
         - offset_seconds: 20
           text: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।"
+          text_hi: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।"
+          text_en: "Thank you. You may now complete the video recording."
+          text_mr: "धन्यवाद. आता तुम्ही व्हिडिओ रेकॉर्डिंग समाप्त करू शकता."
+          text_fr: "Merci. Vous pouvez maintenant terminer l'enregistrement vidéo."
+          text_ar: "شكراً لك. يمكنك الآن إنهاء تسجيل الفيديو."
       edges: []
 
 # ─── Context Map (for LLM prompt optimization) ───
