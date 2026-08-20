@@ -1,18 +1,12 @@
 # ================================================================
-# Rural Livelihood & Micro-Enterprise Loan Scheme Configuration
-# Dedicated Voice-Only Evaluation & Testing Scheme (No Document Capture)
+# Rural Voice Evaluation Scheme (Pure Voice QA - Mudra Questions)
+# Excludes: All document captures, video capture, manual filling,
+#           Q_NAME_CONFIRMATION, and Q_SPOUSE_PHONE
 # ================================================================
 
 scheme_id: rural-voice-test
-display_name: "Rural Livelihood & Micro-Enterprise Loan (Voice Evaluation Scheme)"
+display_name: "Rural Voice Evaluation Scheme"
 languages: [hi, en, mr, fr, ar]
-
-default_applicant_placeholder:
-  hi: "आवेदक"
-  mr: "अर्जदार"
-  en: "Applicant"
-  fr: "Demandeur"
-  ar: "مقدم الطلب"
 
 # ─── TTS/STT Configuration ───
 tts:
@@ -39,568 +33,526 @@ tts:
 
 stt:
   hi:
-    engine: "google"
     language_code: "hi-IN"
+    engine: "google"
   mr:
-    engine: "google"
     language_code: "mr-IN"
+    engine: "google"
   en:
-    engine: "google"
     language_code: "en-US"
+    engine: "google"
   fr:
-    engine: "google"
     language_code: "fr-FR"
-  ar:
     engine: "google"
-    language_code: "ar-XA"
+  ar:
+    language_code: "ar-SA"
+    engine: "google"
 
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
   enabled: true
-  default_timeout_seconds: 3.0
+  default_timeout_seconds: 5.0
   max_nudges_per_node: 2
   decay_multiplier: 1.4
 
-# ─── System Standard Voice Messages ───
+# ─── System Voice Feedback Messages ───
 system_voice_messages:
   hi:
-    processing: "आपकी जानकारी प्रोसेस हो रही है। कृपया प्रतीक्षा करें।"
+    processing: "आपका उत्तर प्रोसेस हो रहा है। कृपया प्रतीक्षा करें।"
+    success_template: "धन्यवाद।"
     fallback_nudges:
-      - "क्या आपको मेरी आवाज़ आ रही है? आप आराम से अपनी बात बता सकते हैं।"
-      - "कोई जल्दी नहीं है, कृपया थोड़ा विस्तार से बताएं।"
+      - "क्या आप मेरी आवाज़ सुन पा रहे हैं? कृपया जवाब दीजिए।"
+      - "कृपया बताइए, ताकि हम आगे बढ़ सकें।"
   mr:
-    processing: "तुमची माहिती तपासली जात आहे. कृपया थोडी वाट पहा."
+    processing: "तुमचे उत्तर प्रोसेस होत आहे. कृपया प्रतीक्षा करा."
+    success_template: "धन्यवाद."
     fallback_nudges:
-      - "तुम्हाला माझा आवाज येतोय का? तुम्ही सवडीने उत्तर देऊ शकता."
-      - "काही घाई नाही, कृपया थोडे सविस्तर सांगा."
+      - "तुम्हाला माझा आवाज ऐकू येत आहे का? कृपया उत्तर द्या."
+      - "कृपया सांगा, जेणेकरून आपण पुढे जाऊ शकू."
   en:
-    processing: "Processing your details. Please wait a moment."
+    processing: "Processing your response. Please wait."
+    success_template: "Thank you."
     fallback_nudges:
-      - "Can you hear me clearly? Please feel free to take your time."
-      - "No rush at all, please describe in a little more detail."
+      - "Can you hear me? Please respond so we can continue."
+      - "Please answer the question so we can proceed."
   fr:
-    processing: "Traitement de vos informations en cours. Veuillez patienter."
+    processing: "Traitement en cours. Veuillez patienter."
+    success_template: "Merci."
     fallback_nudges:
-      - "M'entendez-vous bien ? Prenez votre temps pour répondre."
+      - "Vous m'entendez ? Veuillez répondre pour que nous puissions continuer."
+      - "Merci de répondre afin que nous puissions poursuivre."
   ar:
-    processing: "جاري معالجة بياناتك. يرجى الانتظار."
+    processing: "جاري المعالجة، يرجى الانتظار."
+    success_template: "شكراً لك."
     fallback_nudges:
-      - "هل تسمعني بوضوح؟ لا تقلق، خذ وقتك الكامل في الإجابة."
+      - "هل تسمعني بوضوح؟ يرجى الرد حتى نتمكن من المتابعة."
+      - "يرجى الإجابة لنتمكن من المتابعة."
 
-# ─── Document Requirements (Explicitly Empty for 100% Voice Evaluation) ───
-document_requirements: []
-
-# ─── Interview Graph ───
+# ─── Interview Graph Definition ───
 interview_graph:
-  start_node_id: "START"
+  start_node_id: START
   nodes:
-
-    # ─── 1. Introduction & Consent ───
     START:
       type: "voice-qa"
-      text_template: "नमस्ते! ग्रामीण आजीविका और स्वरोजगार लोन मूल्यांकन में आपका स्वागत है। हम आपके काम-धंधे और आमदनी के बारे में कुछ सरल सवाल पूछेंगे। क्या हम शुरू करें?"
-      text_template_mr: "नमस्कार! ग्रामीण उपजीविका आणि सूक्ष्म व्यवसाय कर्ज मूल्यांकनात आपले स्वागत आहे. आम्ही आपल्या व्यवसायाविषयी आणि उत्पन्नाविषयी काही सोपे प्रश्न विचारू. आपण सुरुवात करूया का?"
-      text_template_en: "Hello! Welcome to the Rural Livelihood and Enterprise Loan Assessment. We will ask a few questions regarding your work, business, and earnings. Shall we begin?"
-      text_template_fr: "Bonjour ! Bienvenue dans l'évaluation de prêt pour les activités rurales. Nous allons vous poser quelques questions sur votre travail et vos revenus. Pouvons-nous commencer ?"
-      text_template_ar: "مرحباً بك في تقييم القروض الريفية وتطوير الأعمال المصغرة. سنطرح بعض الأسئلة حول نشاطك ودخلك. هل نبدأ؟"
+      text_template: "माइक्रो लोन सेवा में आपका स्वागत है। मैं, आपके काम में आपको आगे बढ़ाने के लिए जो लोन चाहिए, उसके बारे में बात कर रही हूँ। क्या आप बताने के लिए तैयार हैं?"
+      text_template_mr: "मायक्रो लोन सेवेत आपले स्वागत आहे. मी, आपल्या व्यवसायाला पुढे नेण्यासाठी लागणाऱ्या कर्जाबाबत मदत करण्यासाठी इथे आहे. आपण सुरुवात करायला तयार आहात का?"
+      text_template_en: "Welcome to the Micro-Loan service. I am here to assist you with the micro-loan required for your business. Are you ready to begin?"
+      text_template_fr: "Bienvenue dans le service de micro-crédit. Je suis là pour vous aider avec le micro-crédit nécessaire à votre entreprise. Êtes-vous prêt à commencer ?"
+      text_template_ar: "أهلاً بك في خدمة القروض المصغرة. أنا هنا لمساعدتك في الحصول على القرض المناسب لنشاطك التجاري. هل أنت جاهز للبدء؟"
       targets: []
       edges:
         - condition: "always"
-          next: "Q_APPLICANT_BASICS"
+          next: "Q_BUSINESS_PURPOSE"
 
-    # ─── 2. Applicant Basics & Family Earning Structure ───
-    Q_APPLICANT_BASICS:
+    Q_BUSINESS_PURPOSE:
       type: "voice-qa"
-      text_template: "कृपया अपना पूरा नाम, अपनी उम्र, और आपके परिवार में कुल कितने सदस्य हैं और उनमें से कितने लोग कमाते हैं, यह बताएं।"
-      text_template_mr: "कृपया आपले पूर्ण नाव, वय, तसेच कुटुंबातील एकूण सदस्य आणि त्यांपैकी किती व्यक्ती कमावत्या आहेत, हे सांगा."
-      text_template_en: "Please tell me your full name, age, the total number of members in your household, and how many of them are currently earning."
-      text_template_fr: "Veuillez indiquer votre nom complet, votre âge, le nombre de personnes dans votre foyer et combien d'entre elles travaillent."
-      text_template_ar: "يرجى ذكر اسمك الكامل، وعمرك، وإجمالي عدد أفراد أسرتك وكم منهم يعمل حالياً."
-      targets: [applicant_name, age, family_members_count, earning_members_count]
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask the user gently to share their name, age, total family members, and how many are earning."
-      edges:
-        - condition: "always"
-          next: "Q_PRIMARY_OCCUPATION"
-
-    # ─── 3. Primary Activity & Sector Classifier (Branching Hub) ───
-    Q_PRIMARY_OCCUPATION:
-      type: "voice-qa"
-      text_template: "{applicant_name} जी, आप मुख्य रूप से क्या काम या व्यवसाय करते हैं, और आप यह काम कितने सालों से कर रहे हैं?"
-      text_template_mr: "{applicant_name} जी, आपण मुख्यत्वे कोणता व्यवसाय किंवा काम करता, आणि हे काम आपण किती वर्षांपासून करत आहात?"
-      text_template_en: "{applicant_name}, what is your primary business or occupation, and how many years have you been engaged in this activity?"
-      text_template_fr: "{applicant_name}, quelle est votre activité principale ou entreprise, et depuis combien d'années l'exercez-vous ?"
-      text_template_ar: "{applicant_name}، ما هو نشاطك التجاري أو عملك الأساسي، ومنذ كم سنة وأنت تعمل فيه؟"
-      targets: [business_type, primary_activity, years_in_business]
-      routing_prompt: "Classify the applicant's primary livelihood into one of these categories: 'LIVESTOCK' (dairy, cow, buffalo, goat, poultry, animal farming, agriculture), 'RETAIL' (kirana, grocery, shop, trading, clothing, vegetable/fruit vending, tea stall, tailoring), 'SERVICE' (auto/tempo/tractor transport, repair workshop, cycle/motor mechanic, electrical/welding), 'ARTISAN' (pottery, weaving, bamboo craft, food processing, pickle/papad, handicrafts). Set 'sector_code' to LIVESTOCK, RETAIL, SERVICE, or ARTISAN. If unclear or other, default to RETAIL."
+      text_template: "बढ़िया, और आप किस व्यवसाय के लिए लोन चाहते हैं?"
+      text_template_mr: "छान, आणि तुम्हाला कोणत्या व्यवसायासाठी मायक्रो लोन हवे आहे?"
+      text_template_en: "Great, and for which business would you like the micro-loan?"
+      text_template_fr: "Très bien, et pour quelle entreprise souhaitez-vous ce micro-crédit ?"
+      text_template_ar: "ممتاز، وما هو النشاط التجاري الذي ترغب في الحصول على القرض المصغر لأجله؟"
+      targets: [business_purpose, business_type]
+      routing_prompt: "Evaluate if the business is related to livestock or animal farming (such as dairy, milk, cows/buffaloes, goatry/goats, poultry/chickens). Set 'routing_decision' to 'YES' if livestock or animal farming, 'NO' otherwise."
       inactivity_policy:
         timeout_seconds: 3.0
-        nudge_guideline: "Ask what their primary daily work or shop/farming activity is."
+        nudge_guideline: "Ask if they need help describing their business activity."
       edges:
-        - condition: "sector_code == 'LIVESTOCK'"
-          next: "Q_AGRI_LIVESTOCK"
-        - condition: "business_type in ['dairy', 'goatry', 'poultry', 'farming', 'cattle', 'livestock', 'agriculture']"
-          next: "Q_AGRI_LIVESTOCK"
-        - condition: "sector_code == 'SERVICE'"
-          next: "Q_TRANSPORT_SERVICE"
-        - condition: "business_type in ['auto', 'transport', 'mechanic', 'repair', 'workshop', 'welding', 'electrician']"
-          next: "Q_TRANSPORT_SERVICE"
-        - condition: "sector_code == 'ARTISAN'"
-          next: "Q_ARTISAN_PROCESSING"
-        - condition: "business_type in ['artisan', 'handicraft', 'weaving', 'pottery', 'bamboo', 'food_processing', 'papad']"
-          next: "Q_ARTISAN_PROCESSING"
+        - condition: "routing_decision == 'YES'"
+          next: "Q_HAVE_SHADE"
+        - condition: "business_type in ['dairy', 'goatry', 'poultry', 'goatory']"
+          next: "Q_HAVE_SHADE"
         - condition: "always"
-          next: "Q_RETAIL_TRADE"
+          next: "Q_IS_MARRIED"
 
-    # ─── SECTOR A: Livestock / Farming Branch ───
-    Q_AGRI_LIVESTOCK:
+    Q_HAVE_SHADE:
       type: "voice-qa"
-      text_template: "आपके पास कुल कितने पशु या पक्षी हैं, रोज़ाना कितना दूध या उत्पादन मिलता है, और चारे-दाने पर रोज़ का कितना खर्च होता है?"
-      text_template_mr: "आपल्याकडे एकूण किती जनावरे किंवा पक्षी आहेत, दररोज किती दूध किंवा उत्पादन मिळते, आणि चाऱ्यासाठी रोजचा किती खर्च होतो?"
-      text_template_en: "How many cattle or animals do you have, what is your daily milk or produce yield, and how much do you spend daily on animal feed/fodder?"
-      text_template_fr: "Combien d'animaux possédez-vous, quelle est votre production quotidienne de lait ou autre, et quel est le coût journalier de leur nourriture ?"
-      text_template_ar: "كم عدد المواشي أو الطيور لديك، وما هو الإنتاج اليومي من الحليب أو المنتجات، وكم تنفق يومياً على العلف؟"
-      targets: [animal_count, daily_yield_liters, daily_feed_cost]
-      routing_prompt: "Evaluate if the applicant has mentioned whether they own a shed/shelter or if they need shelter facilities. Set 'has_shade' to 'YES' if they own a shed, 'NO' if not mentioned or they graze outside."
-      edges:
-        - condition: "has_shade == 'YES'"
-          next: "Q_AGRI_SHED_DETAILS"
-        - condition: "always"
-          next: "Q_AGRI_GRAZING"
-
-    Q_AGRI_SHED_DETAILS:
-      type: "voice-qa"
-      text_template: "जो शेड या बाड़ा आपके पास है, वह खुद की ज़मीन पर है या किराए पर? और वहां पानी और बिजली की क्या व्यवस्था है?"
-      text_template_mr: "आपल्याकडे असलेला शेड स्वतःच्या जागेवर आहे की भाड्याने? आणि तिथे पाणी आणि विजेची काय सोय आहे?"
-      text_template_en: "Is the animal shed on your own land or rented? What arrangements do you have for water and electricity there?"
-      text_template_fr: "L'abri pour animaux est-il sur votre propre terrain ou loué ? Quelles sont les installations pour l'eau et l'électricité ?"
-      text_template_ar: "هل حظيرة المواشي على أرض ملكك أم مستأجرة؟ وما هي الترتيبات المتوفرة للمياه والكهرباء؟"
-      targets: [shed_ownership, shed_utilities_details]
-      edges:
-        - condition: "always"
-          next: "Q_SEASONAL_CASHFLOW"
-
-    Q_AGRI_GRAZING:
-      type: "voice-qa"
-      text_template: "पशुओं को चराने या रखने की क्या व्यवस्था है, और क्या हरे चारे के लिए आपके पास अपनी खेती या लीज़ की ज़मीन है?"
-      text_template_mr: "जनावरांना चरण्यासाठी किंवा ठेवण्यासाठी काय सोय आहे, आणि हिरव्या चाऱ्यासाठी आपली स्वतःची किंवा भाडेतत्त्वावरील शेती आहे का?"
-      text_template_en: "What arrangement do you have for animal grazing/shelter, and do you own or lease any farmland for green fodder?"
-      text_template_fr: "Comment gérez-vous le pâturage de vos bêtes, et disposez-vous de terres agricoles en propriété ou en location pour le fourrage ?"
-      text_template_ar: "ما هي ترتيبات الرعي والمأوى للمواشي، وهل تمتلك أو تستأجر أرضاً زراعية للأعلاف؟"
-      targets: [grazing_arrangement, land_ownership_type]
-      edges:
-        - condition: "always"
-          next: "Q_SEASONAL_CASHFLOW"
-
-    # ─── SECTOR B: Rural Retail & Trade Branch ───
-    Q_RETAIL_TRADE:
-      type: "voice-qa"
-      text_template: "आपकी दुकान या बिक्री की जगह अपनी है या किराए की? रोज़ाना औसतन कितने ग्राहक आते हैं और दिन भर में कुल कितने रुपये की बिक्री (गल्ला) होती है?"
-      text_template_mr: "आपले दुकान स्वतःच्या जागेत आहे की भाड्याच्या? रोज सरासरी किती ग्राहक येतात आणि दिवसाला अंदाजे किती रुपयांची विक्री होते?"
-      text_template_en: "Is your shop or vending space owned or rented? On average, how many customers visit daily and what is your total daily sales turnover?"
-      text_template_fr: "Votre boutique ou local est-il à vous ou en location ? Combien de clients avez-vous par jour et quel est votre chiffre d'affaires quotidien ?"
-      text_template_ar: "هل محلك التجاري ملك أم إيجار؟ وكم عدد الزبائن يومياً وما هو إجمالي مبيعاتك اليومية؟"
-      targets: [shop_ownership, daily_customers_count, daily_sales_turnover]
-      edges:
-        - condition: "always"
-          next: "Q_RETAIL_STOCK"
-
-    Q_RETAIL_STOCK:
-      type: "voice-qa"
-      text_template: "दुकान में इस समय लगभग कितने रुपये का सामान या स्टॉक भरा हुआ है? और क्या आप ग्राहकों को उधारी देते हैं? उधारी का पैसा कितने दिनों में लौटता है?"
-      text_template_mr: "दुकानात सध्या अंदाजे किती रुपयांचा माल भरलेला आहे? आणि ग्राहकांना उधारी देता का? उधारीचे पैसे किती दिवसांत परत मिळतात?"
-      text_template_en: "Approximately what is the total value of stock/inventory in your shop right now? Do you offer customer credit (udhaari), and in how many days is it usually repaid?"
-      text_template_fr: "Quelle est la valeur approximative de votre stock actuel ? Accordez-vous du crédit à vos clients et sous combien de jours est-il remboursé ?"
-      text_template_ar: "ما هي القيمة التقريبية للبضاعة والمخزون في المحل حالياً؟ وهل تبيع بالآجل للعملاء وخلال كم يوم يتم السداد؟"
-      targets: [inventory_current_value, customer_credit_amount, credit_cycle_days]
-      edges:
-        - condition: "always"
-          next: "Q_SEASONAL_CASHFLOW"
-
-    # ─── SECTOR C: Rural Transport & Services Branch ───
-    Q_TRANSPORT_SERVICE:
-      type: "voice-qa"
-      text_template: "जो वाहन, ट्रैक्टर या औज़ार आप इस्तेमाल करते हैं, वह आपके खुद के नाम पर है या किसी और का? रोज़ाना कितने चक्कर या काम मिलते हैं और दिन का डीज़ल-पेट्रोल खर्च कितना आता है?"
-      text_template_mr: "आपण जे वाहन किंवा अवजारे वापरता, ते आपल्या स्वतःच्या नावावर आहेत का? रोजच्या किती फेऱ्या होतात आणि रोजचा डिझेल-पेट्रोलचा खर्च किती होतो?"
-      text_template_en: "Is the vehicle, equipment, or machinery registered in your own name? How many trips or jobs do you complete daily, and what is your daily fuel cost?"
-      text_template_fr: "Le véhicule ou matériel que vous utilisez est-il à votre nom ? Combien de courses ou travaux faites-vous par jour et quel est le coût journalier du carburant ?"
-      text_template_ar: "هل المركبة أو المعدات مسجلة باسمك؟ وكم عدد الرحلات أو الأعمال التي تنجزها يومياً وما هي تكلفة الوقود اليومية؟"
-      targets: [vehicle_equipment_ownership, daily_trips_or_jobs, daily_fuel_expense]
-      edges:
-        - condition: "always"
-          next: "Q_SERVICE_ASSET"
-
-    Q_SERVICE_ASSET:
-      type: "voice-qa"
-      text_template: "आपके इस वाहन या मशीनरी की उम्र कितनी है, और महीने में रिपेयरिंग या मेंटेनेंस पर औसतन कितना खर्च बैठता है?"
-      text_template_mr: "आपल्या या वाहनाचे किंवा मशीनचे वय किती आहे, आणि दरमहा दुरुस्ती-देखभालीवर अंदाजे किती खर्च होतो?"
-      text_template_en: "How old is this vehicle or machine, and how much do you spend on repairs and maintenance in an average month?"
-      text_template_fr: "Quel est l'âge de ce véhicule ou équipement, et combien dépensez-vous par mois en réparations et entretien ?"
-      text_template_ar: "كم عمر هذه المركبة أو الآلة، وكم تنفق تقريباً كل شهر على الصيانة والإصلاحات؟"
-      targets: [asset_age_years, monthly_maintenance_cost]
-      edges:
-        - condition: "always"
-          next: "Q_SEASONAL_CASHFLOW"
-
-    # ─── SECTOR D: Artisanal & Micro-Processing Branch ───
-    Q_ARTISAN_PROCESSING:
-      type: "voice-qa"
-      text_template: "काम के लिए कच्चा माल (जैसे धागा, मिट्टी, अनाज, सामग्री) आप कहाँ से लाते हैं? एक बैच या लॉट तैयार करने में कितनी लागत और कितने दिन का समय लगता है?"
-      text_template_mr: "कामासाठी लागणारा कच्चा माल (उदा. धागा, माती, धान्य) आपण कुठून आणता? एक बॅच किंवा माल तयार करण्यासाठी किती खर्च आणि किती दिवस लागतात?"
-      text_template_en: "Where do you procure raw materials (e.g. yarn, clay, grain, supplies)? How much does one batch cost and how many days does it take to prepare?"
-      text_template_fr: "Où achetez-vous vos matières premières ? Quel est le coût de fabrication d'un lot et combien de jours cela prend-il ?"
-      text_template_ar: "من أين تشتري المواد الخام الأولية؟ وكم تبلغ تكلفة إنتاج الدفعة الواحدة وكم يوماً تستغرق؟"
-      targets: [raw_material_source, batch_production_cost, batch_cycle_days]
-      edges:
-        - condition: "always"
-          next: "Q_ARTISAN_MARKET"
-
-    Q_ARTISAN_MARKET:
-      type: "voice-qa"
-      text_template: "तैयार माल आप सीधे ग्राहकों या हाट-बाज़ार में बेचते हैं या किसी व्यापारी/बिचौलिए को? और क्या त्योहारों या खास महीनों में बिक्री कई गुना बढ़ जाती है?"
-      text_template_mr: "तयार माल आपण थेट ग्राहकांना/आठवडे बाजारात विकता की व्यापाऱ्याला? आणि सणासुदीच्या दिवसांत विक्री वाढते का?"
-      text_template_en: "Do you sell finished goods directly in local weekly markets (haat) or to middlemen/dealers? Does your sale multiply during festivals or specific seasons?"
-      text_template_fr: "Vendez-vous directement sur les marchés locaux ou à des intermédiaires ? Vos ventes augmentent-elles fortement pendant les fêtes ?"
-      text_template_ar: "هل تبيع المنتجات مباشرة في الأسواق المحلية للزبائن أم للتجار والوسطاء؟ وهل تتضاعف المبيعات في المواسم والأعياد؟"
-      targets: [sales_channel, festival_sales_surge_multiplier]
-      edges:
-        - condition: "always"
-          next: "Q_SEASONAL_CASHFLOW"
-
-    # ─── 4. Reconvergence: Seasonal Cash Flows (High Ambiguity & Follow-ups) ───
-    Q_SEASONAL_CASHFLOW:
-      type: "voice-qa"
-      text_template: "अच्छे सीज़न या त्योहार के महीनों में आपकी महीने की कुल कमाई कितनी हो जाती है, और जब काम हल्का या मंदा रहता है (जैसे बरसात या ऑफ-सीज़न), तब महीने का कितना बच पाता है?"
-      text_template_mr: "चांगल्या हंगामात किंवा सणांच्या काळात महिन्याला किती कमाई होते, आणि काम कमी असताना (उदा. पावसाळ्यात) महिन्याला किती शिल्लक राहते?"
-      text_template_en: "During peak season or festival months, what is your total monthly earning, and during the lean/slow months (like rainy season), how much do you manage to earn?"
-      text_template_fr: "Pendant la haute saison ou les périodes de fête, quel est votre revenu mensuel total, et pendant les mois creux, combien gagnez-vous ?"
-      text_template_ar: "في مواسم الذروة والأعياد، كم يبلغ إجمالي دخلك الشهري، وفي الأشهر الهادئة أو الضعيفة، كم يتبقى لك تقريباً؟"
-      targets: [peak_monthly_revenue, lean_monthly_revenue, lean_months_count]
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask clearly for their earnings in both the best months and the slow months."
-      edges:
-        - condition: "always"
-          next: "Q_EXPENSES_BREAKDOWN"
-
-    # ─── 5. Expense Breakdown: Business Running Costs vs Household Needs ───
-    Q_EXPENSES_BREAKDOWN:
-      type: "voice-qa"
-      text_template: "काम-धंधे में हर महीने का कुल खर्च (जैसे किराया, मजदूरी, बिजली, माल) कितना हो जाता है? और घर के राशन, बच्चों की पढ़ाई और दवाइयों में हर महीने लगभग कितना खर्च होता है?"
-      text_template_mr: "व्यवसायात दरमहा एकूण खर्च (भाडे, मजुरी, वीज, माल) किती होतो? आणि घरखर्च, मुलांचे शिक्षण आणि औषधोपचारासाठी दरमहा किती खर्च होतो?"
-      text_template_en: "What are your total monthly business operating expenses (rent, wages, electricity, supplies)? And roughly how much do you spend monthly on household groceries, school fees, and medical needs?"
-      text_template_fr: "Quelles sont vos dépenses mensuelles professionnelles totales (loyer, salaires, électricité) ? Et combien dépensez-vous par mois pour les besoins du foyer (nourriture, école, santé) ?"
-      text_template_ar: "ما هي مصاريف عملك الشهرية الإجمالية (إيجار، عمالة، كهرباء، بضاعة)؟ وكم تبلغ مصاريف منزلك الشهرية تقريباً (طعام، دراسة، علاج)؟"
-      targets: [monthly_business_expense, monthly_household_expense, number_of_hired_workers]
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask for both business running costs and personal family household monthly expenses."
-      edges:
-        - condition: "always"
-          next: "Q_EXISTING_DEBT"
-
-    # ─── 6. Existing Debt & Informal Credit (SHG, Moneylender, Bank) ───
-    Q_EXISTING_DEBT:
-      type: "voice-qa"
-      text_template: "क्या आपके या आपके परिवार पर पहले से कोई लोन चल रहा है — जैसे बैंक, स्वयं सहायता समूह (SHG), किसी माइक्रोफाइनेंस कंपनी या साहूकार से? अगर हाँ, तो हर महीने कितनी किश्त (EMI) भरते हैं?"
-      text_template_mr: "आपल्यावर किंवा कुटुंबावर आधीपासून कोणते कर्ज चालू आहे का — जसे बँक, बचत गट (SHG), मायक्रोफायनान्स किंवा सावकाराचे? असल्यास, दरमहा किती हप्ता (EMI) भरता?"
-      text_template_en: "Do you or your family have any existing loans running — such as from a Bank, Self Help Group (SHG), Microfinance company, or local moneylender? If yes, what is your total monthly EMI?"
-      text_template_fr: "Avez-vous, vous ou votre famille, des crédits en cours (banque, groupe d'entraide, microfinance ou prêteur privé) ? Si oui, quel est le montant total de vos mensualités ?"
-      text_template_ar: "هل لديك أو لدى أسرتك أي قروض قائمة حالياً (من بنك، جمعية نسائية/محلية، شركة تمويل مصغر أو جهة خاصة)؟ وإذا كان نعم، كم هو القسط الشهري الإجمالي؟"
-      targets: [has_existing_loan, existing_loan_source, existing_loan_outstanding, existing_monthly_emi]
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask if they have any ongoing loan from SHG, bank or moneylender and the monthly EMI."
-      edges:
-        - condition: "always"
-          next: "Q_LOAN_REQUIREMENT"
-
-    # ─── 7. Loan Amount & Purpose Identification ───
-    Q_LOAN_REQUIREMENT:
-      type: "voice-qa"
-      text_template: "आपको इस नए लोन में कुल कितने रुपये की ज़रूरत है, और इस पैसे का इस्तेमाल आप किस चीज़ में करेंगे — कोई नई मशीन या औज़ार खरीदने में, माल/स्टॉक भरने में, या दुकान बढ़ाने में?"
-      text_template_mr: "आपल्याला या कर्जासाठी एकूण किती रकमेची गरज आहे, आणि हा पैसा आपण कशासाठी वापरणार — नवीन मशीन/अवजारे खरेदी, कच्चा माल भरणे की व्यवसाय विस्तार?"
-      text_template_en: "How much total loan amount do you require, and specifically how will you utilize this money — purchasing new machinery/equipment, stocking inventory, or expanding your setup?"
-      text_template_fr: "De quel montant total de prêt avez-vous besoin, et à quoi servira exactement cet argent (achat de matériel/machine, stock de marchandises ou extension) ?"
-      text_template_ar: "ما هو إجمالي مبلغ القرض الذي تطلبه، وفي ماذا ستستخدم هذا المبلغ بالتحديد (شراء آلات/معدات، بضاعة ومخزون، أم توسعة النشاط)؟"
-      targets: [loan_amount_requested, loan_purpose_category, loan_utilization_details]
-      routing_prompt: "Classify the loan requirement into 'ASSET' (purchasing machinery, vehicle, cattle, equipment, shed construction) or 'WORKING_CAPITAL' (buying stock, raw materials, goods, paying running expenses). Set 'loan_type' to ASSET or WORKING_CAPITAL."
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask for the exact loan amount required and what specific items they plan to purchase."
-      edges:
-        - condition: "loan_type == 'ASSET'"
-          next: "Q_ASSET_QUOTE"
-        - condition: "loan_purpose_category in ['machine', 'equipment', 'cattle', 'vehicle', 'asset', 'shed']"
-          next: "Q_ASSET_QUOTE"
-        - condition: "always"
-          next: "Q_WORKING_CAPITAL_CYCLE"
-
-    # ─── 8A. Asset Purchase Sub-branch ───
-    Q_ASSET_QUOTE:
-      type: "voice-qa"
-      text_template: "जो मशीन, वाहन या सामान आप खरीदना चाहते हैं, क्या उसका भाव या कोटेशन पता कर लिया है? उसकी कुल कीमत कितनी है, और क्या आप अपनी जेब से भी कुछ पैसा (मार्जिन) लगाएंगे?"
-      text_template_mr: "जी मशीन किंवा साहित्य आपण खरेदी करणार आहात, त्याची अंदाजे किंमत किती आहे? आणि त्यात स्वतःकडील काही रक्कम (मार्जिन) घालणार आहात का?"
-      text_template_en: "Have you obtained an estimate or quotation for the machine/equipment you wish to purchase? What is its total cost, and will you contribute any margin money from your own savings?"
-      text_template_fr: "Avez-vous un devis pour la machine ou l'équipement souhaité ? Quel est son coût total, et apporterez-vous un apport personnel ?"
-      text_template_ar: "هل استفسرت عن سعر أو عرض أسعار الآلة/المعدات التي ترغب بشرائها؟ كم سعرها الإجمالي، وهل ستدفع دفعة أولى من مدخراتك؟"
-      targets: [target_asset_name, asset_quotation_amount, own_margin_contribution]
-      edges:
-        - condition: "always"
-          next: "Q_REPAYMENT_PLAN"
-
-    # ─── 8B. Working Capital Sub-branch ───
-    Q_WORKING_CAPITAL_CYCLE:
-      type: "voice-qa"
-      text_template: "जो नया माल या स्टॉक आप इस लोन से भरेंगे, वह कितने हफ़्तों या महीनों में बिक कर खाली हो जाता है? और उस पर आपको कितने प्रतिशत का मुनाफा (प्रॉफिट मार्जिन) मिलता है?"
-      text_template_mr: "या कर्जातून जो नवीन माल आपण भरणार आहात, तो किती आठवड्यांत किंवा महिन्यांत खपतो? आणि त्यावर आपल्याला अंदाजे किती टक्के नफा मिळतो?"
-      text_template_en: "How many weeks or months does it take for your newly purchased stock to sell out completely? And what percentage of profit margin do you earn on these goods?"
-      text_template_fr: "En combien de semaines ou mois votre stock de marchandises se vend-il entièrement ? Et quelle est votre marge bénéficiaire en pourcentage sur ces produits ?"
-      text_template_ar: "خلال كم أسبوع أو شهر يتم بيع وتصريف البضاعة الجديدة بالكامل؟ وما هي نسبة هامش الربح التقريبية التي تكسبها؟"
-      targets: [stock_rotation_days, expected_profit_margin_pct]
-      edges:
-        - condition: "always"
-          next: "Q_REPAYMENT_PLAN"
-
-    # ─── 9. Repayment Capacity & Incremental Income ───
-    Q_REPAYMENT_PLAN:
-      type: "voice-qa"
-      text_template: "इस लोन और नए काम के शुरू होने के बाद, हर महीने आपकी कमाई में कितने रुपये की बढ़ोतरी की उम्मीद है? और आप आराम से हर महीने कितनी किश्त (EMI) भर सकेंगे?"
-      text_template_mr: "हे कर्ज आणि नवीन विस्तार सुरू झाल्यानंतर, आपल्या दरमहा कमाईत किती रुपयांची वाढ अपेक्षित आहे? आणि आपण सहजपणे दरमहा किती रुपयांचा हप्ता (EMI) भरू शकाल?"
-      text_template_en: "After utilizing this loan, by how many rupees do you expect your monthly net earnings to increase? And how much monthly EMI can you comfortably afford to pay back?"
-      text_template_fr: "Après l'utilisation de ce prêt, de combien prévoyez-vous l'augmentation de vos revenus nets mensuels ? Et quel montant de mensualité pouvez-vous rembourser sans difficulté ?"
-      text_template_ar: "بعد الاستفادة من هذا القرض وتوسعة العمل، كم تتوقع أن تزيد أرباحك الشهرية بالتقريب؟ وكم تبلغ قيمة القسط الشهري الذي تستطيع سداده براحة ودون تعثر؟"
-      targets: [expected_incremental_income, affordable_monthly_emi, preferred_loan_tenure_months]
-      inactivity_policy:
-        timeout_seconds: 3.5
-        nudge_guideline: "Ask for their expected income increase and comfortable monthly EMI amount."
-      edges:
-        - condition: "always"
-          next: "Q_CO_BORROWER"
-
-    # ─── 10. Co-Borrower / Family Guarantor Consent ───
-    Q_CO_BORROWER:
-      type: "voice-qa"
-      text_template: "लोन में आपके साथ सह-आवेदक (Co-borrower या गारंटर) के रूप में परिवार से कौन जुड़ेगा — जैसे पति/पत्नी या माता-पिता? क्या उनका भी कोई अलग काम या आमदनी है?"
-      text_template_mr: "कर्जात आपल्यासोबत सह-अर्जदार (Co-borrower) म्हणून कुटुंबातील कोणती व्यक्ती जोडली जाईल — जोडीदार किंवा पालक? त्यांचेही काही वेगळे उत्पन्न आहे का?"
-      text_template_en: "Who from your family will join as a co-borrower or guarantor — such as your spouse or parents? Do they have any independent livelihood or income?"
-      text_template_fr: "Qui de votre famille sera co-emprunteur ou garant (conjoint, parent) ? A-t-il/elle une activité ou un revenu propre ?"
-      text_template_ar: "من من أفراد أسرتك سيكون شريكاً أو ضامناً في القرض (الزوج/الزوجة أو أحد الوالدين)؟ وهل لديه دخل أو عمل مستقل؟"
-      targets: [co_borrower_relation, co_borrower_name, co_borrower_income]
+      text_template: "क्या पशुओं या पक्षियों के रखने के लिए आपके पास शेड या अहाता उपलब्ध है?"
+      text_template_mr: "जनावरांना/पक्ष्यांना ठेवण्यासाठी तुमच्याकडे शेड किंवा जागा उपलब्ध आहे का?"
+      text_template_en: "Do you have a shade/shelter available for keeping livestock or poultry?"
+      text_template_fr: "Avez-vous un abri ou un enclos disponible pour garder le bétail ou la volaille ?"
+      text_template_ar: "هل لديك حظيرة أو مأوى متاح لتربية المواشي أو الدواجن؟"
+      targets: [have_shade]
+      routing_prompt: "Evaluate if the user has a shade, shed, or shelter available for animals. Set 'routing_decision' to 'YES' if they have a shade, 'NO' if not."
       inactivity_policy:
         timeout_seconds: 3.0
-        nudge_guideline: "Ask who in the family will be co-applicant and whether they have income."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_SHADE_DETAILS"
+        - condition: "have_shade in ['YES', 'HAAN', 'HO', 'हाँ', 'होय', 'Yes', 'yes']"
+          next: "Q_SHADE_DETAILS"
+        - condition: "always"
+          next: "Q_IS_MARRIED"
+
+    Q_SHADE_DETAILS:
+      type: "voice-qa"
+      text_template: "यह शेड आपकी अपनी जगह पर है या किराए पर लिया गया है, और यह कहाँ स्थित है?"
+      text_template_mr: "हा शेड तुमच्या मालकीचा आहे की भाड्याचा आहे, आणि तो कुठे आहे?"
+      text_template_en: "Is this shade owned or rented, and where is it located?"
+      text_template_fr: "Cet abri est-il situé sur votre propre terrain ou est-il loué, et où se trouve-t-il ?"
+      text_template_ar: "هل هذا المأوى في ملكيتك الخاصة أم مستأجر، وأين يقع بالتحديد؟"
+      targets: [shade_owned_or_rented, shade_location]
+      inactivity_policy:
+        timeout_seconds: 3.0
       edges:
         - condition: "always"
-          next: "END_SUMMARY"
+          next: "Q_IS_MARRIED"
 
-    # ─── 11. Final Wrap-up & Evaluation Confirmation ───
-    END_SUMMARY:
+    Q_IS_MARRIED:
       type: "voice-qa"
-      text_template: "बहुत-बहुत धन्यवाद {applicant_name} जी! आपके व्यवसाय, आमदनी और लोन की सभी आवश्यक बातें सफलतापूर्वक रिकॉर्ड कर ली गई हैं। हमारा सिस्टम आपके जवाबों की समीक्षा कर रहा है। आपका दिन शुभ हो!"
-      text_template_mr: "धन्यवाद {applicant_name} जी! आपल्या व्यवसायाची आणि कर्जाची सर्व आवश्यक माहिती यशस्वीरित्या नोंदवली गेली आहे. आमची यंत्रणा आपल्या उत्तरांचे मूल्यांकन करत आहे. आपला दिवस चांगला जावो!"
-      text_template_en: "Thank you very much {applicant_name}! All necessary details regarding your livelihood, revenue, and loan requirement have been successfully captured. Have a wonderful day!"
-      text_template_fr: "Merci beaucoup {applicant_name} ! Toutes les informations nécessaires sur votre activité et votre demande de prêt ont été enregistrées avec succès. Bonne journée !"
-      text_template_ar: "شكراً جزيلاً لك {applicant_name}! تم تسجيل جميع بيانات نشاطك ودخلك وطلب القرض بنجاح. نتمنى لك يوماً سعيداً وموفقاً!"
+      text_template: "ठीक है। क्या आप विवाहित हैं?"
+      text_template_mr: "ठीक आहे. आपले लग्न झाले आहे का?"
+      text_template_en: "Alright. Are you married?"
+      text_template_fr: "D'accord. Êtes-vous marié(e) ?"
+      text_template_ar: "حسناً. هل أنت متزوج؟"
+      targets: [is_married]
+      routing_prompt: "Evaluate if the user is married. Set 'routing_decision' to 'YES' if married, 'NO' if unmarried or single."
+      inactivity_policy:
+        timeout_seconds: 3.0
+      edges:
+        - condition: "always"
+          next: "Q_STATUS"
+
+    Q_STATUS:
+      type: "voice-qa"
+      text_template: "आपका काम कैसा चल रहा है?"
+      text_template_mr: "तुमचा व्यवसाय कसा चालला आहे?"
+      text_template_en: "How is your business going currently?"
+      text_template_fr: "Comment se déroule votre activité actuellement ?"
+      text_template_ar: "كيف تسير أعمالك ونشاطك التجاري حالياً؟"
       targets: []
       edges:
         - condition: "always"
-          next: "END"
+          next: "Q_MONTHLY_REV"
 
-  # ─── Context Map (Dependencies for Conversational Grounding) ───
-  context_map:
-    Q_PRIMARY_OCCUPATION:
-      - "Q_APPLICANT_BASICS"
-    Q_AGRI_LIVESTOCK:
-      - "Q_PRIMARY_OCCUPATION"
-    Q_AGRI_SHED_DETAILS:
-      - "Q_AGRI_LIVESTOCK"
-    Q_AGRI_GRAZING:
-      - "Q_AGRI_LIVESTOCK"
-    Q_RETAIL_TRADE:
-      - "Q_PRIMARY_OCCUPATION"
-    Q_RETAIL_STOCK:
-      - "Q_RETAIL_TRADE"
-    Q_TRANSPORT_SERVICE:
-      - "Q_PRIMARY_OCCUPATION"
-    Q_SERVICE_ASSET:
-      - "Q_TRANSPORT_SERVICE"
-    Q_ARTISAN_PROCESSING:
-      - "Q_PRIMARY_OCCUPATION"
-    Q_ARTISAN_MARKET:
-      - "Q_ARTISAN_PROCESSING"
-    Q_SEASONAL_CASHFLOW:
-      - "Q_PRIMARY_OCCUPATION"
-      - "Q_RETAIL_TRADE"
-      - "Q_AGRI_LIVESTOCK"
-      - "Q_TRANSPORT_SERVICE"
-      - "Q_ARTISAN_PROCESSING"
-    Q_EXPENSES_BREAKDOWN:
-      - "Q_SEASONAL_CASHFLOW"
-    Q_EXISTING_DEBT:
-      - "Q_EXPENSES_BREAKDOWN"
-    Q_LOAN_REQUIREMENT:
-      - "Q_PRIMARY_OCCUPATION"
-      - "Q_EXPENSES_BREAKDOWN"
-    Q_ASSET_QUOTE:
-      - "Q_LOAN_REQUIREMENT"
-    Q_WORKING_CAPITAL_CYCLE:
-      - "Q_LOAN_REQUIREMENT"
-    Q_REPAYMENT_PLAN:
-      - "Q_LOAN_REQUIREMENT"
-      - "Q_EXPENSES_BREAKDOWN"
-      - "Q_SEASONAL_CASHFLOW"
-    Q_CO_BORROWER:
-      - "Q_APPLICANT_BASICS"
-    END_SUMMARY:
-      - "Q_APPLICANT_BASICS"
-      - "Q_LOAN_REQUIREMENT"
+    Q_MONTHLY_REV:
+      type: "voice-qa"
+      text_template: "अभी आप महीने में लगभग कितनी बिक्री कर लेते हैं?"
+      text_template_mr: "सध्या तुम्ही महिन्यात साधारण किती रुपयांची विक्री करता?"
+      text_template_en: "Approximately how much sales or revenue do you generate per month?"
+      text_template_fr: "Quel est environ votre chiffre d'affaires ou vos ventes mensuelles ?"
+      text_template_ar: "كم تبلغ مبيعاتك أو إيراداتك الشهرية تقريباً؟"
+      targets: [monthly_revenue]
+      edges:
+        - condition: "always"
+          next: "Q_MONTHLY_PROFIT"
 
-# ─── Field Extraction Instructions (Used by Task B Extraction Worker) ───
+    Q_MONTHLY_PROFIT:
+      type: "voice-qa"
+      text_template: "काम का सारा खर्चा निकालने के बाद, महीने में कितना पैसा बच जाता है?"
+      text_template_mr: "व्यवसायाचा सर्व खर्च वजा करून महिन्यात किती नफा शिल्लक राहतो?"
+      text_template_en: "After deducting all business expenses, how much net profit remains per month?"
+      text_template_fr: "Après avoir déduit toutes les dépenses professionnelles, quel est votre bénéfice net mensuel ?"
+      text_template_ar: "بعد خصم جميع المصاريف التشغيلية، كم يتبقى لك كصافي ربح شهرياً؟"
+      targets: [monthly_profit]
+      edges:
+        - condition: "always"
+          next: "Q_LAST_YEAR_REV"
+
+    Q_LAST_YEAR_REV:
+      type: "voice-qa"
+      text_template: "अच्छा! पहले, जब काम नया था, तब महीने की बिक्री कितनी होती थी? पिछले एक साल में काम कुछ बढ़ा है क्या?"
+      text_template_mr: "पूर्वी दरमहा साधारण किती विक्री होत होती? गेल्या एका वर्षात व्यवसाय काही वाढला आहे का?"
+      text_template_en: "Earlier, what were your monthly sales? Has the business grown over the past year?"
+      text_template_fr: "Auparavant, quel était votre chiffre d'affaires mensuel ? Votre entreprise a-t-elle progressé au cours de la dernière année ?"
+      text_template_ar: "في السابق، كم كانت مبيعاتك الشهرية؟ وهل شهد نشاطك التجاري نمواً خلال العام الماضي؟"
+      targets: [last_year_monthly_revenue]
+      edges:
+        - condition: "always"
+          next: "Q_PERSONS_INVOLVED"
+
+    Q_PERSONS_INVOLVED:
+      type: "voice-qa"
+      text_template: "अभी काम पर आपके अलावा और कौन-कौन काम करता है?"
+      text_template_mr: "सध्या कामावर तुमच्याव्यतिरिक्त आणखी कोण-कोण काम करते?"
+      text_template_en: "Who else works in your business besides you?"
+      text_template_fr: "Qui d'autre travaille dans votre entreprise à part vous ?"
+      text_template_ar: "من يعمل معك في هذا النشاط التجاري بالإضافة إليك؟"
+      targets: [persons_involved]
+      routing_prompt: "Evaluate if the user works alone or with others. Set 'routing_decision' to 'YES' if they work with others, 'NO' if they work alone."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_PAID_EMPLOYEES"
+        - condition: "always"
+          next: "Q_INVENTORY"
+
+    Q_PAID_EMPLOYEES:
+      type: "voice-qa"
+      text_template: "उनमें से घर के लोग हैं या बाहर के लोग भी हैं, जिन्हें पगार देनी पड़ती है?"
+      text_template_mr: "त्यांच्यापैकी घराबाहेरचे पगारी कर्मचारी आहेत का?"
+      text_template_en: "Are they family members or outside paid employees?"
+      text_template_fr: "S'agit-il de membres de votre famille ou d'employés rémunérés ?"
+      text_template_ar: "هل هم أفراد من العائلة أم موظفون يتقاضون رواتب؟"
+      targets: [number_of_paid_employees]
+      routing_prompt: "Evaluate if any workers are paid employees (outsiders). Set 'routing_decision' to 'YES' if they have paid employees, 'NO' if only family members."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_CURRENT_WAGES"
+        - condition: "always"
+          next: "Q_INVENTORY"
+
+    Q_CURRENT_WAGES:
+      type: "voice-qa"
+      text_template: "उन लोगों को पगार देने में महीने का कितना खर्च हो जाता है?"
+      text_template_mr: "त्या कर्मचाऱ्यांच्या पगारावर महिन्यात किती खर्च होतो?"
+      text_template_en: "How much do you spend per month on employee wages?"
+      text_template_fr: "Combien dépensez-vous par mois pour les salaires des employés ?"
+      text_template_ar: "كم تنفق شهرياً على رواتب الموظفين؟"
+      targets: [current_wages]
+      edges:
+        - condition: "always"
+          next: "Q_INVENTORY"
+
+    Q_INVENTORY:
+      type: "voice-qa"
+      text_template: "अभी दुकान/बिज़नेस में जो माल रखा है, उसकी कुल क़ीमत कितनी होगी?"
+      text_template_mr: "सध्या दुकानात किंवा व्यवसायात किती रुपयांचा माल शिल्लक आहे?"
+      text_template_en: "What is the total value of stock or inventory currently in your business?"
+      text_template_fr: "Quelle est la valeur totale du stock actuel dans votre entreprise ?"
+      text_template_ar: "ما هي القيمة الإجمالية للبضائع والمخزون الحالي في منشأتك؟"
+      targets: [inventory_amount]
+      edges:
+        - condition: "always"
+          next: "Q_DEBTORS"
+
+    Q_DEBTORS:
+      type: "voice-qa"
+      text_template: "क्या कोई उधार का पैसा है, जो आपको लोगों से मिलना बाकी है?"
+      text_template_mr: "ग्राहकांकडून तुम्हाला काही पैसे येणे बाकी आहे का?"
+      text_template_en: "Is there any money owed to you by customers (receivables)?"
+      text_template_fr: "Y a-t-il des sommes qui vous sont dues par vos clients ?"
+      text_template_ar: "هل هناك أي أموال متبقية لك عند العملاء (ديون للنشاط)؟"
+      targets: [debtors_amount]
+      edges:
+        - condition: "always"
+          next: "Q_CREDITORS"
+
+    Q_CREDITORS:
+      type: "voice-qa"
+      text_template: "और क्या कोई पैसा ऐसा है, जो आपको देना बाकी है? जैसे आपने माल लिया है और पैसा अभी नहीं दिया?"
+      text_template_mr: "आणि सप्लायर्सना तुम्हाला काही पैसे देणे बाकी आहे का?"
+      text_template_en: "And is there any money you owe to suppliers for stock (payables)?"
+      text_template_fr: "Et y a-t-il des sommes que vous devez à vos fournisseurs ?"
+      text_template_ar: "وهل هناك أي أموال مستحقة عليك للموردين مقابل البضائع؟"
+      targets: [creditors_amount]
+      edges:
+        - condition: "always"
+          next: "Q_PROPOSED_REV"
+
+    Q_PROPOSED_REV:
+      type: "voice-qa"
+      text_template: "बहुत अच्छा! अब यह जो कर्ज आप लेने वाले हैं, कर्ज मिलने के बाद महीने की बिक्री कितनी हो जाएगी, ऐसा आपको क्या लगता है?"
+      text_template_mr: "हे कर्ज मिळाल्यानंतर महिन्याची विक्री किती होईल असे तुम्हाला वाटते?"
+      text_template_en: "Great! What do you expect your monthly sales to be after getting this loan?"
+      text_template_fr: "Très bien ! Quel chiffre d'affaires mensuel prévoyez-vous après l'obtention de ce prêt ?"
+      text_template_ar: "رائع! كم تتوقع أن تصبح مبيعاتك الشهرية بعد الحصول على هذا القرض؟"
+      targets: [proposed_monthly_revenue]
+      edges:
+        - condition: "always"
+          next: "Q_PROPOSED_HIRING"
+
+    Q_PROPOSED_HIRING:
+      type: "voice-qa"
+      text_template: "कर्ज मिलने के बाद, क्या काम के लिए और आदमी रखने पड़ेंगे, या अभी जैसे चल रहा है वैसे चल जाएगा?"
+      text_template_mr: "कर्ज मिळाल्यानंतर नवीन लोकांना कामावर ठेवावे लागेल का?"
+      text_template_en: "Will you need to hire additional workers after receiving the loan?"
+      text_template_fr: "Aurez-vous besoin d'embaucher du personnel supplémentaire après avoir reçu le prêt ?"
+      text_template_ar: "هل ستحتاج إلى توظيف عمال إضافيين بعد الحصول على القرض؟"
+      targets: [proposed_number_of_people]
+      routing_prompt: "Evaluate if the user will hire new people after the loan. Set 'routing_decision' to 'YES' if they will hire new people, 'NO' if not."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_PROPOSED_WAGES"
+        - condition: "always"
+          next: "Q_NEED_MACHINES"
+
+    Q_PROPOSED_WAGES:
+      type: "voice-qa"
+      text_template: "उन नए लोगों को पगार देने में महीने का कितना खर्च होगा?"
+      text_template_mr: "त्या नवीन कर्मचाऱ्यांच्या पगारावर महिन्यात किती खर्च होईल?"
+      text_template_en: "How much will you spend monthly on salaries for those new employees?"
+      text_template_fr: "Combien dépenserez-vous par mois pour les salaires de ces nouveaux employés ?"
+      text_template_ar: "كم ستكون تكلفة رواتب هؤلاء الموظفين الجدد شهرياً؟"
+      targets: [proposed_wages]
+      edges:
+        - condition: "always"
+          next: "Q_NEED_MACHINES"
+
+    Q_NEED_MACHINES:
+      type: "voice-qa"
+      text_template: "क्या कोई फ्रिज, मशीन या और सामान भी लेना है?"
+      text_template_mr: "तुम्हाला कोणती नवीन मशीन, उपकरण किंवा साहित्य खरेदी करायचे आहे का?"
+      text_template_en: "Do you need to purchase any new machinery, equipment, or items?"
+      text_template_fr: "Avez-vous besoin d'acheter de nouvelles machines ou des équipements ?"
+      text_template_ar: "هل تحتاج لشراء أي معدات، آلات، أو أجهزة جديدة؟"
+      targets: [needs_machine, machine_name]
+      routing_prompt: "Evaluate if the user needs to purchase any new machine or equipment. Set 'routing_decision' to 'YES' if they need a machine/equipment, 'NO' if not."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_MACHINE_DETAILS"
+        - condition: "always"
+          next: "Q_PREVIOUS_LOAN"
+
+    Q_MACHINE_DETAILS:
+      type: "voice-qa"
+      text_template: "यह मशीन किस काम आएगी, कहाँ से लेंगे और इसकी कीमत क्या होगी?"
+      text_template_mr: "ती मशीन कशासाठी वापरणार आहात, कुठून घेणार आहात आणि तिची किंमत किती असेल?"
+      text_template_en: "What is the purpose of this equipment, where will you buy it, and how much will it cost?"
+      text_template_fr: "Quel est l'usage de cet équipement, où l'achèterez-vous et quel en sera le coût ?"
+      text_template_ar: "ما هو الغرض من هذه المعدات، من أين ستشتريها، وكم ستكون تكلفتها؟"
+      targets: [machine_purpose, machine_supplier, machine_cost]
+      edges:
+        - condition: "always"
+          next: "Q_PREVIOUS_LOAN"
+
+    Q_PREVIOUS_LOAN:
+      type: "voice-qa"
+      text_template: "क्या आपने पहले कभी कर्ज लिया है? कभी किस्त भरने में दिक्कत तो नहीं हुई? मतलब कर्ज लिया और किस्त ना दी या देर से दी हो?"
+      text_template_mr: "तुम्ही आधी कधी कर्ज घेतले आहे का? आणि हप्ता भरायला कधी उशीर झाला आहे का?"
+      text_template_en: "Have you taken any loan previously, and did you ever face delays in paying installments?"
+      text_template_fr: "Avez-vous déjà contracté un prêt auparavant, et avez-vous déjà eu des retards de remboursement ?"
+      text_template_ar: "هل حصلت على أي قرض سابقاً، وهل واجهت أي تأخير في سداد الأقساط؟"
+      targets: [previous_loan_detail, previous_loan_default_flag, default_reason]
+      edges:
+        - condition: "always"
+          next: "Q_CURRENT_EMI"
+
+    Q_CURRENT_EMI:
+      type: "voice-qa"
+      text_template: "अभी कोई और कर्ज या किस्त चल रही है क्या? कितनी किस्त है, किस बैंक से है और कितना बचा है?"
+      text_template_mr: "सध्या तुमचे कोणते कर्ज किंवा हप्ता (EMI) सुरू आहे का? किती हप्ता आहे आणि कोणत्या बँकेचा आहे?"
+      text_template_en: "Do you have any ongoing active loans or monthly EMIs currently?"
+      text_template_fr: "Avez-vous actuellement des prêts ou des mensualités en cours ?"
+      text_template_ar: "هل لديك أي قروض قائمة حالياً أو أقساط شهرية ملتزم بسدادها؟"
+      targets: [current_emi_value, current_emi_lender, current_emi_outstanding]
+      edges:
+        - condition: "always"
+          next: "Q_FAMILY"
+
+    Q_FAMILY:
+      type: "voice-qa"
+      text_template: "{name} जी, घर में आपके साथ कौन-कौन रहता है?"
+      text_template_mr: "{name} जी, कुटुंबात तुमच्यासोबत कोण-कोण राहतात?"
+      text_template_en: "{name}, who lives with you in your family?"
+      text_template_fr: "{name}, qui vit avec vous dans votre famille ?"
+      text_template_ar: "يا سيد {name}، من يعيش معك في المنزل من أفراد عائلتك؟"
+      targets: [number_of_family_members, marital_status, number_of_kids]
+      edges:
+        - condition: "always"
+          next: "Q_EDUCATION"
+
+    Q_EDUCATION:
+      type: "voice-qa"
+      text_template: "आपने कहाँ तक पढ़ाई की है? काम का हिसाब खुद कर लेते हैं?"
+      text_template_mr: "तुमचे शिक्षण किती झाले आहे? व्यवसायाचा हिशोब स्वतः करू शकता का?"
+      text_template_en: "What is your educational background? Do you handle business accounting yourself?"
+      text_template_fr: "Quel est votre niveau d'études ? Gérez-vous vous-même la comptabilité de votre entreprise ?"
+      text_template_ar: "ما هو مستواك التعليمي؟ وهل تقوم بإدارة الحسابات المالية لنشاطك بنفسك؟"
+      targets: [education_level]
+      edges:
+        - condition: "always"
+          next: "Q_COBORROWER"
+
+    Q_COBORROWER:
+      type: "voice-qa"
+      text_template: "यह काम आप खुद चलाते हैं, या घर का कोई और भी देखता है?"
+      text_template_mr: "हा व्यवसाय तुम्ही स्वतः चालवता, की घरातील आणखी कोणी मदत करते?"
+      text_template_en: "Do you manage this business independently, or does a co-borrower assist you?"
+      text_template_fr: "Gérez-vous cette entreprise de manière indépendante ou un co-emprunteur vous aide-t-il ?"
+      text_template_ar: "هل تدير هذا العمل بمفردك أم يساعدك شريك أو ممتلك آخر في القرض؟"
+      targets: [co_borrower]
+      edges: []
+
+# ─── Context Map (for LLM prompt optimization) ───
+context_map:
+  START: []
+  Q_BUSINESS_PURPOSE: []
+  Q_HAVE_SHADE: [Q_BUSINESS_PURPOSE]
+  Q_SHADE_DETAILS: [Q_HAVE_SHADE]
+  Q_IS_MARRIED: []
+  Q_STATUS: []
+  Q_MONTHLY_REV: []
+  Q_MONTHLY_PROFIT: [Q_MONTHLY_REV]
+  Q_LAST_YEAR_REV: [Q_MONTHLY_REV]
+  Q_PERSONS_INVOLVED: []
+  Q_PAID_EMPLOYEES: [Q_PERSONS_INVOLVED]
+  Q_CURRENT_WAGES: [Q_PAID_EMPLOYEES]
+  Q_INVENTORY: []
+  Q_DEBTORS: []
+  Q_CREDITORS: []
+  Q_PROPOSED_REV: [Q_MONTHLY_REV]
+  Q_PROPOSED_HIRING: [Q_PERSONS_INVOLVED]
+  Q_PROPOSED_WAGES: [Q_PROPOSED_HIRING]
+  Q_NEED_MACHINES: []
+  Q_MACHINE_DETAILS: [Q_NEED_MACHINES]
+  Q_PREVIOUS_LOAN: []
+  Q_CURRENT_EMI: []
+  Q_FAMILY: [Q_IS_MARRIED]
+  Q_EDUCATION: []
+  Q_COBORROWER: [Q_FAMILY, Q_PERSONS_INVOLVED]
+
+# ─── Field Extraction Instructions ───
 field_instructions:
+  business_purpose: "INFER the business name or type of business activity in English."
+  business_type: "Deduce the canonical business type from the user's response as one of: 'dairy', 'grocery', 'salon', 'tailor', 'electrician', 'goatry', 'poultry', 'furniture', 'garage', 'csc', 'clothing', or 'other'. Examples: 'दूध का काम' -> 'dairy', 'किराना दुकान' -> 'grocery', 'सिलाई कढ़ाई' -> 'tailor', 'नाई/ब्यूटी पार्लर' -> 'salon', 'बिजली का काम' -> 'electrician', 'बकरी पालन' -> 'goatry', 'मुर्गी पालन' -> 'poultry', 'फर्नीचर बनाना' -> 'furniture', 'गाड़ी मरम्मत/गैरेज' -> 'garage', 'सीएससी जन सेवा केंद्र' -> 'csc', 'कपड़े की दुकान' -> 'clothing'."
+  have_shade: "INFER as 'Yes' or 'No'. Whether the user has a shed/shelter for animals."
+  shade_owned_or_rented: "INFER as 'Owned' or 'Rented'."
+  shade_location: "INFER the location of the animal shade/shed in English."
+  is_married: "INFER as 'Yes' or 'No' based on marital status."
+  monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'lakh', multiply by 100000. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit number, infer as 1000."
+  monthly_profit: "Extract as integer in rupees per month. NO commas, NO decimal. If user says 'hazar', 'hazaar', 'thousand', or 'हजार रुपये' without an explicit multiplier number, infer as 1000. Must be less than monthly_revenue."
+  last_year_monthly_revenue: "Extract as integer in rupees per month from previous year. NO commas, NO decimal."
+  persons_involved: "Extract as integer. Total number of people working including the owner. If user says 'akele' or 'khud', value is 1."
+  number_of_paid_employees: "Extract as integer. Number of employees who receive salary (not family members). If user says 'koi nahi' or 'ghar ke log', value is 0."
+  current_wages: "Extract as integer in rupees per month. NO commas, NO decimal. Total monthly wages paid to all employees. If no paid employees, value is 0."
+  inventory_amount: "Extract as integer in rupees. NO commas, NO decimal. Total value of stock/inventory currently held."
+  debtors_amount: "Extract as integer in rupees. NO commas, NO decimal. Money owed TO the business by customers (receivables). If 'koi nahi', value is 0."
+  creditors_amount: "Extract as integer in rupees. NO commas, NO decimal. Money owed BY the business to suppliers (payables). If 'koi nahi', value is 0."
+  proposed_monthly_revenue: "Extract as integer in rupees per month. NO commas, NO decimal. Expected revenue AFTER getting loan."
+  proposed_number_of_people: "Extract as integer. ADDITIONAL people to be hired after loan (not total). If 'aur kisi ki zarurat nahi', value is 0."
+  proposed_wages: "Extract as integer in rupees per month. NO commas, NO decimal. ADDITIONAL wages for new employees after loan. If no new hiring, value is 0."
+  needs_machine: "INFER as 'Yes' or 'No'. Whether the user needs to purchase any new machine, equipment, or items."
+  machine_name: "INFER the machine/equipment name in ENGLISH. Examples: 'fridge lena hai' -> 'Refrigerator'. If no machine needed, value is 'None'."
+  machine_purpose: "INFER the purpose in ENGLISH. Be precise and concise."
+  machine_supplier: "INFER the supplier name in ENGLISH. If 'local dukaan se' -> 'Local Market'."
+  machine_cost: "Extract as integer in rupees. NO commas, NO decimal. Cost of the machine. If no machine, value is 0."
+  previous_loan_detail: "INFER previous loan details in ENGLISH. If none, 'None'."
+  previous_loan_default_flag: "INFER if they defaulted or had late payments as 'Yes' or 'No'."
+  default_reason: "INFER the reason for default in ENGLISH."
+  current_emi_value: "Extract active monthly EMIs amount as integer."
+  current_emi_lender: "INFER current lender name in ENGLISH."
+  current_emi_outstanding: "Extract outstanding loan amount as integer."
+  number_of_family_members: "INFER total count as integer. STRICT RULE: If the user states they live alone ('अकेला रहता हूँ', 'अकेली हूँ', 'akeli hu', 'alone'), set value to 1 immediately as final and definitive. Do NOT ask follow-up questions asking if parents or spouse live with them. If user states they live with parents, extract total count directly (e.g. self + 2 parents = 3) without asking probing questions about siblings. If user is not married, then dont ask for questions about wife or kids"
+  marital_status: "INFER as Married, Unmarried, Widow, or Widower."
+  number_of_kids: "INFER count of children as integer. STRICT RULE: If user is Unmarried/Single or states they live alone ('akeli hu'), set value to 0 immediately without asking any follow-up questions about children."
+  education_level: "INFER as No Formal Education, 5th, 8th, 10th, 12th, Graduate, or Post Graduate."
+  co_borrower: "INFER as 'Yes' or 'No'."
+
+# ─── Dynamic Field Extraction & Resolution Schema ───
+primary_applicant_key: "applicant_name"
+default_applicant_placeholder:
+  hi: "आवेदक"
+  mr: "अर्जदार"
+  en: "Applicant"
+  fr: "Demandeur"
+  ar: "المتقدم"
+
+extraction_mappings:
+  name:
+    sources:
+      - "applicant_name"
+      - "full_name"
+      - "name"
+      - "doc_aadhaar_name"
+      - "doc_pan_name"
+      - "doc_voter_name"
+      - "holder.full_name"
   applicant_name:
-    instruction: "Extract the applicant's full formal name as spoken in the response."
-  age:
-    instruction: "Extract the applicant's age as an integer number of years (between 18 and 80)."
-  family_members_count:
-    instruction: "Extract the total number of family members living in the household."
-  earning_members_count:
-    instruction: "Extract the number of people in the family who actively earn an income."
+    sources:
+      - "applicant_name"
+      - "full_name"
+      - "name"
+      - "name_of_the_applicant"
+      - "corrected_name"
+      - "doc_aadhaar_name"
+      - "doc_pan_name"
+      - "doc_voter_name"
+      - "holder.full_name"
+      - "holder.name"
   business_type:
-    instruction: "Extract a standardized lowercase business category keyword (e.g. dairy, goatry, poultry, kirana, retail, tailoring, auto, transport, mechanic, artisan, weaving, food_processing)."
-  primary_activity:
-    instruction: "Extract a concise descriptive phrase of what the user does for a living."
-  years_in_business:
-    instruction: "Extract how many years the applicant has been doing this work as a number."
-  animal_count:
-    instruction: "Extract the total number of livestock/cattle/poultry owned as an integer."
-  daily_yield_liters:
-    instruction: "Extract the daily milk or produce yield (in liters or units) as a numeric value."
-  daily_feed_cost:
-    instruction: "Extract the daily fodder/feed expense in Rupees as a number."
-  shed_ownership:
-    instruction: "Extract 'OWNED', 'RENTED', 'LEASED', or 'NONE' regarding animal shelter/shed."
-  shed_utilities_details:
-    instruction: "Extract water and electricity availability details for the animal shed."
-  grazing_arrangement:
-    instruction: "Extract how the animals are grazed or fed if no permanent shed is available."
-  land_ownership_type:
-    instruction: "Extract farmland ownership status: 'OWNED', 'LEASED', 'SHARECROPPING', or 'NONE'."
-  shop_ownership:
-    instruction: "Extract 'OWNED', 'RENTED', or 'STREET_VENDING' for the commercial premises."
-  daily_customers_count:
-    instruction: "Extract the approximate daily customer footfall as an integer."
-  daily_sales_turnover:
-    instruction: "Extract average gross daily sales turnover in Rupees as a number."
-  inventory_current_value:
-    instruction: "Extract the estimated total value of current inventory/stock in Rupees."
-  customer_credit_amount:
-    instruction: "Extract the outstanding udhaari (credit given to village customers) in Rupees."
-  credit_cycle_days:
-    instruction: "Extract the average credit recovery period in days."
-  vehicle_equipment_ownership:
-    instruction: "Extract whether key work vehicle/machinery is 'OWNED', 'FINANCED', or 'RENTED'."
-  daily_trips_or_jobs:
-    instruction: "Extract the daily number of trips or service jobs completed."
-  daily_fuel_expense:
-    instruction: "Extract daily fuel/diesel/petrol expenses in Rupees."
-  asset_age_years:
-    instruction: "Extract the age of the machinery/vehicle in years."
-  monthly_maintenance_cost:
-    instruction: "Extract average monthly servicing and repair expenses in Rupees."
-  raw_material_source:
-    instruction: "Extract where raw materials are sourced (e.g. local mandi, wholesale city market, forest)."
-  batch_production_cost:
-    instruction: "Extract the monetary cost required to produce one batch of goods in Rupees."
-  batch_cycle_days:
-    instruction: "Extract the number of days taken to finish one batch."
-  sales_channel:
-    instruction: "Extract whether goods are sold 'DIRECT_TO_CONSUMER', 'LOCAL_HAAT', or 'MIDDLEMEN'."
-  festival_sales_surge_multiplier:
-    instruction: "Extract how many times sales increase during peak festival seasons (e.g. 2x, 3x)."
-  peak_monthly_revenue:
-    instruction: "Extract the peak monthly income/revenue in Rupees during best months."
-  lean_monthly_revenue:
-    instruction: "Extract the monthly income/revenue in Rupees during slowest/lean months."
-  lean_months_count:
-    instruction: "Extract how many months in a year are considered lean/slow."
-  monthly_business_expense:
-    instruction: "Extract total monthly recurring business operational expenditure in Rupees."
-  monthly_household_expense:
-    instruction: "Extract total monthly household personal living expenditure in Rupees."
-  number_of_hired_workers:
-    instruction: "Extract the number of paid outside workers/helpers hired."
-  has_existing_loan:
-    instruction: "Extract 'YES' if borrower has any active loan, else 'NO'."
-  existing_loan_source:
-    instruction: "Extract the lender source (e.g. 'SHG', 'BANK', 'MFI', 'SAHUKAAR', 'NONE')."
-  existing_loan_outstanding:
-    instruction: "Extract remaining loan principal outstanding in Rupees."
-  existing_monthly_emi:
-    instruction: "Extract total current monthly installment (EMI) paid in Rupees."
-  loan_amount_requested:
-    instruction: "Extract the total loan amount requested by the applicant in Rupees."
-  loan_purpose_category:
-    instruction: "Extract categorized intent: 'ASSET_PURCHASE', 'WORKING_CAPITAL', 'EXPANSION', or 'DEBT_REFINANCE'."
-  loan_utilization_details:
-    instruction: "Extract specific descriptive plan for using the loan funds."
-  target_asset_name:
-    instruction: "Extract the specific asset or machine the borrower wants to buy."
-  asset_quotation_amount:
-    instruction: "Extract the total purchase price/quotation of the new asset in Rupees."
-  own_margin_contribution:
-    instruction: "Extract the borrower's own cash contribution towards asset purchase in Rupees."
-  stock_rotation_days:
-    instruction: "Extract inventory turnover cycle in days."
-  expected_profit_margin_pct:
-    instruction: "Extract expected net profit margin percentage (e.g. 15%, 25%)."
-  expected_incremental_income:
-    instruction: "Extract expected increase in monthly net income after loan utilization in Rupees."
-  affordable_monthly_emi:
-    instruction: "Extract the maximum monthly installment (EMI) the borrower can comfortably pay in Rupees."
-  preferred_loan_tenure_months:
-    instruction: "Extract preferred loan repayment duration in months (e.g. 12, 24, 36)."
-  co_borrower_relation:
-    instruction: "Extract relationship of co-borrower (e.g. 'SPOUSE', 'FATHER', 'MOTHER', 'SON', 'NONE')."
-  co_borrower_name:
-    instruction: "Extract full name of co-borrower."
-  co_borrower_income:
-    instruction: "Extract monthly income contribution of co-borrower in Rupees."
+    sources:
+      - "business_type"
+      - "type_of_business"
 
-# ─── Financial Rules ───
-financial_rules:
-  scheme_id: rural-voice-test
-  inventory_multiplier:
-    min: 1.0
-    max: 2.5
-  profit_margin:
-    min: 0.10
-    max: 0.40
-  working_cycle_months:
-    dairy: 1
-    goatry: 6
-    poultry: 2
-    kirana: 1
-    retail: 1
-    artisan: 2
-    transport: 1
-    service: 1
-  max_loan_amount: 500000.0
-  promoter_contribution_pct: 0.15
-  term_loan_pct: 0.85
-
-# ─── DB Column Mapping ───
-db_mapping:
-  applicant_name: applicant_name
-  business_type: business_type
-  primary_activity: proposed_business_activity
-  years_in_business: years_in_business
-  peak_monthly_revenue: monthly_revenue
-  monthly_business_expense: monthly_business_expense
-  monthly_household_expense: monthly_household_expense
-  existing_monthly_emi: existing_loan_emi
-  existing_loan_outstanding: existing_loan_outstanding
-  has_existing_loan: existing_loan
-  loan_amount_requested: proposed_loan_amount
-  affordable_monthly_emi: proposed_emi
+enum_translations:
+  marital_status:
+    MARRIED:
+      hi: "विवाहित"
+      mr: "विवाहित"
+      en: "Married"
+      fr: "Marié(e)"
+      ar: "متزوج"
+    UNMARRIED:
+      hi: "अविवाहित"
+      mr: "अविवाहित"
+      en: "Unmarried"
+      fr: "Célibataire"
+      ar: "أعزب"
+  education_level:
+    GRADUATE:
+      hi: "स्नातक"
+      mr: "पदवीधर"
+      en: "Graduate"
+      fr: "Diplômé"
+      ar: "خريج"
+    10TH:
+      hi: "दसवीं"
+      mr: "दहावी"
+      en: "10th"
+      fr: "10ème"
+      ar: "الصف العاشر"
+    12TH:
+      hi: "बारहवीं"
+      mr: "बारावी"
+      en: "12th"
+      fr: "12ème"
+      ar: "الصف الثاني عشر"
