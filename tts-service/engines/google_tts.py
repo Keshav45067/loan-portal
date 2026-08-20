@@ -70,9 +70,9 @@ class GoogleTTSEngine(BaseTTSEngine):
         self._client = None
 
     def load(self):
-        """Initialize the Google Cloud TTS client."""
-        self._client = texttospeech.TextToSpeechClient(transport="rest")
-        logger.info("Google TTS client loaded (REST transport)")
+        """Initialize the Google Cloud TTS client with native gRPC transport."""
+        self._client = texttospeech.TextToSpeechClient()
+        logger.info("Google TTS client loaded (gRPC transport)")
 
     def _resolve_voice(self, language: str, voice_name: str) -> tuple[str, str]:
         """Resolve language code and voice name."""
@@ -90,6 +90,8 @@ class GoogleTTSEngine(BaseTTSEngine):
     def _synthesize_one(self, text: str, language_code: str,
                         voice_name: str, sample_rate: int) -> bytes:
         """Synchronous synthesis of a single text chunk. Returns raw WAV bytes."""
+        import time as _time
+        t_start = _time.perf_counter()
         synthesis_input = texttospeech.SynthesisInput(text=text)
         voice = texttospeech.VoiceSelectionParams(
             language_code=language_code,
@@ -103,6 +105,13 @@ class GoogleTTSEngine(BaseTTSEngine):
 
         response = self._client.synthesize_speech(
             input=synthesis_input, voice=voice, audio_config=audio_config
+        )
+        api_duration_ms = (_time.perf_counter() - t_start) * 1000
+        logger.info(
+            f"Google Cloud TTS API call finished in {api_duration_ms:.1f}ms for text: '{text[:40]}...'",
+            language_code=language_code,
+            voice_name=voice_name,
+            api_duration_ms=round(api_duration_ms, 1)
         )
 
         return response.audio_content
@@ -189,10 +198,10 @@ class GoogleTTSEngine(BaseTTSEngine):
             pcm_size = max(0, len(audio_bytes) - 44)
             duration = pcm_size / (sample_rate * 2) if sample_rate > 0 else 0.0
 
-            logger.debug(f"Fragment {idx} synthesized",
-                          req_id=req_id,
-                          latency_ms=t.elapsed_ms,
-                          details={"sentence_len": len(sentence), "is_last": is_last})
+            logger.info(f"Fragment {idx} synthesized in {t.elapsed_ms:.1f}ms",
+                         req_id=req_id,
+                         latency_ms=t.elapsed_ms,
+                         details={"sentence": sentence, "sentence_len": len(sentence), "is_last": is_last})
 
             yield {
                 "audio_data": audio_bytes,

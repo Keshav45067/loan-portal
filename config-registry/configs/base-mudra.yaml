@@ -913,7 +913,7 @@ field_instructions:
   current_emi_value: "Extract active monthly EMIs amount as integer."
   current_emi_lender: "INFER current lender name in ENGLISH."
   current_emi_outstanding: "Extract outstanding loan amount as integer."
-  number_of_family_members: "INFER total count as integer. STRICT RULE: If the user states they live alone ('अकेला रहता हूँ', 'अकेली हूँ', 'akeli hu', 'alone'), set value to 1 immediately as final and definitive. Do NOT ask follow-up questions asking if parents or spouse live with them. If user states they live with parents, extract total count directly (e.g. self + 2 parents = 3) without asking probing questions about siblings."
+  number_of_family_members: "INFER total count as integer. STRICT RULE: If the user states they live alone ('अकेला रहता हूँ', 'अकेली हूँ', 'akeli hu', 'alone'), set value to 1 immediately as final and definitive. Do NOT ask follow-up questions asking if parents or spouse live with them. If user states they live with parents, extract total count directly (e.g. self + 2 parents = 3) without asking probing questions about siblings. If user is not married, then dont ask for questions about wife or kids"
   marital_status: "INFER as Married, Unmarried, Widow, or Widower."
   number_of_kids: "INFER count of children as integer. STRICT RULE: If user is Unmarried/Single or states they live alone ('akeli hu'), set value to 0 immediately without asking any follow-up questions about children."
   education_level: "INFER as No Formal Education, 5th, 8th, 10th, 12th, Graduate, or Post Graduate."

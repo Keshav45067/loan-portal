@@ -129,10 +129,16 @@ async def cibil_fetch(session, phone: str = "", pan: str = "", name: str = "", p
                 headers=headers,
                 method="POST"
             )
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                status_code = resp.getcode()
-                body = resp.read().decode("utf-8")
-                return status_code, body
+            try:
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    status_code = resp.getcode()
+                    body = resp.read().decode("utf-8")
+                    return status_code, body
+            except urllib.error.HTTPError as http_err:
+                body = http_err.read().decode("utf-8") if http_err.fp else str(http_err)
+                return http_err.code, body
+            except urllib.error.URLError as url_err:
+                return 0, str(url_err.reason)
 
         status_code, body = await asyncio.to_thread(_call_surepass)
 
@@ -187,9 +193,9 @@ async def cibil_fetch(session, phone: str = "", pan: str = "", name: str = "", p
                 session.walker._extracted_data["is_rejected_due_to_cibil"] = True
             return "FAIL", {"credit_score": score_int, "pan": pan_clean, "pan_type": pan_type, "min_score": min_score}
 
-    except requests.exceptions.Timeout:
-        logger.warning(f"Surepass API timeout for PAN={pan_clean}")
-        return "ERROR", {"error": "API timeout"}
+    except (TimeoutError, urllib.error.URLError) as timeout_err:
+        logger.warning(f"Surepass API timeout/network error for PAN={pan_clean}: {timeout_err}")
+        return "ERROR", {"error": f"API timeout or network error: {timeout_err}"}
     except Exception as e:
         logger.error(f"cibil_fetch exception: {e}", error=traceback.format_exc())
         return "ERROR", {"error": str(e)}
