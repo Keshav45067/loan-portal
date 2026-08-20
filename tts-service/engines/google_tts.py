@@ -70,9 +70,9 @@ class GoogleTTSEngine(BaseTTSEngine):
         self._client = None
 
     def load(self):
-        """Initialize the Google Cloud TTS client with native gRPC transport."""
-        self._client = texttospeech.TextToSpeechClient()
-        logger.info("Google TTS client loaded (gRPC transport)")
+        """Initialize the Google Cloud TTS client with REST transport."""
+        self._client = texttospeech.TextToSpeechClient(transport="rest")
+        logger.info("Google TTS client loaded (REST transport)")
 
     def _resolve_voice(self, language: str, voice_name: str) -> tuple[str, str]:
         """Resolve language code and voice name."""

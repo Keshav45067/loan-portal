@@ -31,45 +31,83 @@ def _get_surepass_token() -> str:
 def resolve_arguments(raw_args: dict, session) -> dict:
     """
     Resolve arguments dictionary.
-    - Template strings with '{var_name}' are looked up in session.extracted_data / registration state.
+    - Template strings with '{var_name}' are looked up in session extracted data using
+      recursive flattening and schema extraction_mappings (matching GraphWalker._interpolate).
     - Literal strings and primitives without braces are passed as-is.
     """
     if not raw_args:
         return {}
 
-    resolved = {}
-    extracted = session.walker.extracted_data if (session and session.walker) else {}
+    walker = getattr(session, "walker", None)
+    extracted = (walker._extracted_data if (walker and hasattr(walker, "_extracted_data")) else {}) or {}
+    scheme_config = (walker._scheme_config if (walker and hasattr(walker, "_scheme_config")) else {}) or {}
+    extraction_mappings = scheme_config.get("extraction_mappings", {})
+
+    # Flatten extracted data for key resolution
+    flat = {}
+    def recursive_flatten(d, prefix=""):
+        if not isinstance(d, dict):
+            return
+        for k, v in d.items():
+            full_key = f"{prefix}.{k}" if prefix else k
+            if isinstance(v, dict):
+                recursive_flatten(v, full_key)
+            elif v is not None and v != "":
+                flat[full_key] = v
+                if k not in flat or flat[k] is None or flat[k] == "":
+                    flat[k] = v
+
+    recursive_flatten(extracted)
+
+    # Parse any string-serialized JSONs
+    for k, v in list(flat.items()):
+        if isinstance(v, str) and (v.startswith('{') or v.startswith('[')):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, dict):
+                    recursive_flatten(parsed, k)
+            except Exception:
+                pass
 
     # Gather session-level fallbacks
     session_metadata = {
-        "phone": getattr(session, "phone", "") or extracted.get("phone") or extracted.get("applicant_phone") or extracted.get("mobile") or "",
-        "registration_phone": getattr(session, "phone", "") or extracted.get("phone") or extracted.get("applicant_phone") or extracted.get("mobile") or "",
-        "applicant_name": getattr(session, "applicant_name", "") or extracted.get("applicant_name") or extracted.get("doc_pan_name") or extracted.get("name") or "",
-        "doc_pan_number": extracted.get("doc_pan_number") or extracted.get("pan") or extracted.get("pan_number") or "",
-        "doc_pan_name": extracted.get("doc_pan_name") or extracted.get("applicant_name") or extracted.get("name") or "",
-        "spouse_phone": extracted.get("spouse_phone") or extracted.get("spouse_contact_number") or extracted.get("spouse_mobile") or "",
-        "doc_spouse_pan_number": extracted.get("doc_spouse_pan_number") or extracted.get("spouse_pan") or extracted.get("spouse_pan_number") or "",
-        "doc_spouse_pan_name": extracted.get("doc_spouse_pan_name") or extracted.get("spouse_name") or "",
+        "phone": getattr(session, "phone", "") or str(flat.get("phone") or flat.get("applicant_phone") or flat.get("mobile") or ""),
+        "registration_phone": getattr(session, "phone", "") or str(flat.get("phone") or flat.get("applicant_phone") or flat.get("mobile") or ""),
+        "applicant_name": getattr(session, "applicant_name", "") or str(flat.get("applicant_name") or flat.get("doc_pan_name") or flat.get("name") or ""),
+        "doc_pan_number": str(flat.get("doc_pan_number") or flat.get("pan") or flat.get("pan_number") or ""),
+        "doc_pan_name": str(flat.get("doc_pan_name") or flat.get("applicant_name") or flat.get("name") or ""),
+        "spouse_phone": str(flat.get("spouse_phone") or flat.get("spouse_contact_number") or flat.get("spouse_mobile") or ""),
+        "doc_spouse_pan_number": str(flat.get("doc_spouse_pan_number") or flat.get("spouse_pan") or flat.get("spouse_pan_number") or ""),
+        "doc_spouse_pan_name": str(flat.get("doc_spouse_pan_name") or flat.get("spouse_name") or ""),
     }
-    all_context = {**extracted, **session_metadata}
+    for sm_k, sm_v in session_metadata.items():
+        if sm_v and (sm_k not in flat or not flat[sm_k]):
+            flat[sm_k] = sm_v
 
+    resolved = {}
     for arg_name, arg_val in raw_args.items():
         if isinstance(arg_val, str):
             placeholders = re.findall(r"\{([^}]+)\}", arg_val)
             if placeholders:
                 val = arg_val
                 for ph in placeholders:
-                    ph_val = str(all_context.get(ph, "")).strip()
-                    if not ph_val:
-                        # Fallback lookup aliases
-                        if ph in ("phone", "registration_phone", "mobile", "applicant_phone"):
-                            ph_val = str(all_context.get("phone") or all_context.get("applicant_phone") or all_context.get("mobile") or "").strip()
-                        elif ph in ("pan", "pan_number", "doc_pan_number"):
-                            ph_val = str(all_context.get("doc_pan_number") or all_context.get("pan") or all_context.get("pan_number") or "").strip()
-                        elif ph in ("spouse_pan", "spouse_pan_number", "doc_spouse_pan_number"):
-                            ph_val = str(all_context.get("doc_spouse_pan_number") or all_context.get("spouse_pan") or all_context.get("spouse_pan_number") or "").strip()
-                        elif ph in ("spouse_phone", "spouse_mobile"):
-                            ph_val = str(all_context.get("spouse_phone") or all_context.get("spouse_mobile") or "").strip()
+                    field_cfg = extraction_mappings.get(ph, {})
+                    sources = field_cfg.get("sources", [ph]) if isinstance(field_cfg, dict) else [ph]
+                    if ph in ("name", "applicant_name"):
+                        name_fallbacks = ["applicant_name", "doc_aadhaar_name", "doc_pan_name", "doc_voter_name", "name", "full_name"]
+                        for nf in name_fallbacks:
+                            if nf not in sources:
+                                sources.append(nf)
+                    elif ph not in sources:
+                        sources = list(sources) + [ph]
+
+                    ph_val = ""
+                    for src in sources:
+                        candidate = flat.get(src)
+                        if candidate is not None and str(candidate).strip():
+                            ph_val = str(candidate).strip()
+                            break
+
                     val = val.replace(f"{{{ph}}}", ph_val)
                 resolved[arg_name] = val
             else:
@@ -103,6 +141,11 @@ async def cibil_fetch(session, phone: str = "", pan: str = "", name: str = "", p
     if not phone_clean or not pan_clean:
         logger.warning(f"cibil_fetch missing required fields: phone='{phone_clean}', pan='{pan_clean}'")
         return "ERROR", {"error": "Missing phone or pan number"}
+
+    if len(phone_clean) != 10:
+        logger.warning(f"cibil_fetch: Invalid mobile number '{phone_clean}' (must be exactly 10 digits for Surepass CIBIL check). Skipping API call.",
+                       session_id=getattr(session, "session_id", ""))
+        return "ERROR", {"error": f"Invalid mobile number '{phone_clean}' (must be 10 digits)"}
 
     token = _get_surepass_token()
     if not token:

@@ -573,6 +573,9 @@ class VoiceSession:
         if not validation or not isinstance(validation, dict) or not validation.get("function"):
             return False, []
 
+        if self._orchestrator_stub:
+            await self._sync_extracted_data()
+
         from validators import execute_node_validation
         status, details = await execute_node_validation(validation, self)
 

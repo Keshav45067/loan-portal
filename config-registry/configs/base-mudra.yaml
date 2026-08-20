@@ -49,7 +49,7 @@ stt:
 # ─── Inactivity / Silence Nudge Configuration ───
 inactivity_defaults:
   enabled: true
-  default_timeout_seconds: 3.0
+  default_timeout_seconds: 5.0
   max_nudges_per_node: 2
   decay_multiplier: 1.4
 
@@ -1019,6 +1019,39 @@ extraction_mappings:
       - "pan_number"
       - "doc_pan_number"
       - "extractions.PAN.pan_number"
+      - "extractions.doc_pan_001.doc_pan_number"
+
+  doc_spouse_pan_number:
+    sources:
+      - "doc_spouse_pan_number"
+      - "spouse_pan_number"
+      - "spouse_pan"
+      - "extractions.spouse_pan.doc_pan_number"
+      - "extractions.spouse_pan.pan_number"
+      - "extractions.spouse_pan.pan"
+      - "extractions.SPOUSE_PAN.doc_pan_number"
+      - "extractions.SPOUSE_PAN.pan_number"
+      - "extractions.doc_pan_001.doc_pan_number"
+      - "extractions.doc_pan_001.pan_number"
+
+  doc_spouse_pan_name:
+    sources:
+      - "doc_spouse_pan_name"
+      - "spouse_pan_name"
+      - "spouse_name"
+      - "extractions.spouse_pan.doc_pan_name"
+      - "extractions.spouse_pan.name"
+      - "extractions.spouse_pan.holder.full_name"
+      - "extractions.SPOUSE_PAN.doc_pan_name"
+      - "extractions.SPOUSE_PAN.name"
+      - "extractions.doc_pan_001.doc_pan_name"
+
+  spouse_phone:
+    sources:
+      - "spouse_phone"
+      - "spouse_contact_number"
+      - "spouse_mobile"
+      - "phone_spouse"
 
   date_of_birth:
     sources:
