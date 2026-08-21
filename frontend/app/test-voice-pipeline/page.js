@@ -177,6 +177,13 @@ export default function TestVoicePipelineDashboard() {
       setSessionState('connecting');
       toast.info('Starting 5-Stage Voice Pipeline...');
 
+      const isLoaded = await loadVADScripts();
+      if (!isLoaded) {
+        toast.error('Failed to load Silero VAD library. Please check your connection.');
+        setSessionState('error');
+        return;
+      }
+
       const defaultHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
       const wsUrl = `ws://${defaultHost}:8080/ws/voice`;
 

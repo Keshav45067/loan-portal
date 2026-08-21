@@ -155,34 +155,20 @@ export class PipelineAudioEngine {
     this.onStateChange('connecting');
 
     try {
-      // 1. Initialize Web Audio Context at 16kHz
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      this.audioContext = new AudioCtx({ sampleRate: this.sampleRate });
-      if (this.audioContext.state === 'suspended') {
-        await this.audioContext.resume();
-      }
-
-      // 2. Request user microphone (raw stream without browser pre-mangling)
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          channelCount: 1,
-          sampleRate: this.sampleRate,
-          echoCancellation: true,
-          noiseSuppression: false, // We use RNNoise for high-quality suppression!
-          autoGainControl: false,  // We use our DigitalAGC!
-        },
-      });
-
-      // 3. Connect WebSocket to Voice / STT backend
-      this._connectWebSocket();
-
-      // 4. Initialize Silero VAD (using vad-web CDN bundle)
+      // 1. Initialize Silero VAD (using vad-web CDN bundle)
       await this._initSileroVad();
 
+      // 2. Connect WebSocket to Voice / STT backend
+      this._connectWebSocket();
+
       this.isRecording = true;
+      if (this.vadInstance) {
+        await this.vadInstance.start();
+      }
       this.onStateChange('running');
     } catch (err) {
       console.error('[PipelineAudioEngine] Failed to start pipeline:', err);
+      this.isRecording = false;
       this.onStateChange('error');
       this.onError(err);
       this.stop();
@@ -200,8 +186,8 @@ export class PipelineAudioEngine {
           window.ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/';
         }
 
+        console.log('[PipelineAudioEngine] Instantiating MicVAD...');
         this.vadInstance = await window.vad.MicVAD.new({
-          stream: this.mediaStream,
           workletURL: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/vad.worklet.bundle.min.js',
           modelURL: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.19/dist/silero_vad.onnx',
           positiveSpeechThreshold: this.positiveSpeechThreshold,
@@ -209,27 +195,46 @@ export class PipelineAudioEngine {
           minSpeechFrames: this.minSpeechFrames,
           redemptionFrames: this.redemptionFrames,
           preSpeechPadFrames: this.preSpeechPadFrames,
+          additionalAudioConstraints: {
+            echoCancellation: true,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
 
           onFrameProcessed: (probs, rawFrame) => {
-            const vadProb = probs ? probs.isSpeech : 0;
+            if (!this.isRecording) return;
+            const vadProb = probs ? (probs.isSpeech ?? 0) : 0;
             this._processPipelineFrame(rawFrame, vadProb);
           },
           onSpeechStart: () => {
             this._handleSpeechStart();
           },
-          onSpeechEnd: () => {
-            this._handleSpeechEnd();
+          onSpeechEnd: (audio) => {
+            this._handleSpeechEnd(audio);
           },
         });
 
-        this.vadInstance.start();
         return;
       } catch (e) {
-        console.warn('[PipelineAudioEngine] Silero VAD failed, falling back to Web Audio script processor:', e);
+        console.warn('[PipelineAudioEngine] Silero VAD init failed, falling back to Web Audio script processor:', e);
       }
     }
 
     // Fallback Web Audio ScriptProcessor
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    this.audioContext = new AudioCtx({ sampleRate: this.sampleRate });
+    if (this.audioContext.state === 'suspended') {
+      await this.audioContext.resume();
+    }
+
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+
     this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
     this.processorNode = this.audioContext.createScriptProcessor(512, 1, 1);
 
@@ -366,7 +371,7 @@ export class PipelineAudioEngine {
       // Stage 1 (Raw)
       raw: { rms: rawMetrics.rms, db: rawMetrics.db, peak: rawMetrics.peak, frame: rawFrame },
       // Stage 2 (HPF)
-      hpf: { rms: hpfMetrics.rms, db: hpfMetrics.db, peak: hpfMetrics.peak, subBassCutDb, frame: hpfFrame },
+      hpf: { rms: hpfMetrics.rms, db: hpfMetrics.db, peak: hpfMetrics.peak, subBassCutDb: hpfSubBassCutDb, frame: hpfFrame },
       // Stage 3 (RNNoise)
       rnnoise: { rms: rnnoiseMetrics.rms, db: rnnoiseMetrics.db, peak: rnnoiseMetrics.peak, noiseReductionDb, frame: rnnoiseFrame },
       // Stage 4 (AGC)
