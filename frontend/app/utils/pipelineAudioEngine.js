@@ -461,8 +461,15 @@ export class PipelineAudioEngine {
     if (typeof window === 'undefined') return;
 
     try {
-      const defaultHost = window.location.hostname || 'localhost';
-      const wsUrl = this.wsUrl || `ws://${defaultHost}:8080/ws/voice`;
+      let wsUrl = this.wsUrl;
+      if (!wsUrl) {
+        const isHttps = window.location.protocol === 'https:';
+        const proto = isHttps ? 'wss:' : 'ws:';
+        const host = window.location.hostname || 'localhost';
+        const port = isHttps ? '' : ':8080';
+        wsUrl = `${proto}//${host}${port}/ws/voice`;
+      }
+      console.log('[PipelineAudioEngine] Connecting WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {

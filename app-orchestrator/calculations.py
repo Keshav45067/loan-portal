@@ -1,8 +1,15 @@
 import ast
 import math
 import random
+import os
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
+from log_utils.logger import get_logger
+
+logger = get_logger("app-orchestrator")
 
 def parse_float(v: Any) -> float:
     if v is None:
@@ -76,8 +83,14 @@ def if_zero(val: Any, then_val: Any, else_val: Any) -> Any:
     return then_val if parse_float(val) == 0 else else_val
 
 def if_truthy(val: Any, then_val: Any, else_val: Any) -> Any:
-    s_val = str(val or "").strip().lower()
-    is_true = s_val in ("yes", "true", "1", "y", "t") or bool(val)
+    if val is None:
+        return else_val
+    if isinstance(val, bool):
+        return then_val if val else else_val
+    s_val = str(val).strip().lower()
+    if s_val in ("no", "false", "0", "n", "f", "none", "na", "null", ""):
+        return else_val
+    is_true = s_val in ("yes", "true", "1", "y", "t", "haan", "ho", "विवाहित", "हाँ", "होय")
     return then_val if is_true else else_val
 
 def if_match(text_val: Any, keywords_list: List[str], then_val: Any, else_val: Any) -> Any:
@@ -182,9 +195,9 @@ class SafeExpressionEvaluator(ast.NodeVisitor):
     def visit_UnaryOp(self, node: ast.UnaryOp):
         operand = self.visit(node.operand)
         if isinstance(node.op, ast.UAdd):
-            return +operand
+            return +parse_float(operand)
         elif isinstance(node.op, ast.USub):
-            return -operand
+            return -parse_float(operand)
         elif isinstance(node.op, ast.Not):
             return not operand
         raise ValueError(f"Unsupported unary operator: {type(node.op)}")
@@ -193,11 +206,21 @@ class SafeExpressionEvaluator(ast.NodeVisitor):
         left = self.visit(node.left)
         right = self.visit(node.right)
         if isinstance(node.op, ast.Add):
-            return left + right
+            if isinstance(left, str) and isinstance(right, str):
+                try:
+                    return float(left) + float(right)
+                except ValueError:
+                    return left + right
+            elif isinstance(left, str) and not isinstance(right, (int, float)):
+                return left + str(right)
+            elif isinstance(right, str) and not isinstance(left, (int, float)):
+                return str(left) + right
+            else:
+                return parse_float(left) + parse_float(right)
         elif isinstance(node.op, ast.Sub):
-            return left - right
+            return parse_float(left) - parse_float(right)
         elif isinstance(node.op, ast.Mult):
-            return left * right
+            return parse_float(left) * parse_float(right)
         elif isinstance(node.op, ast.Div):
             r = parse_float(right)
             return (parse_float(left) / r) if r != 0 else 0.0
@@ -276,6 +299,7 @@ def evaluate_expression(expr_str: str, context: Dict[str, Any]) -> Any:
         evaluator = SafeExpressionEvaluator(context)
         return evaluator.visit(tree.body)
     except Exception as e:
+        logger.warning(f"Error evaluating expression '{expr_clean}': {e}", details={"error": str(e)})
         return expr_str
 
 

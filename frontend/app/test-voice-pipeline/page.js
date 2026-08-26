@@ -17,6 +17,22 @@ const SUPPORTED_LANGUAGES = [
   { code: 'fr', label: 'French (Français)', flag: '🇫🇷' },
 ];
 
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_URL || '';
+
+function getWebSocketUrl() {
+  if (WS_BASE_URL) {
+    return `${WS_BASE_URL.replace(/^http/, 'ws')}/ws/voice`;
+  }
+  if (typeof window !== 'undefined') {
+    const isHttps = window.location.protocol === 'https:';
+    const proto = isHttps ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const port = isHttps ? '' : ':8080';
+    return `${proto}//${host}${port}/ws/voice`;
+  }
+  return 'ws://localhost:8080/ws/voice';
+}
+
 export default function TestVoicePipelineDashboard() {
   // === Pipeline & Session State ===
   const [isRunning, setIsRunning] = useState(false);
@@ -184,8 +200,8 @@ export default function TestVoicePipelineDashboard() {
         return;
       }
 
-      const defaultHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
-      const wsUrl = `ws://${defaultHost}:8080/ws/voice`;
+      const wsUrl = getWebSocketUrl();
+      console.log('[TestVoicePipeline] Connecting WebSocket to:', wsUrl);
 
       const engine = new PipelineAudioEngine({
         sampleRate: 16000,
