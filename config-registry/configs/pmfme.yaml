@@ -1,0 +1,7 @@
+# ================================================================
+# PMFME Scheme Config (Child Config extending base-pmfme)
+# ================================================================
+
+scheme_id: pmfme
+extends: base-pmfme
+display_name: "PM Formalisation of Micro Food Processing Enterprises (PMFME)"

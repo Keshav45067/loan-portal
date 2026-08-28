@@ -110,49 +110,91 @@ async def get_location_tree(level: str = "states", parent_id: str = "", request:
         return {"success": False, "items": [], "error": str(e)}
 
 
+class StartSchemeRequest(BaseModel):
+    scheme_id: str
+    name: Optional[str] = ""
+
+
+@router.post("/start-scheme")
+async def start_scheme(body: StartSchemeRequest, request: Request, auth: dict = Depends(require_auth)):
+    """Create or load isolated scheme application session."""
+    req_id = request.state.req_id
+    phone = auth.get("phone", "")
+    session_id = auth.get("session_id", "")
+    logger.info("Start scheme application", req_id=req_id, scheme_id=body.scheme_id, phone=phone)
+    try:
+        stub = request.app.state.orchestrator_stub
+        app_resp = await stub.CreateApplication(
+            app_orchestrator_pb2.CreateAppRequest(
+                scheme_id=body.scheme_id,
+                phone=phone,
+                name=body.name or "",
+                session_id=session_id
+            ),
+            metadata=[("x-request-id", req_id)]
+        )
+        if not app_resp.session_id:
+            return {"success": False, "error": "Failed to initialize scheme session"}
+        
+        return {
+            "success": True,
+            "session_id": app_resp.session_id,
+            "application_id": app_resp.application_id or app_resp.session_id,
+            "scheme_id": app_resp.scheme_id,
+            "stage": app_resp.stage,
+            "completion_status": app_resp.completion_status
+        }
+    except Exception as e:
+        logger.error(f"Start scheme failed: {e}", req_id=req_id)
+        return {"success": False, "error": str(e)}
+
+
 @router.get("/my-applications")
 async def get_my_applications(request: Request, auth: dict = Depends(require_auth)):
-    """Fetch user's current session applications and data dynamically."""
+    """Fetch all user applications across multiple schemes."""
     req_id = request.state.req_id
     session_id = auth.get("session_id")
     phone = auth.get("phone", "")
     try:
         stub = request.app.state.orchestrator_stub
-        
-        # 1. Fetch current user session row data
-        app_resp = await stub.GetApplication(
-            app_orchestrator_pb2.AppIdRequest(application_id=session_id),
-            metadata=[("x-request-id", req_id)]
-        )
-        
-        # 2. Fetch extracted fields
-        extracted_resp = await stub.GetExtractedData(
-            app_orchestrator_pb2.AppIdRequest(application_id=session_id),
-            metadata=[("x-request-id", req_id)]
-        )
-        
         import json
-        extracted_json = {}
-        if extracted_resp.json_data:
-            try:
-                extracted_json = json.loads(extracted_resp.json_data)
-            except Exception:
-                pass
-                
+        
+        # 1. Fetch all applications for user's phone
+        list_resp = await stub.ListApplications(
+            app_orchestrator_pb2.ListAppRequest(limit=100, offset=0),
+            metadata=[("x-request-id", req_id)]
+        )
+        
         applications = []
-        target_scheme_id = app_resp.scheme_id or extracted_json.get("scheme_id", "")
-        if app_resp.session_id and target_scheme_id:
+        for app in list_resp.applications:
+            if phone and app.phone and app.phone != phone:
+                continue
+            
+            # Fetch extracted data for this session
+            ext_resp = await stub.GetExtractedData(
+                app_orchestrator_pb2.AppIdRequest(application_id=app.session_id),
+                metadata=[("x-request-id", req_id)]
+            )
+            extracted_json = {}
+            if ext_resp.json_data:
+                try:
+                    extracted_json = json.loads(ext_resp.json_data)
+                except Exception:
+                    pass
+            
+            target_scheme = extracted_json.get("scheme_id") or app.scheme_id or "base-mudra"
             applications.append({
-                "application_id": app_resp.application_id or app_resp.session_id,
-                "session_id": app_resp.session_id,
-                "scheme_id": target_scheme_id,
-                "stage": app_resp.stage or "VOICE_QA",
-                "completion_status": app_resp.completion_status or extracted_json.get("completion_status", "IN_PROGRESS"),
-                "phone": app_resp.phone or phone,
-                "panchayat": app_resp.panchayat or extracted_json.get("panchayat", ""),
+                "application_id": app.application_id or app.session_id,
+                "session_id": app.session_id,
+                "scheme_id": target_scheme,
+                "stage": app.stage or "VOICE_QA",
+                "completion_status": app.completion_status or extracted_json.get("completion_status", "IN_PROGRESS"),
+                "phone": app.phone or phone,
+                "panchayat": app.panchayat or extracted_json.get("panchayat", ""),
                 "state": extracted_json.get("state", ""),
                 "district": extracted_json.get("district", ""),
                 "onboarding_finished": extracted_json.get("onboarding_finished", False),
+                "created_at": app.created_at or extracted_json.get("created_at", ""),
                 "extracted_data": extracted_json
             })
             

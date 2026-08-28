@@ -132,6 +132,23 @@ def clamp_max(val: Any, max_val: float) -> float:
     return min(parse_float(max_val), parse_float(val))
 
 
+def safe_int(v: Any, default: int = 0) -> int:
+    if v is None:
+        return default
+    try:
+        if isinstance(v, str):
+            v_clean = v.strip()
+            if not v_clean or v_clean.lower() in ("none", "null", "na", "n/a", "undefined"):
+                return default
+            return int(float(v_clean))
+        return int(v)
+    except Exception:
+        return default
+
+def safe_float(v: Any, default: float = 0.0) -> float:
+    return parse_float(v)
+
+
 PREDEFINED_FUNCTIONS = {
     "parse_float": parse_float,
     "round_to": round_to,
@@ -154,8 +171,8 @@ PREDEFINED_FUNCTIONS = {
     "abs": abs,
     "min": min,
     "max": max,
-    "int": int,
-    "float": float,
+    "int": safe_int,
+    "float": safe_float,
     "str": str,
     "bool": bool,
 }

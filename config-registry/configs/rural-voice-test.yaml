@@ -556,3 +556,138 @@ enum_translations:
       en: "12th"
       fr: "12ème"
       ar: "الصف الثاني عشر"
+
+# ─── Admin Portal Configuration ───
+admin_portal:
+  workflow:
+    scheme_code: "rural-voice-test"
+    starts_at_block: false
+    levels:
+      - level: 1
+        role_key: "cluster_coordinator"
+        role: "LVL1"
+        label: "Cluster Coordinator"
+      - level: 2
+        role_key: "block_program_manager"
+        role: "LVL2"
+        label: "Block Program Manager"
+      - level: 3
+        role_key: "district_manager"
+        role: "LVL3"
+        label: "District Manager"
+      - level: 4
+        role_key: "bank"
+        role: "LVL4"
+        label: "Bank"
+    monitoring_roles: ["LVL5", "LVL6"]
+    
+  borrower_columns:
+    - key: "applicant_name"
+      label: "Applicant Name"
+    - key: "business_type"
+      label: "Business Type"
+    - key: "monthly_revenue"
+      label: "Monthly Revenue"
+    - key: "total_loan_required_amount"
+      label: "Loan Amount"
+    - key: "credit_worthiness"
+      label: "Credit Score"
+
+  summary_card_fields:
+    - key: "applicant_name"
+      label: "Name"
+      source: "scheme_data"
+    - key: "phone"
+      label: "Phone"
+      source: "user"
+      prefix: "+91 "
+    - key: "business_type"
+      label: "Business Type"
+      source: "scheme_data"
+    - key: "monthly_revenue"
+      label: "Revenue"
+      source: "scheme_data"
+
+  form_schema:
+    sections:
+      - title: "Personal & Identity Information"
+        fields:
+          - key: "applicant_name"
+            label: "Full Name"
+            type: "text"
+            required: true
+          - key: "phone"
+            label: "Mobile Number"
+            type: "text"
+            readonly: true
+          - key: "date_of_birth"
+            label: "Date of Birth"
+            type: "date"
+          - key: "gender"
+            label: "Gender"
+            type: "select"
+            options: ["Male", "Female", "Other"]
+          - key: "panchayat"
+            label: "Panchayat"
+            type: "text"
+            readonly: true
+          - key: "block"
+            label: "Block"
+            type: "text"
+            readonly: true
+          - key: "district"
+            label: "District"
+            type: "text"
+            readonly: true
+          - key: "state"
+            label: "State"
+            type: "text"
+            readonly: true
+      - title: "Business & Enterprise Profile"
+        fields:
+          - key: "business_type"
+            label: "Type of Business / Enterprise"
+            type: "text"
+          - key: "experience_in_line_of_activity"
+            label: "Experience in Activity (Years)"
+            type: "number"
+          - key: "business_address"
+            label: "Business Location / Address"
+            type: "text"
+      - title: "Financial & Revenue Projections"
+        fields:
+          - key: "monthly_revenue"
+            label: "Declared Monthly Revenue"
+            type: "currency"
+          - key: "net_sales_present_year"
+            label: "Net Sales (Present Year)"
+            type: "currency"
+          - key: "net_profit_present_year"
+            label: "Net Profit (Present Year)"
+            type: "currency"
+          - key: "net_sales_next_year"
+            label: "Projected Sales (Next Year)"
+            type: "currency"
+          - key: "net_profit_next_year"
+            label: "Projected Profit (Next Year)"
+            type: "currency"
+      - title: "Loan Assessment & Requirements"
+        fields:
+          - key: "loan_required"
+            label: "Requested Loan Amount"
+            type: "currency"
+          - key: "total_loan_required_amount"
+            label: "Assessed Total Loan Amount"
+            type: "currency"
+          - key: "term_loan_required"
+            label: "Term Loan (Machinery/Asset)"
+            type: "currency"
+          - key: "cash_credit_amount"
+            label: "Cash Credit (Working Capital)"
+            type: "currency"
+          - key: "type_of_machine_equipment"
+            label: "Equipment / Asset Description"
+            type: "text"
+          - key: "purpose"
+            label: "Loan Purpose"
+            type: "text"

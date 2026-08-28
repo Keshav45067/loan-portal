@@ -1,0 +1,1277 @@
+# ================================================================
+# Base PMFME (Pradhan Mantri Formalisation of Micro Food Processing Enterprises) Scheme Configuration
+# ================================================================
+
+scheme_id: base-pmfme
+display_name: "PM Formalisation of Micro Food Processing Enterprises (PMFME) Scheme"
+languages: [hi, en, mr, fr, ar]
+
+# ─── TTS/STT Configuration ───
+tts:
+  hi:
+    voice_name: "hi-IN-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  mr:
+    voice_name: "mr-IN-Wavenet-A"
+    engine: "google"
+    sample_rate: 24000
+  en:
+    voice_name: "en-US-Neural2-F"
+    engine: "google"
+    sample_rate: 24000
+  fr:
+    voice_name: "fr-FR-Neural2-A"
+    engine: "google"
+    sample_rate: 24000
+  ar:
+    voice_name: "ar-XA-Wavenet-A"
+    engine: "google"
+    sample_rate: 24000
+
+stt:
+  hi:
+    language_code: "hi-IN"
+    engine: "google"
+  mr:
+    language_code: "mr-IN"
+    engine: "google"
+  en:
+    language_code: "en-US"
+    engine: "google"
+  fr:
+    language_code: "fr-FR"
+    engine: "google"
+  ar:
+    language_code: "ar-XA"
+    engine: "google"
+
+# ─── Inactivity / Silence Nudge Configuration ───
+inactivity_defaults:
+  enabled: true
+  default_timeout_seconds: 5.0
+  max_nudges_per_node: 2
+  decay_multiplier: 1.4
+
+# ─── System Standard Voice Messages ───
+system_voice_messages:
+  hi:
+    processing: "आपका दस्तावेज़ प्रोसेस हो रहा है। कृपया प्रतीक्षा करें।"
+    success_template: "आपके {doc_name} से विवरण निकाल लिए गए हैं।"
+    error_blur: "फ़ोटो धुंधली या कटी हुई है। कृपया एक स्पष्ट फ़ोटो लें।"
+    error_invalid: "यह सही दस्तावेज़ नहीं लग रहा है। कृपया सही दस्तावेज़ की एक स्पष्ट फ़ोटो अपलोड करें।"
+    error_default: "सत्यापन विफल रहा। कृपया एक मान्य दस्तावेज़ अपलोड करें।"
+    doc_complete: "बधाई हो! आपके दस्तावेज़ सफलतापूर्वक जमा हो गए हैं। अगला कदम है ए आई इंटरव्यू, जिसमें आपसे आपके खाद्य प्रसंस्करण व्यवसाय के बारे में कुछ सवाल पूछे जाएंगे।"
+    interview_complete: "बहुत अच्छा! आपका इंटरव्यू पूरा हो गया है। अब बस एक और कदम बाकी है। अगला कदम है वीडियो सत्यापन, जिसमें आपको अपने कार्यस्थल की पुष्टि के लिए एक छोटा वीडियो रिकॉर्ड करना होगा।"
+    geo_complete: "बधाई हो! आपका PMFME आवेदन पूरी तरह से सफलतापूर्वक जमा हो गया है। हमारी टीम जल्द ही आपसे संपर्क करेगी।"
+    fallback_nudges:
+      - "क्या आपको मेरी आवाज आ रही है? मैं आपकी सहायता के लिए यहाँ हूँ।"
+      - "कोई जल्दी नहीं है, आप आराम से उत्तर दे सकते हैं।"
+    doc_names:
+      selfie: "सेल्फी"
+      aadhaar_front: "आधार कार्ड का अगला हिस्सा"
+      aadhaar_back: "आधार कार्ड का पिछला हिस्सा"
+      udyam: "उद्यम प्रमाणपत्र"
+      pan: "पैन कार्ड"
+      spouse_pan: "पति या पत्नी का पैन कार्ड"
+      address_proof: "एड्रेस प्रूफ (बिजली बिल / राशन कार्ड / संपत्ति दस्तावेज)"
+      electricity_bill: "बिजली का बिल"
+      ration_card: "राशन कार्ड"
+      property_registration: "संपत्ति पंजीकरण दस्तावेज"
+      lease_agreement: "लीज़ या किराया समझौता"
+      bank_passbook: "बैंक पासबुक"
+      machine_quotations: "मशीन कोटेशन"
+      workplace_video: "कार्यस्थल का वीडियो"
+      default: "दस्तावेज़"
+
+  mr:
+    processing: "तुमचे कागदपत्र तपासले जात आहे. कृपया थोडी वाट पहा."
+    success_template: "तुमच्या {doc_name} मधून माहिती मिळवली गेली आहे."
+    error_blur: "फोटो अस्पष्ट किंवा कापलेला आहे. कृपया एक स्पष्ट फोटो घ्या."
+    error_invalid: "हे योग्य कागदपत्र दिसत नाही. कृपया योग्य कागदपत्राचा स्पष्ट फोटो अपलोड करा."
+    error_default: "पडताळणी अयशस्वी झाली. कृपया वैध कागदपत्र अपलोड करा."
+    doc_complete: "अभिनंदन! तुमची कागदपत्रे यशस्वीरित्या सबमिट झाली आहेत. पुढील टप्पा म्हणजे AI मुलाखत आहे."
+    interview_complete: "खूप छान! तुमची मुलाखत पूर्ण झाली आहे. आता फक्त व्हिडिओ पडताळणी बाकी आहे."
+    geo_complete: "अभिनंदन! तुमचा PMFME अर्ज यशस्वीरीत्या सादर झाला आहे."
+    fallback_nudges:
+      - "तुम्हाला माझा आवाज येतोय का? मी तुमच्या मदतीसाठी इथे आहे."
+      - "काही घाई नाही, तुम्ही सवडीने उत्तर देऊ शकता."
+    doc_names:
+      selfie: "सेल्फी"
+      aadhaar_front: "आधार कार्डची पुढील बाजू"
+      aadhaar_back: "आधार कार्डची मागील बाजू"
+      udyam: "उद्यम प्रमाणपत्र"
+      pan: "पॅन कार्ड"
+      spouse_pan: "पती/पत्नीचे पॅन कार्ड"
+      address_proof: "पत्याचा पुरावा"
+      lease_agreement: "भाडे करार"
+      bank_passbook: "बँक पासबुक"
+      machine_quotations: "मशीन कोटेशन"
+      workplace_video: "कामाच्या जागेचा व्हिडिओ"
+      default: "कागदपत्र"
+
+  en:
+    processing: "Processing your document. Please wait."
+    success_template: "Details extracted from your {doc_name}."
+    error_blur: "The photo appears blurry or cropped. Please capture a clearer photo."
+    error_invalid: "This does not seem to be the correct document. Please upload a clear photo of the requested document."
+    error_default: "Verification failed. Please upload a valid document."
+    doc_complete: "Congratulations! Your documents have been successfully submitted. Next step is the AI interview regarding your food processing enterprise."
+    interview_complete: "Great job! Your interview is complete. The final step is video verification of your workplace."
+    geo_complete: "Congratulations! Your PMFME application has been submitted successfully."
+    fallback_nudges:
+      - "Can you hear me? I am here to assist you."
+      - "Take your time, you can answer at your convenience."
+    doc_names:
+      selfie: "Selfie"
+      aadhaar_front: "Aadhaar Card Front"
+      aadhaar_back: "Aadhaar Card Back"
+      udyam: "Udyam Certificate"
+      pan: "PAN Card"
+      spouse_pan: "Spouse PAN Card"
+      address_proof: "Address Proof"
+      lease_agreement: "Lease/Rent Agreement"
+      bank_passbook: "Bank Passbook"
+      machine_quotations: "Machinery Quotation"
+      workplace_video: "Workplace Video"
+      default: "Document"
+
+# ─── Interview Graph Definition ───
+interview_graph:
+  start_node_id: START
+  nodes:
+    # ─── Phase 1: Welcome & Document Captures ───
+    START:
+      type: "voice-qa"
+      text_template: "प्रधानमंत्री सूक्ष्म खाद्य उद्योग उन्नयन योजना (PMFME) में आपका स्वागत है। मैं आपके खाद्य प्रसंस्करण उद्यम के लोन आवेदन में आपकी सहायता करूँगी। क्या हम दस्तावेज़ सत्यापन से शुरुआत करें?"
+      text_template_en: "Welcome to the PMFME (Food Processing Enterprises) loan service. I will assist you with your application. Shall we start with document verification?"
+      text_template_mr: "प्रधानमंत्री सूक्ष्म अन्न प्रक्रिया उद्योग योजना (PMFME) मध्ये आपले स्वागत आहे. आपण कागदपत्र पडताळणीने सुरुवात करूया का?"
+      targets: []
+      edges:
+        - condition: "always"
+          next: "DOC_SELFIE"
+
+    DOC_SELFIE:
+      type: "capture"
+      document_id: "selfie"
+      manifest_id: "selfie"
+      page_id: "selfie"
+      text_template: "कृपया अपनी एक स्पष्ट सेल्फी फोटो लें।"
+      text_template_en: "Please take a clear selfie photo of yourself."
+      text_template_mr: "कृपया तुमचा एक स्पष्ट सेल्फी फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "DOC_AADHAAR_FRONT"
+
+    DOC_AADHAAR_FRONT:
+      type: "capture"
+      document_id: "aadhaar_front"
+      manifest_id: "doc_aadhaar_002"
+      page_id: "front"
+      text_template: "कृपया अपने आधार कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_en: "Please capture the front side of your Aadhaar card."
+      text_template_mr: "कृपया तुमच्या आधार कार्डच्या पुढील बाजूचा फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "DOC_AADHAAR_BACK"
+
+    DOC_AADHAAR_BACK:
+      type: "capture"
+      document_id: "aadhaar_back"
+      manifest_id: "doc_aadhaar_002"
+      page_id: "back"
+      text_template: "अब कृपया आधार कार्ड के पीछे वाले हिस्से की फोटो लें जिसमें आपका पता लिखा हो।"
+      text_template_en: "Now please capture the back side of your Aadhaar card showing your address."
+      text_template_mr: "आता आधार कार्डच्या मागील बाजूचा पत्ता असलेला फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "DOC_UDYAM"
+
+    DOC_UDYAM:
+      type: "capture"
+      document_id: "udyam"
+      manifest_id: "doc_udyam_001"
+      page_id: "front"
+      text_template: "अब कृपया अपने उद्यम पंजीकरण प्रमाणपत्र (Udyam Certificate) की फोटो लें।"
+      text_template_en: "Now please capture a photo of your Udyam Registration Certificate."
+      text_template_mr: "आता कृपया तुमच्या उद्यम नोंदणी प्रमाणपत्राचा फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_EXISTING_BIZ"
+
+    # ─── Document Scanner Q&A Sub-Flow ───
+    Q_DOC_QA_EXISTING_BIZ:
+      type: "voice-qa"
+      text_template: "आपका खाद्य व्यवसाय पहले से चल रहा है या आप बिल्कुल नया व्यवसाय शुरू कर रहे हैं?"
+      text_template_en: "Is your food processing business already existing, or are you starting a completely new unit?"
+      text_template_mr: "तुमचा अन्न प्रक्रिया व्यवसाय आधीपासून सुरू आहे की तुम्ही नवीन सुरू करत आहात?"
+      targets: ["existing_enterprise", "is_new_business"]
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_PROPERTY_OWNED"
+
+    Q_DOC_QA_PROPERTY_OWNED:
+      type: "voice-qa"
+      text_template: "जहाँ आप काम करेंगे या कारखाना लगाएंगे, वह जगह आपकी अपनी है या किराए पर है?"
+      text_template_en: "Is the proposed business premises owned by you or rented?"
+      text_template_mr: "व्यवसायाची जागा तुमच्या स्वतःच्या मालकीची आहे की भाड्याने घेतलेली आहे?"
+      targets: ["land_rental_owned", "building_ownership"]
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_OTHER_SCHEME"
+
+    Q_DOC_QA_OTHER_SCHEME:
+      type: "voice-qa"
+      text_template: "क्या आपने इस व्यवसाय के लिए पहले कभी किसी अन्य सरकारी योजना का लाभ लिया है? अगर हाँ, तो कृपया योजना का नाम बताएं।"
+      text_template_en: "Have you previously availed benefits from any other government scheme for this business? If yes, please mention the scheme name."
+      text_template_mr: "तुम्ही या व्यवसायासाठी यापूर्वी इतर कोणत्याही सरकारी योजनेचा लाभ घेतला आहे का?"
+      targets: ["has_previous_loan", "previous_loan_scheme"]
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_EDUCATION"
+
+    Q_DOC_QA_EDUCATION:
+      type: "voice-qa"
+      text_template: "आपकी पढ़ाई कहाँ तक हुई है? मतलब आपकी शैक्षणिक योग्यता क्या है?"
+      text_template_en: "What is your highest educational qualification?"
+      text_template_mr: "तुमचे शिक्षण कुठपर्यंत झाले आहे?"
+      targets: ["education_qualification"]
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_MOTHER_NAME"
+
+    Q_DOC_QA_MOTHER_NAME:
+      type: "voice-qa"
+      text_template: "आपकी माता जी का पूरा नाम क्या है?"
+      text_template_en: "What is your mother's full name?"
+      text_template_mr: "तुमच्या आईचे पूर्ण नाव काय आहे?"
+      targets: ["mother_name"]
+      edges:
+        - condition: "always"
+          next: "Q_DOC_QA_MARRIED"
+
+    Q_DOC_QA_MARRIED:
+      type: "voice-qa"
+      text_template: "क्या आप विवाहित हैं?"
+      text_template_en: "Are you married?"
+      text_template_mr: "तुमचे लग्न झाले आहे का?"
+      targets: ["is_married"]
+      routing_prompt: "Evaluate if user is married. Return 'YES' if married, 'NO' if unmarried or single."
+      edges:
+        - condition: "routing_decision == 'YES'"
+          next: "Q_DOC_QA_SPOUSE_PHONE"
+        - condition: "always"
+          next: "DOC_PAN"
+
+    Q_DOC_QA_SPOUSE_PHONE:
+      type: "voice-qa"
+      text_template: "कृपया अपने पति या पत्नी का 10 अंकों का मोबाइल नंबर बताइए।"
+      text_template_en: "Please provide your spouse's 10-digit mobile number."
+      text_template_mr: "कृपया तुमच्या पती/पत्नीचा १० अंकी मोबाईल नंबर सांगा."
+      targets: ["spouse_phone"]
+      edges:
+        - condition: "always"
+          next: "DOC_PAN"
+
+    DOC_PAN:
+      type: "capture"
+      document_id: "pan"
+      manifest_id: "doc_pan_001"
+      page_id: "front"
+      text_template: "कृपया अपने पैन कार्ड (PAN Card) की साफ फोटो लें।"
+      text_template_en: "Please capture a clear photo of your PAN card."
+      text_template_mr: "कृपया तुमच्या पॅन कार्डचा फोटो घ्या."
+      edges:
+        - condition: "is_married == true"
+          next: "DOC_SPOUSE_PAN"
+        - condition: "always"
+          next: "DOC_ADDRESS_PROOF"
+
+    DOC_SPOUSE_PAN:
+      type: "capture"
+      document_id: "spouse_pan"
+      manifest_id: "doc_pan_001"
+      page_id: "front"
+      text_template: "कृपया अपने पति या पत्नी के पैन कार्ड (Spouse PAN) की फोटो लें।"
+      text_template_en: "Please capture a photo of your spouse's PAN card."
+      text_template_mr: "कृपया तुमच्या पती/पत्नीच्या पॅन कार्डचा फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "DOC_ADDRESS_PROOF"
+
+    DOC_ADDRESS_PROOF:
+      type: "capture"
+      document_id: "address_proof"
+      manifest_id: "doc_address_proof_001"
+      page_id: "front"
+      text_template: "कृपया अपना एड्रेस प्रूफ रखें, जैसे कि बिजली का बिल, राशन कार्ड, या संपत्ति पंजीकरण दस्तावेज।"
+      text_template_en: "Please capture your address proof document (Electricity Bill, Ration Card, or Property Registration document)."
+      text_template_mr: "कृपया तुमचा पत्याचा पुरावा (वीज बिल, रेशन कार्ड किंवा मालमत्ता नोंदणी दस्तऐवज) चा फोटो घ्या."
+      edges:
+        - condition: "building_ownership == 'Rented' || land_rental_owned == 'Rented'"
+          next: "DOC_LEASE_AGREEMENT"
+        - condition: "always"
+          next: "DOC_BANK_PASSBOOK"
+
+    DOC_LEASE_AGREEMENT:
+      type: "capture"
+      document_id: "lease_agreement"
+      manifest_id: "doc_lease_001"
+      page_id: "page_1"
+      multipage: true
+      max_pages: 3
+      text_template: "कृपया अपने लीज़ या किराया समझौते (Rent Agreement) के पन्नों की फोटो लें।"
+      text_template_en: "Please capture pages of your Lease or Rent Agreement."
+      text_template_mr: "कृपया तुमच्या भाडे कराराच्या पानांचे फोटो घ्या."
+      edges:
+        - condition: "always"
+          next: "DOC_BANK_PASSBOOK"
+
+    DOC_BANK_PASSBOOK:
+      type: "capture"
+      document_id: "bank_passbook"
+      manifest_id: "doc_bank_passbook_001"
+      page_id: "page_1"
+      multipage: true
+      max_pages: 3
+      text_template: "कृपया अपनी बैंक पासबुक के मुख्य पृष्ठ (Account Details) की स्पष्ट फोटो लें।"
+      text_template_en: "Please capture a clear photo of your bank passbook's front page showing account number and IFSC code."
+      text_template_mr: "कृपया तुमच्या बँक पासबुकच्या पहिल्या पानाचा फोटो घ्या ज्यावर खाते क्रमांक आणि IFSC कोड असेल."
+      edges:
+        - condition: "always"
+          next: "Q_INTERVIEW_INTRO"
+
+    # ─── Phase 2: AI Loan Interview (Business Voice Graph) ───
+    Q_INTERVIEW_INTRO:
+      type: "voice-qa"
+      text_template: "नमस्कार {applicant_name}! दस्तावेज़ देने के लिए आपका धन्यवाद। अब मैं आपसे आपके खाद्य प्रसंस्करण काम-धंधे के बारे में थोड़ी जानकारी लूँगी। क्या हम शुरू करें?"
+      text_template_en: "Hello {applicant_name}! Thank you for submitting documents. Now I will take a few details about your food processing business. Shall we begin?"
+      text_template_mr: "नमस्कार {applicant_name}! कागदपत्रे दिल्याबद्दल धन्यवाद. आता मी तुमच्या अन्न प्रक्रिया व्यवसायाबद्दल काही माहिती घेईन."
+      targets: []
+      edges:
+        - condition: "always"
+          next: "Q_TYPE_OF_BUSINESS"
+
+    Q_TYPE_OF_BUSINESS:
+      type: "voice-qa"
+      text_template: "सबसे पहले बताइए, आप कौन सा काम या खाद्य प्रसंस्करण उद्योग शुरू करना चाहते हैं?"
+      text_template_en: "First of all, what type of food processing or manufacturing business are you operating or proposing to set up?"
+      text_template_mr: "सर्वप्रथम सांगा, तुम्ही कोणता अन्न प्रक्रिया व्यवसाय सुरू करू इच्छिता?"
+      targets: ["type_of_business", "food_category"]
+      edges:
+        - condition: "always"
+          next: "Q_ACTIVITIES_OPERATIONS"
+
+    Q_ACTIVITIES_OPERATIONS:
+      type: "voice-qa"
+      text_template: "अच्छा, इस काम में आप क्या-क्या करेंगे, जरा विस्तार से समझाइए? और यह काम मशीनों से होगा या हाथों से?"
+      text_template_en: "Could you explain what activities and operations are involved? Is it automatic, semi-automatic, or manual?"
+      text_template_mr: "या व्यवसायात तुम्ही कोणती कामे करणार आहात? हे काम पूर्णपणे मशीनने होणार की हाताने?"
+      targets: ["activities_involved", "nature_of_operations", "proposed_product_type"]
+      edges:
+        - condition: "always"
+          next: "Q_LAND_AREA"
+
+    Q_LAND_AREA:
+      type: "voice-qa"
+      text_template: "इस काम के लिए आपके पास कुल कितनी जगह या जमीन उपलब्ध है? कृपया वर्ग फीट (Square Feet) में बताइए।"
+      text_template_en: "How much total land or space do you have for this unit? Please specify in square feet."
+      text_template_mr: "या कामासाठी तुमच्याकडे एकूण किती जागा किंवा जमीन उपलब्ध आहे? कृपया स्क्वेअर फूटमध्ये सांगा."
+      targets: ["total_available_land_sqft"]
+      edges:
+        - condition: "always"
+          next: "Q_BUILDING_STRUCTURE"
+
+    Q_BUILDING_STRUCTURE:
+      type: "voice-qa"
+      text_template: "और वहाँ आपने क्या बनाया है या निर्माण करेंगे? जैसे टिन शेड, पक्का RCC भवन, स्टोरेज, या साधारण फर्श? और उसका क्षेत्रफल कितना है?"
+      text_template_en: "What type of building structure is present or planned (e.g. Tin Shed, RCC, Storage Shed)? What is the covered building area?"
+      text_template_mr: "तिथे तुम्ही कशा प्रकारचे बांधकाम केले आहे (टिन शेड, पक्के बांधकाम, गोडाऊन) आणि त्याचे क्षेत्रफळ किती आहे?"
+      targets: ["building_type", "building_area"]
+      edges:
+        - condition: "always"
+          next: "Q_OWNERSHIP_RENT"
+
+    Q_OWNERSHIP_RENT:
+      type: "voice-qa"
+      text_template: "यह जगह आपकी अपनी है या किराए पर ली गई है? अगर किराए पर है, तो हर महीने कितना किराया देते हैं?"
+      text_template_en: "Is this premises owned or rented? If rented, how much monthly rent do you pay?"
+      text_template_mr: "ही जागा स्वतःची आहे की भाड्याची? भाड्याची असल्यास दरमहा भाडे किती आहे?"
+      targets: ["building_ownership", "monthly_rent"]
+      edges:
+        - condition: "always"
+          next: "Q_MACHINERIES"
+
+    Q_MACHINERIES:
+      type: "voice-qa"
+      text_template: "इस काम के लिए आपको कौन-कौन सी मशीनों की ज़रूरत पड़ेगी? कितनी-कितनी मशीनें लेंगे और एक मशीन की कीमत लगभग कितनी होगी?"
+      text_template_en: "Which machineries and equipment do you require? How many units and what is the approximate cost per unit?"
+      text_template_mr: "या कामासाठी तुम्हाला कोणकोणत्या मशिन्स लागतील? किती मशिन्स घेणार आणि एका मशीनची किंमत अंदाजे किती असेल?"
+      targets: ["machineries", "machine_unit_cost"]
+      edges:
+        - condition: "always"
+          next: "Q_MACHINE_QUOTATION_CAPTURE"
+
+    Q_MACHINE_QUOTATION_CAPTURE:
+      type: "capture"
+      document_id: "machine_quotation"
+      manifest_id: "doc_machine_quote_001"
+      page_id: "page_1"
+      multipage: true
+      max_pages: 5
+      text_template: "यदि आपके पास मशीनों का कोटेशन (Price Estimate) उपलब्ध है, तो कृपया उसकी फोटो लें या आगे बढ़ें।"
+      text_template_en: "If you have machinery quotation/estimate documents available, please take a photo now or proceed."
+      text_template_mr: "तुमच्याकडे मशीनचे कोटेशन असल्यास फोटो घ्या किंवा पुढे जा."
+      targets: ["machine_quotations"]
+      edges:
+        - condition: "always"
+          next: "Q_PRODUCTS_TO_SELL"
+
+    Q_PRODUCTS_TO_SELL:
+      type: "voice-qa"
+      text_template: "आप कौन-कौन से तैयार उत्पाद या सामान बनाकर बेचेंगे?"
+      text_template_en: "What specific products will you manufacture/process and sell?"
+      text_template_mr: "तुम्ही कोणकोणती उत्पादने तयार करून विकणार आहात?"
+      targets: ["products_to_sell"]
+      edges:
+        - condition: "always"
+          next: "Q_PRODUCT_RATES_UNITS"
+
+    Q_PRODUCT_RATES_UNITS:
+      type: "voice-qa"
+      text_template: "हर महीने लगभग कितना सामान बेचने का अनुमान है और उसे किस दर या कीमत पर बेचेंगे?"
+      text_template_en: "What is the expected monthly sales volume for each product and at what selling price per unit?"
+      text_template_mr: "दरमहा किती माल विकण्याचा अंदाज आहे आणि त्याची विक्री किंमत काय असेल?"
+      targets: ["product_monthly_units", "product_rate_per_unit"]
+      edges:
+        - condition: "always"
+          next: "Q_RAW_MATERIALS"
+
+    Q_RAW_MATERIALS:
+      type: "voice-qa"
+      text_template: "इस उत्पाद को बनाने के लिए कौन-कौन सा कच्चा माल (Raw Material) लगेगा?"
+      text_template_en: "What raw materials and ingredients are required for your food products?"
+      text_template_mr: "हा माल तयार करण्यासाठी कोणता कच्चा माल लागेल?"
+      targets: ["raw_materials_required"]
+      edges:
+        - condition: "always"
+          next: "Q_RAW_MATERIAL_RATES_QTY"
+
+    Q_RAW_MATERIAL_RATES_QTY:
+      type: "voice-qa"
+      text_template: "हर महीने लगभग कितना कच्चा माल लगेगा और उसकी प्रति इकाई कीमत क्या होगी?"
+      text_template_en: "How much raw material quantity is required monthly and what is its purchase rate per unit?"
+      text_template_mr: "दरमहा किती कच्चा माल लागेल आणि त्याचा दर काय असेल?"
+      targets: ["raw_material_monthly_qty", "raw_material_rate_per_unit"]
+      edges:
+        - condition: "always"
+          next: "Q_WORKING_CAPITAL"
+
+    Q_WORKING_CAPITAL:
+      type: "voice-qa"
+      text_template: "दैनिक खर्चों जैसे कच्चा माल खरीदने और मजदूरी के लिए क्या आपको वर्किंग कैपिटल लोन की ज़रूरत है?"
+      text_template_en: "Do you need a working capital loan for day-to-day operational expenses like raw materials and labor?"
+      text_template_mr: "कच्चा माल आणि मजुरीसाठी तुम्हाला वर्किंग कॅपिटल कर्जाची आवश्यकता आहे का?"
+      targets: ["working_capital_loan_needed"]
+      edges:
+        - condition: "always"
+          next: "Q_EMPLOYMENT_WAGES"
+
+    Q_EMPLOYMENT_WAGES:
+      type: "voice-qa"
+      text_template: "आपके साथ कुल कितने कर्मचारी काम करेंगे, वे क्या-क्या काम संभालेंगे और उन्हें महीने में कितनी तनख़्वाह देंगे?"
+      text_template_en: "How many total workers will be employed, what will be their roles, and what monthly wages will you pay them?"
+      text_template_mr: "तुमच्याकडे एकूण किती कामगार काम करतील, ते काय काम पाहतील आणि त्यांना दरमहा किती पगार द्याल?"
+      targets: ["total_workers", "worker_roles", "new_employment_generated", "num_skilled_workers", "num_unskilled_workers", "wages_skilled_per_month", "wages_unskilled_per_month"]
+      edges:
+        - condition: "always"
+          next: "Q_INTERVIEW_CLOSING"
+
+    Q_INTERVIEW_CLOSING:
+      type: "voice-qa"
+      text_template: "बहुत बढ़िया! आपने व्यवसाय की पूरी जानकारी दे दी है। अब अंतिम चरण में कार्यस्थल की वीडियो रिकॉर्डिंग करेंगे।"
+      text_template_en: "Excellent! You have provided all business details. The final step is video recording of your business workplace."
+      text_template_mr: "उत्तम! तुम्ही सर्व माहिती दिली आहे. आता शेवटच्या टप्प्यात कामाच्या जागेचे व्हिडिओ रेकॉर्डिंग करूया."
+      targets: []
+      edges:
+        - condition: "always"
+          next: "DOC_WORKPLACE_VIDEO"
+
+    # ─── Phase 3: GeoTag Video Verification ───
+    DOC_WORKPLACE_VIDEO:
+      type: "capture"
+      document_id: "workplace_video"
+      manifest_id: "doc_video_001"
+      page_id: "video"
+      text_template: "कृपया अपने कार्यस्थल और मशीनरी का 15-20 सेकंड का स्पष्ट वीडियो रिकॉर्ड करें।"
+      text_template_en: "Please record a 15-20 second clear video showing your business workplace and location."
+      text_template_mr: "कृपया तुमच्या कामाच्या जागेचा १५-२० सेकंदांचा स्पष्ट व्हिडिओ रेकॉर्ड करा."
+      edges:
+        - condition: "always"
+          next: "COMPLETE"
+
+    COMPLETE:
+      type: "status"
+      text_template: "बधाई हो! आपका PMFME आवेदन सफलतापूर्वक पूरा हो गया है।"
+      text_template_en: "Congratulations! Your PMFME application is successfully complete."
+      text_template_mr: "अभिनंदन! तुमचा PMFME अर्ज यशस्वीरित्या पूर्ण झाला आहे."
+      edges: []
+
+# ─── Context Map (for LLM prompt optimization) ───
+context_map:
+  START: []
+  DOC_SELFIE: []
+  DOC_AADHAAR_FRONT: []
+  DOC_AADHAAR_BACK: []
+  DOC_UDYAM: []
+  Q_DOC_QA_EXISTING_BIZ: []
+  Q_DOC_QA_PROPERTY_OWNED: []
+  Q_DOC_QA_OTHER_SCHEME: []
+  Q_DOC_QA_EDUCATION: []
+  Q_DOC_QA_MOTHER_NAME: []
+  Q_DOC_QA_MARRIED: []
+  Q_DOC_QA_SPOUSE_PHONE: [Q_DOC_QA_MARRIED]
+  DOC_PAN: []
+  DOC_SPOUSE_PAN: [Q_DOC_QA_MARRIED]
+  DOC_ADDRESS_PROOF: []
+  DOC_LEASE_AGREEMENT: [Q_DOC_QA_PROPERTY_OWNED]
+  DOC_BANK_PASSBOOK: []
+  Q_INTERVIEW_INTRO: []
+  Q_TYPE_OF_BUSINESS: []
+  Q_ACTIVITIES_OPERATIONS: [Q_TYPE_OF_BUSINESS]
+  Q_LAND_AREA: []
+  Q_BUILDING_STRUCTURE: [Q_LAND_AREA]
+  Q_OWNERSHIP_RENT: [Q_LAND_AREA, Q_BUILDING_STRUCTURE]
+  Q_MACHINERIES: [Q_TYPE_OF_BUSINESS, Q_ACTIVITIES_OPERATIONS]
+  Q_MACHINE_QUOTATION_CAPTURE: [Q_MACHINERIES]
+  Q_PRODUCTS_TO_SELL: [Q_TYPE_OF_BUSINESS]
+  Q_PRODUCT_RATES_UNITS: [Q_PRODUCTS_TO_SELL]
+  Q_RAW_MATERIALS: [Q_PRODUCTS_TO_SELL]
+  Q_RAW_MATERIAL_RATES_QTY: [Q_RAW_MATERIALS]
+  Q_WORKING_CAPITAL: []
+  Q_EMPLOYMENT_WAGES: []
+  Q_INTERVIEW_CLOSING: []
+  DOC_WORKPLACE_VIDEO: []
+  COMPLETE: []
+
+# ─── Field Extraction Instructions ───
+field_instructions:
+  existing_enterprise: "INFER as boolean (true for existing business, false for new business)."
+  is_new_business: "INFER as boolean (true if starting new business, false if existing)."
+  land_rental_owned: "INFER as 'Owned' or 'Rented'. If user says 'apni hai' -> 'Owned', 'kiraye par' -> 'Rented'."
+  building_ownership: "INFER as 'Owned' or 'Rented'."
+  has_previous_loan: "INFER as boolean (true if availed previous loan/scheme, false otherwise)."
+  previous_loan_scheme: "Extract the name of the previous scheme as string or empty string if none."
+  education_qualification: "Extract educational qualification in English (e.g., '10th Pass', '12th Pass', 'Graduate', 'Post Graduate', 'Diploma', 'Illiterate')."
+  mother_name: "Extract full name of the mother in clean English."
+  is_married: "INFER as boolean (true if married, false if unmarried/single)."
+  spouse_phone: "Extract 10-digit mobile number of spouse as string of digits without country code or symbols."
+  
+  type_of_business: "Extract type of food processing business in English (e.g., 'Atta Chakki (Flour Mill)', 'Pickle Making', 'Masala Manufacturing', 'Dairy Processing', 'Mustard Oil Mill', 'Bakery', 'Papad Making', 'Banana Chips')."
+  food_category: "INFER broad food processing category (e.g., 'Grain Processing', 'Spices & Condiments', 'Fruits & Vegetables Processing', 'Dairy Products', 'Edible Oil', 'Bakery & Confectionery')."
+  activities_involved: "INFER and summarize key processing activities in English (e.g., 'Grinding wheat into flour, Packaging, Wholesale and retail distribution')."
+  nature_of_operations: "INFER as ONE of: 'Automatic', 'Semi Automatic', 'Manual'. If user says 'machine se' -> 'Semi Automatic', 'khud haath se' -> 'Manual', 'poori tarah automatic' -> 'Automatic'."
+  proposed_product_type: "INFER as ONE of: 'Agriculture Produce', 'Food Products Manufacturing', 'MFP (Minor Forest Produce)'."
+  
+  total_available_land_sqft: "Extract as integer in square feet without decimals or commas. If given in 'gaj' multiply by 9, 'meter' multiply by 10.76."
+  building_type: "INFER as ONE of: 'Flooring or Minor Civil Construction', 'RCC/Asbestos', 'Shed or Storage', 'Tin Shed', 'Others'."
+  building_area: "Extract as integer in square feet. Covered built-up area."
+  monthly_rent: "Extract as integer in rupees per month. If building is owned, value MUST be 0."
+  
+  machineries: "Extract as JSON array of objects: [{\"name\": \"machine name in English\", \"count\": integer, \"unit_cost\": cost_in_rupees}]."
+  machine_unit_cost: "Extract per-unit machinery cost in rupees."
+  machine_quotations: "JSON array of captured quotation records."
+  
+  products_to_sell: "Extract as JSON array of objects with product names in English: [{\"name\": \"Wheat Flour\"}]."
+  product_monthly_units: "Extract monthly production/sales volume in integer units."
+  product_rate_per_unit: "Extract selling rate per unit in rupees as integer."
+  
+  raw_materials_required: "Extract as JSON array of objects: [{\"name\": \"Raw Wheat\"}, {\"name\": \"Packaging Pouches\"}]."
+  raw_material_monthly_qty: "Extract monthly required raw material quantity as integer."
+  raw_material_rate_per_unit: "Extract purchase rate per unit in rupees as integer."
+  
+  working_capital_loan_needed: "INFER as 'Yes' or 'No'. If user says 'haan' or 'chahiye' -> 'Yes', else 'No'."
+  
+  total_workers: "Extract total number of workers working with the applicant as integer. Must be reasonable (< 10)."
+  worker_roles: "Extract text description in English of employee roles (e.g., 'Machine operator, Packaging helper, Delivery person')."
+  new_employment_generated: "Extract integer count of new jobs created by the proposed unit."
+  num_skilled_workers: "INFER number of skilled workers from roles description as integer."
+  num_unskilled_workers: "INFER number of unskilled/helper workers from roles description as integer."
+  wages_skilled_per_month: "Extract monthly salary per skilled worker in rupees as integer."
+  wages_unskilled_per_month: "Extract monthly salary per unskilled worker in rupees as integer."
+
+# ─── Financial Rules ───
+financial_rules:
+  scheme_type: "PMFME"
+  max_subsidy_percentage: 0.35
+  max_subsidy_cap_amount: 1000000
+  beneficiary_capex_contribution_min_pct: 0.10
+  beneficiary_working_capital_contribution_min_pct: 0.20
+  bank_loan_term_pct_max: 0.90
+  interest_rate_range: [0.08, 0.12]
+  loan_repayment_period_years: [5, 7]
+  project_implementation_period_months: [3, 6]
+
+# ─── Document Requirements ───
+documents_required:
+  - type: selfie
+    required: true
+  - type: aadhaar_front
+    required: true
+  - type: aadhaar_back
+    required: true
+  - type: udyam
+    required: true
+  - type: pan
+    required: true
+  - type: spouse_pan
+    required: false
+  - type: address_proof
+    required: true
+    subtypes: ["electricity_bill", "ration_card", "property_registration"]
+  - type: lease_agreement
+    required: false
+    multipage: true
+    max_pages: 3
+  - type: bank_passbook
+    required: true
+    multipage: true
+    max_pages: 3
+  - type: machine_quotations
+    required: false
+  - type: workplace_video
+    required: true
+
+# ─── Dynamic Field Extraction & Mappings ───
+primary_applicant_key: "applicant_name"
+default_applicant_placeholder:
+  hi: "आवेदक"
+  mr: "अर्जदार"
+  en: "Applicant"
+  fr: "Demandeur"
+  ar: "المتقدم"
+
+extraction_mappings:
+  applicant_name:
+    sources:
+      - "applicant_name"
+      - "full_name"
+      - "holder.full_name"
+      - "extractions.aadhaar_front.holder.full_name"
+      - "extractions.doc_aadhaar_002.holder.full_name"
+  father_spouse_name:
+    sources:
+      - "father_spouse_name"
+      - "father_name"
+      - "holder.father_name"
+      - "extractions.aadhaar_front.holder.father_name"
+  mother_name:
+    sources:
+      - "mother_name"
+      - "qa_responses.mother_name"
+  dob:
+    sources:
+      - "dob"
+      - "date_of_birth"
+      - "holder.date_of_birth"
+      - "extractions.aadhaar_front.holder.date_of_birth"
+  gender:
+    sources:
+      - "gender"
+      - "holder.gender"
+      - "extractions.aadhaar_front.holder.gender"
+  applicant_address:
+    sources:
+      - "applicant_address"
+      - "full_address_string"
+      - "address.full_address_string"
+      - "extractions.aadhaar_back.address.full_address_string"
+  applicant_city:
+    sources:
+      - "applicant_city"
+      - "city"
+      - "village_town_city"
+      - "address.village_town_city"
+      - "extractions.aadhaar_back.address.village_town_city"
+  applicant_district:
+    sources:
+      - "applicant_district"
+      - "district"
+      - "address.district"
+      - "extractions.aadhaar_back.address.district"
+  applicant_state:
+    sources:
+      - "applicant_state"
+      - "state"
+      - "address.state"
+      - "extractions.aadhaar_back.address.state"
+  applicant_pincode:
+    sources:
+      - "applicant_pincode"
+      - "pincode"
+      - "address.pincode"
+      - "extractions.aadhaar_back.address.pincode"
+  pan_number:
+    sources:
+      - "pan_number"
+      - "extractions.pan.pan_number"
+  spouse_pan_number:
+    sources:
+      - "spouse_pan_number"
+      - "extractions.spouse_pan.pan_number"
+  enterprise_name:
+    sources:
+      - "enterprise_name"
+      - "enterprise.enterprise_name"
+      - "extractions.udyam.enterprise.enterprise_name"
+  udyam_number:
+    sources:
+      - "udyam_number"
+      - "enterprise.udyam_registration_number"
+      - "extractions.udyam.enterprise.udyam_registration_number"
+  legal_status_of_business:
+    sources:
+      - "legal_status_of_business"
+      - "organisation_type"
+      - "enterprise.organisation_type"
+      - "extractions.udyam.enterprise.organisation_type"
+  social_category:
+    sources:
+      - "social_category"
+      - "enterprise.social_category"
+      - "extractions.udyam.enterprise.social_category"
+  bank_ifsc_code:
+    sources:
+      - "bank_ifsc_code"
+      - "account_details.ifsc_code"
+      - "extractions.bank_passbook.account_details.ifsc_code"
+  bank_account_number:
+    sources:
+      - "bank_account_number"
+      - "account_details.account_number"
+      - "extractions.bank_passbook.account_details.account_number"
+  bank_name:
+    sources:
+      - "bank_name"
+      - "account_details.bank_name"
+      - "extractions.bank_passbook.account_details.bank_name"
+  bank_branch_name:
+    sources:
+      - "bank_branch_name"
+      - "account_details.branch_name"
+      - "extractions.bank_passbook.account_details.branch_name"
+
+# ─── DB Column Mapping (PostgreSQL pmfme_user_data) ───
+db_mapping:
+  applicant_name: applicant_name
+  father_spouse_name: father_spouse_name
+  mother_name: mother_name
+  gender: gender
+  dob: dob
+  social_category: social_category
+  applicant_address: applicant_address
+  applicant_city: applicant_city
+  applicant_district: applicant_district
+  applicant_state: applicant_state
+  applicant_pincode: applicant_pincode
+  applicant_mobile: applicant_mobile
+  applicant_email: applicant_email
+  pan_number: pan_number
+  spouse_pan_number: spouse_pan_number
+  is_married: is_married
+  spouse_phone: spouse_phone
+  education_qualification: education_qualification
+  
+  enterprise_name: enterprise_name
+  enterprise_address: enterprise_address
+  enterprise_city: enterprise_city
+  enterprise_district: enterprise_district
+  enterprise_state: enterprise_state
+  enterprise_pincode: enterprise_pincode
+  udyam_number: udyam_number
+  enterprise_type: enterprise_type
+  type_of_business: type_of_business
+  food_category: food_category
+  legal_status_of_business: legal_status_of_business
+  latitude_longitude: latitude_longitude
+  type_of_property: type_of_property
+  land_rental_owned: land_rental_owned
+  
+  activities_involved: activities_involved
+  nature_of_operations: nature_of_operations
+  proposed_product_type: proposed_product_type
+  total_available_land_sqft: total_available_land_sqft
+  building_type: building_type
+  building_area: building_area
+  building_ownership: building_ownership
+  monthly_rent: monthly_rent
+  
+  machineries: machineries
+  machine_quotations: machine_quotations
+  products_to_sell: products_to_sell
+  raw_materials_required: raw_materials_required
+  working_capital_loan_needed: working_capital_loan_needed
+  
+  total_workers: total_workers
+  num_skilled_workers: num_skilled_workers
+  num_unskilled_workers: num_unskilled_workers
+  new_employment_generated: new_employment_generated
+  wages_skilled_per_month: wages_skilled_per_month
+  wages_unskilled_per_month: wages_unskilled_per_month
+  
+  bank_ifsc_code: bank_ifsc_code
+  bank_name: bank_name
+  bank_branch_name: bank_branch_name
+  bank_account_number: bank_account_number
+  
+  land_value_per_sqft: land_value_per_sqft
+  personal_contribution_capex: personal_contribution_capex
+  own_contribution_working_capital: own_contribution_working_capital
+  preliminary_preoperative_cost: preliminary_preoperative_cost
+  furniture_and_fixtures: furniture_and_fixtures
+  contingency_miscellaneous: contingency_miscellaneous
+  stock_in_process_days: stock_in_process_days
+  finished_goods_days: finished_goods_days
+  receivables_days: receivables_days
+  loan_repayment_period: loan_repayment_period
+  project_implementation_period: project_implementation_period
+  rate_of_interest: rate_of_interest
+  depreciation_building_percent: depreciation_building_percent
+  depreciation_machinery_percent: depreciation_machinery_percent
+  misc_expenditure_repair_maintenance: misc_expenditure_repair_maintenance
+  misc_expenditure_power_fuel: misc_expenditure_power_fuel
+  misc_expenditure_overheads: misc_expenditure_overheads
+  misc_expenditure_telephone: misc_expenditure_telephone
+  misc_expenditure_stationery: misc_expenditure_stationery
+  misc_expenditure_advertisement: misc_expenditure_advertisement
+  misc_expenditure_other: misc_expenditure_other
+
+# ─── Post-processing Pipelines ───
+post_processing_pipelines:
+  # Pipeline 1: Business Viability Evaluation
+  business_viability:
+    trigger: "on_complete"
+    type: "llm_evaluation"
+    model: "gemini-2.5-flash"
+    input_fields:
+      - "applicant_name"
+      - "enterprise_name"
+      - "type_of_business"
+      - "food_category"
+      - "activities_involved"
+      - "nature_of_operations"
+      - "proposed_product_type"
+      - "total_available_land_sqft"
+      - "building_type"
+      - "building_area"
+      - "building_ownership"
+      - "monthly_rent"
+      - "machineries"
+      - "products_to_sell"
+      - "raw_materials_required"
+      - "working_capital_loan_needed"
+      - "total_workers"
+      - "worker_roles"
+      - "new_employment_generated"
+      - "wages_skilled_per_month"
+      - "wages_unskilled_per_month"
+    system_instruction: "You are a senior credit and technical appraisal officer evaluating PMFME food processing loan viability for rural micro-entrepreneurs. Return ONLY valid JSON."
+    prompt_template: |
+      {applicant_name} has applied for a PMFME food processing loan for {enterprise_name}.
+      
+      BUSINESS DETAILS:
+      {input_data}
+      
+      Evaluate the viability of this food processing business on:
+      1. Promoter's capability and experience
+      2. Product market demand and scalability
+      3. Unit economics & margin feasibility
+      4. Raw material supply and local availability
+      5. Infrastructure and machinery readiness
+      
+      PMFME is a government scheme to promote micro-entrepreneurs, so evaluate with utmost leniency.
+      Tag the business as 'Highly Viable', 'Viable', or 'Not Viable' and provide a detailed 100-word explanation.
+      
+      OUTPUT FORMAT (JSON only):
+      {{
+        "viability_tag": "Highly Viable" | "Viable" | "Not Viable",
+        "explanation": "detailed 100-word explanation in English",
+        "evaluation_details": {{
+          "promoter_capability": "brief assessment",
+          "product_demand": "brief assessment",
+          "unit_economics": "brief assessment",
+          "raw_material_supply": "brief assessment",
+          "infrastructure_readiness": "brief assessment"
+        }}
+      }}
+    output_mapping:
+      viability_tag: "viability_tag"
+      explanation: "viability_explanation"
+      evaluation_details: "viability_details"
+
+  # Pipeline 2: Financial Parameter Derivation
+  financial_derivation:
+    trigger: "on_complete"
+    type: "llm_derivation"
+    model: "gemini-2.5-flash"
+    input_fields:
+      - "type_of_business"
+      - "activities_involved"
+      - "nature_of_operations"
+      - "total_available_land_sqft"
+      - "building_type"
+      - "building_area"
+      - "building_ownership"
+      - "machineries"
+      - "products_to_sell"
+      - "raw_materials_required"
+      - "applicant_district"
+      - "applicant_state"
+    system_instruction: "You are a financial analyst for PMFME food processing loan applications. Return ONLY valid JSON with numeric values."
+    prompt_template: |
+      Given the applicant and business data below, generate the realistic derived financial fields for the PMFME portal:
+      
+      INPUT DATA:
+      {input_data}
+      
+      Return ONLY a JSON object with:
+      {{
+        "land_value_per_sqft": 800,
+        "personal_contribution_capex": 15.0,
+        "preliminary_cost": 15000,
+        "furniture_fixture_cost": 25000,
+        "contingency_cost": 15000,
+        "stock_in_process_days": 7,
+        "finished_goods_days": 15,
+        "receivable_days": 30,
+        "repair_maintenance_pct": 2.0,
+        "power_fuel_pct": 5.0,
+        "other_overhead_pct": 1.0,
+        "telephone_pct": 0.5,
+        "stationery_pct": 0.5,
+        "advertisement_pct": 1.5,
+        "misc_expenditure_pct": 1.0,
+        "depreciation_building_pct": 5.0,
+        "depreciation_machinery_pct": 15.0,
+        "loan_repayment_years": "5",
+        "project_implementation_months": "3",
+        "rate_of_interest": 9.5,
+        "building_rate_per_sqft": 800,
+        "own_contribution_working_capital": 25.0
+      }}
+    output_mapping:
+      land_value_per_sqft: "land_value_per_sqft"
+      personal_contribution_capex: "personal_contribution_capex"
+      preliminary_cost: "preliminary_preoperative_cost"
+      furniture_fixture_cost: "furniture_and_fixtures"
+      contingency_cost: "contingency_miscellaneous"
+      stock_in_process_days: "stock_in_process_days"
+      finished_goods_days: "finished_goods_days"
+      receivable_days: "receivables_days"
+      repair_maintenance_pct: "misc_expenditure_repair_maintenance"
+      power_fuel_pct: "misc_expenditure_power_fuel"
+      other_overhead_pct: "misc_expenditure_overheads"
+      telephone_pct: "misc_expenditure_telephone"
+      stationery_pct: "misc_expenditure_stationery"
+      advertisement_pct: "misc_expenditure_advertisement"
+      misc_expenditure_pct: "misc_expenditure_other"
+      depreciation_building_pct: "depreciation_building_percent"
+      depreciation_machinery_pct: "depreciation_machinery_percent"
+      loan_repayment_years: "loan_repayment_period"
+      project_implementation_months: "project_implementation_period"
+      rate_of_interest: "rate_of_interest"
+      own_contribution_working_capital: "own_contribution_working_capital"
+
+# ─── Declarative Derived Fields Calculation Engine ───
+derived_fields:
+  experience_in_line_of_activity: "years_since(date_of_commencement, default=1)"
+  legal_status_of_business: "legal_status_of_business or 'Proprietary'"
+  type_of_property: "if_truthy(building_ownership == 'Owned' || land_rental_owned == 'Owned', 'Owned', 'Rented')"
+
+# ─── Admin Portal Configuration ───
+admin_portal:
+  workflow:
+    scheme_code: "pmfme"
+    starts_at_block: true
+    levels:
+      - level: 1
+        role_key: "block_coordinator"
+        role: "LVL1"
+        label: "Block Coordinator"
+      - level: 2
+        role_key: "dic"
+        role: "LVL2"
+        label: "DIC"
+      - level: 3
+        role_key: "bank"
+        role: "LVL4"
+        label: "Bank"
+    monitoring_roles: ["LVL5", "LVL6"]
+    
+  borrower_columns:
+    - key: "applicant_name"
+      label: "Applicant Name"
+    - key: "enterprise_name"
+      label: "Enterprise Name"
+    - key: "type_of_business"
+      label: "Business Type"
+    - key: "activities_involved"
+      label: "Activities"
+    - key: "project_cost"
+      label: "Project Cost"
+    - key: "loan_amount_requested"
+      label: "Requested Loan"
+    - key: "viability_tag"
+      label: "Viability Status"
+
+  summary_card_fields:
+    - key: "applicant_name"
+      label: "Name"
+      source: "scheme_data"
+    - key: "phone"
+      label: "Phone"
+      source: "user"
+      prefix: "+91 "
+    - key: "enterprise_name"
+      label: "Enterprise"
+      source: "scheme_data"
+    - key: "type_of_business"
+      label: "Business Type"
+      source: "scheme_data"
+    - key: "activities_involved"
+      label: "Activities"
+      source: "scheme_data"
+
+  form_schema:
+    sections:
+      - title: "1. Applicant & Personal Details"
+        fields:
+          - key: "applicant_name"
+            label: "Applicant Full Name"
+            type: "text"
+            required: true
+          - key: "phone"
+            label: "Mobile Number"
+            type: "text"
+            readonly: true
+          - key: "father_spouse_name"
+            label: "Father / Spouse Name"
+            type: "text"
+          - key: "mother_name"
+            label: "Mother's Name"
+            type: "text"
+          - key: "dob"
+            label: "Date of Birth"
+            type: "date"
+          - key: "gender"
+            label: "Gender"
+            type: "select"
+            options: ["MALE", "FEMALE", "OTHER"]
+          - key: "social_category"
+            label: "Social Category"
+            type: "select"
+            options: ["General", "OBC", "SC", "ST"]
+          - key: "pan_number"
+            label: "Applicant PAN"
+            type: "text"
+          - key: "spouse_pan_number"
+            label: "Spouse PAN"
+            type: "text"
+          - key: "education_qualification"
+            label: "Academic Qualification"
+            type: "text"
+          - key: "applicant_address"
+            label: "Residential Address"
+            type: "text"
+          - key: "applicant_city"
+            label: "City / Village"
+            type: "text"
+          - key: "applicant_block"
+            label: "Block"
+            type: "text"
+          - key: "applicant_district"
+            label: "District"
+            type: "text"
+          - key: "applicant_state"
+            label: "State"
+            type: "text"
+          - key: "applicant_pincode"
+            label: "PIN Code"
+            type: "text"
+
+      - title: "2. Proposed Enterprise Details"
+        fields:
+          - key: "enterprise_name"
+            label: "Enterprise Name"
+            type: "text"
+            required: true
+          - key: "udyam_number"
+            label: "Udyam Registration Number"
+            type: "text"
+          - key: "legal_status_of_business"
+            label: "Legal Status / Constitution"
+            type: "text"
+          - key: "type_of_business"
+            label: "Type of Food Processing Business"
+            type: "text"
+          - key: "food_category"
+            label: "Food Category"
+            type: "text"
+          - key: "activities_involved"
+            label: "Activities Involved"
+            type: "text"
+          - key: "nature_of_operations"
+            label: "Nature of Operations"
+            type: "select"
+            options: ["Automatic", "Semi Automatic", "Manual"]
+          - key: "proposed_product_type"
+            label: "Proposed Product Type"
+            type: "text"
+          - key: "enterprise_address"
+            label: "Business Location / Address"
+            type: "text"
+          - key: "enterprise_city"
+            label: "Enterprise City"
+            type: "text"
+          - key: "enterprise_district"
+            label: "Enterprise District"
+            type: "text"
+          - key: "enterprise_state"
+            label: "Enterprise State"
+            type: "text"
+          - key: "enterprise_pincode"
+            label: "Enterprise PIN Code"
+            type: "text"
+          - key: "latitude_longitude"
+            label: "Geo-Coordinates (Lat/Long)"
+            type: "text"
+
+      - title: "3. Land & Building Details"
+        fields:
+          - key: "total_available_land_sqft"
+            label: "Total Available Land (Sq. Ft.)"
+            type: "number"
+          - key: "building_type"
+            label: "Building / Construction Type"
+            type: "text"
+          - key: "building_area"
+            label: "Building Covered Area (Sq. Ft.)"
+            type: "number"
+          - key: "building_ownership"
+            label: "Building Ownership"
+            type: "select"
+            options: ["Owned", "Rented"]
+          - key: "monthly_rent"
+            label: "Monthly Rent (₹)"
+            type: "currency"
+          - key: "land_value_per_sqft"
+            label: "Land Value (₹/Sq. Ft.)"
+            type: "currency"
+
+      - title: "4. Machinery & Quotations"
+        fields:
+          - key: "machineries"
+            label: "Required Machineries"
+            type: "text"
+          - key: "machine_quotations"
+            label: "Machine Quotations"
+            type: "text"
+          - key: "furniture_and_fixtures"
+            label: "Furniture & Fixtures Cost (₹)"
+            type: "currency"
+          - key: "contingency_miscellaneous"
+            label: "Contingency / Misc Cost (₹)"
+            type: "currency"
+
+      - title: "5. Production, Raw Materials & Sales"
+        fields:
+          - key: "products_to_sell"
+            label: "Products to Sell"
+            type: "text"
+          - key: "raw_materials_required"
+            label: "Raw Materials Required"
+            type: "text"
+          - key: "working_capital_loan_needed"
+            label: "Working Capital Loan Needed?"
+            type: "text"
+          - key: "stock_in_process_days"
+            label: "Stock in Process (Days)"
+            type: "number"
+          - key: "finished_goods_days"
+            label: "Finished Goods Inventory (Days)"
+            type: "number"
+          - key: "receivables_days"
+            label: "Receivable Collection (Days)"
+            type: "number"
+
+      - title: "6. Employment & Operations"
+        fields:
+          - key: "total_workers"
+            label: "Total Workers / Persons"
+            type: "number"
+          - key: "worker_roles"
+            label: "Worker Roles & Responsibilities"
+            type: "text"
+          - key: "num_skilled_workers"
+            label: "Skilled Workers Count"
+            type: "number"
+          - key: "num_unskilled_workers"
+            label: "Unskilled Workers Count"
+            type: "number"
+          - key: "new_employment_generated"
+            label: "New Employment Generated"
+            type: "number"
+          - key: "wages_skilled_per_month"
+            label: "Wages per Skilled Worker (₹/Month)"
+            type: "currency"
+          - key: "wages_unskilled_per_month"
+            label: "Wages per Unskilled Worker (₹/Month)"
+            type: "currency"
+
+      - title: "7. Financial Parameters & Bank Details"
+        fields:
+          - key: "project_cost"
+            label: "Estimated Project Cost (₹)"
+            type: "currency"
+          - key: "loan_amount_requested"
+            label: "Loan Amount Requested (₹)"
+            type: "currency"
+          - key: "personal_contribution_capex"
+            label: "Personal Contribution Capex (%)"
+            type: "number"
+          - key: "own_contribution_working_capital"
+            label: "Own Contribution Working Capital (%)"
+            type: "number"
+          - key: "preliminary_preoperative_cost"
+            label: "Preliminary / Pre-operative Cost (₹)"
+            type: "currency"
+          - key: "loan_repayment_period"
+            label: "Loan Repayment Period (Years)"
+            type: "text"
+          - key: "rate_of_interest"
+            label: "Interest Rate (%)"
+            type: "number"
+          - key: "bank_name"
+            label: "Bank Name"
+            type: "text"
+          - key: "bank_branch_name"
+            label: "Branch Name"
+            type: "text"
+          - key: "bank_ifsc_code"
+            label: "Bank IFSC Code"
+            type: "text"
+          - key: "bank_account_number"
+            label: "Bank Account Number"
+            type: "text"
+
+      - title: "8. Viability Assessment & Evaluation"
+        fields:
+          - key: "viability_tag"
+            label: "Business Viability Status"
+            type: "text"
+          - key: "viability_explanation"
+            label: "Viability Evaluation Summary"
+            type: "text"
+          - key: "documentation_stage"
+            label: "Application Stage"
+            type: "text"

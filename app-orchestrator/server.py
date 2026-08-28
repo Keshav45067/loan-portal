@@ -659,36 +659,80 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         req_id = extract_req_id(context)
         logger.info("CreateApplication", req_id=req_id,
                      scheme_id=request.scheme_id,
-                     session_id=request.session_id)
+                     session_id=request.session_id,
+                     phone=request.phone)
         try:
             with get_db_cursor(self._db_pool) as cur:
-                cur.execute("SELECT data FROM user_data WHERE id = %s", (request.session_id,))
-                row = cur.fetchone()
-                existing_data = {}
-                if row and row[0]:
-                    existing_data = row[0]
-                
-                existing_data["scheme_id"] = request.scheme_id
-                existing_data["phone"] = request.phone
-                existing_data["applicant_name"] = request.name
-                existing_data["completion_status"] = "NEW"
-                existing_data["onboarding_finished"] = False
-                existing_data["created_at"] = existing_data.get("created_at") or datetime.datetime.now().isoformat()
-                existing_data["updated_at"] = datetime.datetime.now().isoformat()
-
+                phone = request.phone
+                base_profile = {}
+                # 1. Fetch user's base registration details (panchayat, block, district, state, phone, name)
+                # from any existing user_data row for this user
                 cur.execute(
-                    """INSERT INTO user_data (id, phone, data) VALUES (%s, %s, %s::json)
-                       ON CONFLICT (id) DO UPDATE SET phone = EXCLUDED.phone, data = EXCLUDED.data""",
-                    (request.session_id, request.phone, json.dumps(existing_data, ensure_ascii=False))
+                    "SELECT data, phone FROM user_data WHERE id = %s OR phone = %s ORDER BY updated_at DESC LIMIT 1",
+                    (request.session_id, phone)
                 )
-                
+                row = cur.fetchone()
+                if row:
+                    prev_data = row[0] or {}
+                    phone = row[1] or phone
+                    for k in ["panchayat", "block", "district", "state", "cadre_id", "rseti", "applicant_name", "registration_completed"]:
+                        if k in prev_data and prev_data[k]:
+                            base_profile[k] = prev_data[k]
+
+                # 2. Check if an application already exists for this specific (phone, scheme_id)
+                cur.execute(
+                    "SELECT id, data FROM user_data WHERE phone = %s AND (scheme_id = %s OR data->>'scheme_id' = %s) ORDER BY updated_at DESC LIMIT 1",
+                    (phone, request.scheme_id, request.scheme_id)
+                )
+                existing_app_row = cur.fetchone()
+
+                now_iso = datetime.datetime.now().isoformat()
+                if existing_app_row:
+                    target_session_id = existing_app_row[0]
+                    app_data = existing_app_row[1] or {}
+                    for k, v in base_profile.items():
+                        if k not in app_data or not app_data[k]:
+                            app_data[k] = v
+                    app_data["updated_at"] = now_iso
+                    cur.execute(
+                        "UPDATE user_data SET data = %s::json, scheme_id = %s, updated_at = NOW() WHERE id = %s",
+                        (json.dumps(app_data, ensure_ascii=False), request.scheme_id, target_session_id)
+                    )
+                    logger.info(f"Reusing existing application session {target_session_id} for scheme {request.scheme_id}", req_id=req_id)
+                else:
+                    # Brand new isolated application session for this scheme!
+                    target_session_id = str(uuid.uuid4())
+                    app_data = {
+                        "scheme_id": request.scheme_id,
+                        "phone": phone,
+                        "applicant_name": request.name or base_profile.get("applicant_name", ""),
+                        "completion_status": "NEW",
+                        "onboarding_finished": False,
+                        "registration_completed": base_profile.get("registration_completed", True),
+                        "created_at": now_iso,
+                        "updated_at": now_iso,
+                        "extractions": {},
+                    }
+                    app_data.update(base_profile)
+
+                    cur.execute(
+                        """INSERT INTO user_data (id, phone, scheme_id, stage, completion_status, data, created_at, updated_at) 
+                           VALUES (%s, %s, %s, %s, %s, %s::json, NOW(), NOW())""",
+                        (target_session_id, phone, request.scheme_id, "REGISTRATION" if not app_data.get("registration_completed") else "INTERVIEW", "NEW", json.dumps(app_data, ensure_ascii=False))
+                    )
+                    logger.info(f"Created new isolated application session {target_session_id} for scheme {request.scheme_id}", req_id=req_id)
+
                 return pb2.Application(
-                    application_id=existing_data.get("application_id", ""),
-                    session_id=request.session_id,
+                    application_id=app_data.get("application_id", "") or target_session_id,
+                    session_id=target_session_id,
                     scheme_id=request.scheme_id,
-                    stage="REGISTRATION",
-                    completion_status="NEW",
-                    phone=request.phone,
+                    stage="REGISTRATION" if not app_data.get("registration_completed") else "INTERVIEW",
+                    completion_status=app_data.get("completion_status", "NEW"),
+                    phone=phone,
+                    panchayat=app_data.get("panchayat", ""),
+                    cadre_id=app_data.get("cadre_id", ""),
+                    created_at=app_data.get("created_at", ""),
+                    updated_at=app_data.get("updated_at", ""),
                 )
         except Exception as e:
             logger.error(f"CreateApplication failed: {e}", req_id=req_id)
@@ -804,27 +848,82 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 if request.skip and request.cadre_id:
                     target_cadre_id = request.cadre_id
                 else:
+                    # Step A: RSETI user lookup
                     if is_rseti_user:
-                        cur.execute(
-                            "SELECT id FROM admins WHERE scheme_id = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' AND district_id = '0bf9b673-f349-4b50-a8c7-bbe500c0a6cf' AND role = 'LVL1' LIMIT 1"
-                        )
-                        r = cur.fetchone()
-                        if r:
-                            target_cadre_id = r[0]
-                            rseti_approved = True
-                            admin_found = True
-                        else:
+                        try:
+                            cur.execute("""
+                                SELECT a.id FROM admins a
+                                LEFT JOIN admin_schemes ash ON ash.admin_id = a.id
+                                LEFT JOIN schemes s ON (s.id = ash.scheme_id OR s.id = a.scheme_id)
+                                WHERE s.code = 'rseti_mudra' AND a.role = 'LVL1' LIMIT 1
+                            """)
+                            r = cur.fetchone()
+                            if r:
+                                target_cadre_id = str(r[0])
+                                rseti_approved = True
+                                admin_found = True
+                            else:
+                                is_rseti_user = False
+                        except Exception:
                             is_rseti_user = False
 
-                    if not target_cadre_id:
-                        cur.execute(
-                            "SELECT id FROM admins WHERE %s = ANY(villages) AND role = 'LVL1' LIMIT 1",
-                            (request.panchayat,)
-                        )
-                        r = cur.fetchone()
-                        if r:
-                            target_cadre_id = r[0]
-                            admin_found = True
+                    # Step B: Standard lookup by panchayat (Junction table or ANY(villages))
+                    if not target_cadre_id and request.panchayat:
+                        # Try junction table admin_panchayats
+                        try:
+                            cur.execute("""
+                                SELECT ap.admin_id FROM admin_panchayats ap
+                                JOIN panchayats p ON p.id = ap.panchayat_id
+                                JOIN admins a ON a.id = ap.admin_id
+                                WHERE UPPER(TRIM(p.panchayat)) = UPPER(TRIM(%s)) AND a.role = 'LVL1'
+                                LIMIT 1
+                            """, (request.panchayat,))
+                            r = cur.fetchone()
+                            if r:
+                                target_cadre_id = str(r[0])
+                                admin_found = True
+                        except Exception:
+                            pass
+
+                        # Fallback to ANY(villages)
+                        if not target_cadre_id:
+                            cur.execute(
+                                "SELECT id FROM admins WHERE %s = ANY(villages) AND role = 'LVL1' LIMIT 1",
+                                (request.panchayat,)
+                            )
+                            r = cur.fetchone()
+                            if r:
+                                target_cadre_id = str(r[0])
+                                admin_found = True
+
+                    # Step C: Fallback to block-level admin lookup (e.g. Dhanbad where no panchayats exist)
+                    if not target_cadre_id and request.block:
+                        # Try junction table admin_blocks
+                        try:
+                            cur.execute("""
+                                SELECT ab.admin_id FROM admin_blocks ab
+                                JOIN blocks b ON b.id = ab.block_id
+                                JOIN admins a ON a.id = ab.admin_id
+                                WHERE UPPER(TRIM(b.block)) = UPPER(TRIM(%s)) AND a.role = 'LVL1'
+                                LIMIT 1
+                            """, (request.block,))
+                            r = cur.fetchone()
+                            if r:
+                                target_cadre_id = str(r[0])
+                                admin_found = True
+                        except Exception:
+                            pass
+
+                        # Fallback to block name in ANY(villages)
+                        if not target_cadre_id:
+                            cur.execute(
+                                "SELECT id FROM admins WHERE %s = ANY(villages) AND role = 'LVL1' LIMIT 1",
+                                (request.block,)
+                            )
+                            r = cur.fetchone()
+                            if r:
+                                target_cadre_id = str(r[0])
+                                admin_found = True
 
                 # Fetch existing data from user_data
                 cur.execute("SELECT data, phone FROM user_data WHERE id = %s", (request.session_id,))
@@ -872,13 +971,16 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
             items = []
             with get_db_cursor(self._db_pool) as cur:
                 if request.level == "states":
-                    cur.execute("SELECT id, name FROM states")
-                elif request.level == "districts" and request.parent_id:
-                    cur.execute("SELECT id, name, state_id FROM districts WHERE state_id = %s", (request.parent_id,))
+                    cur.execute("SELECT id, name FROM states ORDER BY name")
+                elif request.level == "districts":
+                    if request.parent_id:
+                        cur.execute("SELECT id, name, state_id FROM districts WHERE state_id = %s ORDER BY name", (request.parent_id,))
+                    else:
+                        cur.execute("SELECT id, name, '' FROM districts ORDER BY name")
                 elif request.level == "blocks" and request.parent_id:
-                    cur.execute("SELECT id, name, district_id FROM blocks WHERE district_id = %s", (request.parent_id,))
+                    cur.execute("SELECT id, block, district_id FROM blocks WHERE district_id = %s ORDER BY block", (request.parent_id,))
                 elif request.level == "panchayats" and request.parent_id:
-                    cur.execute("SELECT id, name, block_id FROM panchayats WHERE block_id = %s", (request.parent_id,))
+                    cur.execute("SELECT id, panchayat, block_id FROM panchayats WHERE block_id = %s ORDER BY panchayat", (request.parent_id,))
                 else:
                     return pb2.LocationTree(items=[])
 
@@ -1029,15 +1131,22 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
 
                     # Upsert into user_data
                     merged_json_str = json.dumps(existing_data, ensure_ascii=False)
+                    cur_scheme = existing_data.get("scheme_id")
+                    cur_stage = existing_data.get("stage")
+                    cur_status = existing_data.get("completion_status")
                     if extracted_last_node:
                         cur.execute(
-                            """UPDATE user_data SET phone = %s, data = %s::json, last_node = %s WHERE id = %s OR data->>'application_id' = %s""",
-                            (phone or None, merged_json_str, extracted_last_node, session_id, session_id)
+                            """UPDATE user_data 
+                               SET phone = %s, data = %s::json, last_node = %s, scheme_id = COALESCE(%s, scheme_id), stage = COALESCE(%s, stage), completion_status = COALESCE(%s, completion_status), updated_at = NOW() 
+                               WHERE id = %s OR data->>'application_id' = %s""",
+                            (phone or None, merged_json_str, extracted_last_node, cur_scheme, cur_stage, cur_status, session_id, session_id)
                         )
                     else:
                         cur.execute(
-                            """UPDATE user_data SET phone = %s, data = %s::json WHERE id = %s OR data->>'application_id' = %s""",
-                            (phone or None, merged_json_str, session_id, session_id)
+                            """UPDATE user_data 
+                               SET phone = %s, data = %s::json, scheme_id = COALESCE(%s, scheme_id), stage = COALESCE(%s, stage), completion_status = COALESCE(%s, completion_status), updated_at = NOW() 
+                               WHERE id = %s OR data->>'application_id' = %s""",
+                            (phone or None, merged_json_str, cur_scheme, cur_stage, cur_status, session_id, session_id)
                         )
                     conn.commit()
                     logger.info(f"Upserted {len(fields)} fields to user_data (last_node={extracted_last_node})", req_id=req_id)
@@ -1200,12 +1309,34 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
     async def ListApplications(self, request, context):
         req_id = extract_req_id(context)
         try:
+            phone_filter = getattr(request, 'phone', None)
+            scheme_filter = getattr(request, 'scheme_id', None)
+            status_filter = getattr(request, 'status', None)
+
+            where_clauses = []
+            params = []
+
+            if phone_filter:
+                where_clauses.append("(phone = %s OR data->>'phone' = %s)")
+                params.extend([phone_filter, phone_filter])
+            if scheme_filter:
+                where_clauses.append("(scheme_id = %s OR data->>'scheme_id' = %s)")
+                params.extend([scheme_filter, scheme_filter])
+            if status_filter:
+                where_clauses.append("(completion_status = %s OR data->>'completion_status' = %s OR data->>'status' = %s)")
+                params.extend([status_filter, status_filter, status_filter])
+
+            where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
             with get_db_cursor(self._db_pool) as cur:
-                cur.execute("SELECT id, phone, data FROM user_data LIMIT %s OFFSET %s", 
-                            (request.limit or 10, request.offset or 0))
+                limit = request.limit if request.limit > 0 else 50
+                offset = request.offset if request.offset >= 0 else 0
+                
+                cur.execute(f"SELECT id, phone, data FROM user_data {where_sql} ORDER BY updated_at DESC LIMIT %s OFFSET %s", 
+                            tuple(params + [limit, offset]))
                 rows = cur.fetchall()
                 
-                cur.execute("SELECT COUNT(*) FROM user_data")
+                cur.execute(f"SELECT COUNT(*) FROM user_data {where_sql}", tuple(params))
                 total = cur.fetchone()[0]
 
                 summaries = []
@@ -1214,13 +1345,13 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     data = data or {}
                     status = data.get("status", "")
                     summaries.append(pb2.ApplicationSummary(
-                        application_id=data.get("application_id", ""),
+                        application_id=data.get("application_id", "") or session_id,
                         session_id=session_id,
                         phone=phone or data.get("phone", ""),
-                        stage="INTERVIEW" if status else "DOCUMENTATION",
-                        completion_status=data.get("completion_status", ""),
+                        stage=data.get("stage", "INTERVIEW" if status else "DOCUMENTATION"),
+                        completion_status=data.get("completion_status", "NEW"),
                         panchayat=data.get("panchayat", ""),
-                        created_at=data.get("created_at", ""),
+                        created_at=str(data.get("created_at", "")),
                     ))
                 return pb2.ApplicationList(applications=summaries, total_count=total)
         except Exception as e:

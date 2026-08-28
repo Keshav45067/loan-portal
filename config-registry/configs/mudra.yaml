@@ -1,0 +1,7 @@
+# ================================================================
+# MUDRA Scheme Config (Child Config extending base-mudra)
+# ================================================================
+
+scheme_id: mudra
+extends: base-mudra
+display_name: "Pradhan Mantri Mudra Yojana (PMMY)"

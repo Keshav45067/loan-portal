@@ -89,37 +89,40 @@ function DashboardContent() {
     if (token) {
       loadDashboardData();
     }
-  }, [token]);
+  }, [token, router]);
 
   const handleStartScheme = async (schemeIdToStart) => {
     setStartingSchemeId(schemeIdToStart);
     try {
-      // Save metadata and reset onboarding finished for clean interview start
-      const saveRes = await fetch(`${API_BASE_URL}/api/applications/save-metadata`, {
+      const startRes = await fetch(`${API_BASE_URL}/api/applications/start-scheme`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          session_id: sessionId,
-          fields: {
-            scheme_id: schemeIdToStart,
-            onboarding_finished: false
-          }
+          scheme_id: schemeIdToStart,
         })
       });
 
-      if (saveRes.status === 401 || saveRes.status === 403) {
-        console.warn('[Dashboard] Token expired on save-metadata. Clearing credentials.');
+      if (startRes.status === 401 || startRes.status === 403) {
+        console.warn('[Dashboard] Token expired on start-scheme. Clearing credentials.');
         localStorage.removeItem('token');
         localStorage.removeItem('session_id');
         toast.error('Session expired. Please log in again.');
         router.replace('/');
         return;
       }
-      toast.success(`Starting ${schemeIdToStart.replace('mudra-', '').replace('-', ' ')} application...`);
-      router.push('/interview');
+
+      const startData = await startRes.json();
+      if (startData.success && startData.session_id) {
+        localStorage.setItem('session_id', startData.session_id);
+        toast.success(`Starting ${schemeIdToStart.replace('mudra-', '').replace('-', ' ')} application...`);
+        router.push('/interview');
+      } else {
+        toast.error(startData.error || 'Failed to start scheme application.');
+        setStartingSchemeId(null);
+      }
     } catch (e) {
       console.error('Failed to start scheme:', e);
       toast.error('Failed to start application. Please try again.');
@@ -315,16 +318,18 @@ function DashboardContent() {
                         <button 
                           className="btn btn-primary"
                           onClick={() => {
+                            if (app.session_id) {
+                              localStorage.setItem('session_id', app.session_id);
+                            }
                             if (isFinished) {
                               router.push('/dashboard/details');
                             } else {
-                              handleStartScheme(schemeId);
+                              router.push('/interview');
                             }
                           }}
-                          disabled={startingSchemeId === schemeId}
                           style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '0.875rem' }}
                         >
-                          {startingSchemeId === schemeId ? 'Opening...' : isFinished ? 'Review Application ➔' : 'Continue Interview ➔'}
+                          {isFinished ? 'Review Application ➔' : 'Continue Interview ➔'}
                         </button>
                       </div>
                     </div>
