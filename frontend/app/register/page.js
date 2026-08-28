@@ -8,33 +8,7 @@ import styles from './register.module.css';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-const FALLBACK_STATES = ['Jharkhand', 'Bihar', 'Uttar Pradesh', 'Madhya Pradesh', 'Rajasthan', 'Chhattisgarh'];
-const FALLBACK_DISTRICTS = {
-  'Jharkhand': ['Ranchi', 'Dumka', 'Deoghar', 'Bokaro', 'Giridih'],
-  'Bihar': ['Patna', 'Gaya', 'Muzaffarpur', 'Bhagalpur', 'Nalanda'],
-  'Uttar Pradesh': ['Lucknow', 'Varanasi', 'Kanpur', 'Agra'],
-  'Madhya Pradesh': ['Bhopal', 'Indore', 'Gwalior'],
-  'Rajasthan': ['Jaipur', 'Jodhpur', 'Udaipur'],
-  'Chhattisgarh': ['Raipur', 'Bilaspur', 'Durg']
-};
-const FALLBACK_BLOCKS = {
-  'Ranchi': ['Kanke', 'Namkum', 'Ratu', 'Bundu', 'Tamar'],
-  'Dumka': ['Dumka Sadar', 'Masalia', 'Jama', 'Shikaripara'],
-  'Deoghar': ['Deoghar Sadar', 'Devipur', 'Mohanpur'],
-  'Bokaro': ['Chas', 'Bermo', 'Jaridih'],
-  'Giridih': ['Giridih Sadar', 'Gandey', 'Pirtandr'],
-  'Patna': ['Patna Sadar', 'Phulwari Sharif', 'Digha'],
-  'Gaya': ['Gaya Sadar', 'Bodhgaya', 'Manpur']
-};
-const FALLBACK_PANCHAYATS = {
-  'Kanke': ['Kanke Gram', 'Hatu Gram', 'Kuchu Gram', 'Tupudana'],
-  'Namkum': ['Namkum Gram', 'Sukurhutu', 'Jonha', 'Pithoria'],
-  'Ratu': ['Ratu Gram', 'Kathitand'],
-  'Bundu': ['Bundu Gram', 'Taimara'],
-  'Tamar': ['Tamar Gram', 'Saligutu'],
-  'Dumka Sadar': ['Dumka Gram', 'Dudhani'],
-  'Patna Sadar': ['Patna Gram', 'Anisabad']
-};
+const FALLBACK_STATES = ['Jharkhand'];
 
 function RegisterContent() {
   const router = useRouter();
@@ -65,7 +39,7 @@ function RegisterContent() {
           setStates(data.items.map(item => item.name));
         }
       } catch (err) {
-        console.warn('Failed to fetch dynamic states, using fallback list', err);
+        console.warn('Failed to fetch dynamic states, using fallback', err);
       }
     }
     fetchStates();
@@ -84,10 +58,11 @@ function RegisterContent() {
         if (data.success && data.items && data.items.length > 0) {
           setDistricts(data.items.map(item => item.name));
         } else {
-          setDistricts(FALLBACK_DISTRICTS[form.state] || ['Central District', 'North District', 'South District', 'East District', 'West District']);
+          setDistricts([]);
         }
       } catch (err) {
-        setDistricts(FALLBACK_DISTRICTS[form.state] || ['Central District', 'North District', 'South District', 'East District', 'West District']);
+        console.warn('Failed to fetch dynamic districts', err);
+        setDistricts([]);
       }
     }
     fetchDistricts();
@@ -106,10 +81,11 @@ function RegisterContent() {
         if (data.success && data.items && data.items.length > 0) {
           setBlocks(data.items.map(item => item.name));
         } else {
-          setBlocks(FALLBACK_BLOCKS[form.district] || [`${form.district} Sadar`, `${form.district} North`, `${form.district} South`]);
+          setBlocks([]);
         }
       } catch (err) {
-        setBlocks(FALLBACK_BLOCKS[form.district] || [`${form.district} Sadar`, `${form.district} North`, `${form.district} South`]);
+        console.warn('Failed to fetch dynamic blocks', err);
+        setBlocks([]);
       }
     }
     fetchBlocks();
@@ -128,16 +104,23 @@ function RegisterContent() {
         if (data.success && data.items && data.items.length > 0) {
           setPanchayats(data.items.map(item => item.name));
         } else {
-          setPanchayats(FALLBACK_PANCHAYATS[form.block] || [`${form.block} Gram Panchayat 1`, `${form.block} Gram Panchayat 2`, `${form.block} Gram Panchayat 3`]);
+          setPanchayats([]);
         }
       } catch (err) {
-        setPanchayats(FALLBACK_PANCHAYATS[form.block] || [`${form.block} Gram Panchayat 1`, `${form.block} Gram Panchayat 2`, `${form.block} Gram Panchayat 3`]);
+        console.warn('Failed to fetch dynamic panchayats', err);
+        setPanchayats([]);
       }
     }
     fetchPanchayats();
   }, [form.block]);
 
-  const canSubmit = () => form.state && form.district && form.block && form.panchayat;
+  const canSubmit = () => {
+    if (!form.state || !form.district || !form.block) return false;
+    // If block has panchayats in DB, panchayat is required. If block has 0 panchayats (e.g. Dhanbad), it is optional.
+    if (panchayats.length > 0 && !form.panchayat) return false;
+    return true;
+  };
+
 
   const handleSubmit = async () => {
     if (!canSubmit()) return;
@@ -247,18 +230,27 @@ function RegisterContent() {
               </select>
             </div>
             <div className={styles.selectWrap}>
-              <label className={styles.selectLabel}>Panchayat</label>
+              <label className={styles.selectLabel}>
+                Panchayat {form.block && panchayats.length === 0 ? '(Not Applicable)' : ''}
+              </label>
               <select
                 id="panchayat-select"
                 className={`input ${styles.select}`}
                 value={form.panchayat}
                 onChange={e => setForm({ ...form, panchayat: e.target.value })}
-                disabled={!form.block}
+                disabled={!form.block || panchayats.length === 0}
               >
-                <option value="">Select Panchayat...</option>
-                {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
+                {panchayats.length > 0 ? (
+                  <>
+                    <option value="">Select Panchayat...</option>
+                    {panchayats.map(p => <option key={p} value={p}>{p}</option>)}
+                  </>
+                ) : (
+                  <option value="">{form.block ? 'N/A (Direct Block Registration)' : 'Select Block First'}</option>
+                )}
               </select>
             </div>
+
           </div>
         </div>
       </main>

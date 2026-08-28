@@ -974,15 +974,34 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     cur.execute("SELECT id, name FROM states ORDER BY name")
                 elif request.level == "districts":
                     if request.parent_id:
-                        cur.execute("SELECT id, name, state_id FROM districts WHERE state_id = %s ORDER BY name", (request.parent_id,))
+                        cur.execute("""
+                            SELECT d.id, d.name, d.state_id 
+                            FROM districts d
+                            WHERE d.state_id::text = %s 
+                               OR d.state_id IN (SELECT s.id FROM states s WHERE UPPER(TRIM(s.name)) = UPPER(TRIM(%s)))
+                            ORDER BY d.name
+                        """, (request.parent_id, request.parent_id))
                     else:
                         cur.execute("SELECT id, name, '' FROM districts ORDER BY name")
                 elif request.level == "blocks" and request.parent_id:
-                    cur.execute("SELECT id, block, district_id FROM blocks WHERE district_id = %s ORDER BY block", (request.parent_id,))
+                    cur.execute("""
+                        SELECT b.id, b.block, b.district_id 
+                        FROM blocks b
+                        WHERE b.district_id::text = %s 
+                           OR b.district_id IN (SELECT d.id FROM districts d WHERE UPPER(TRIM(d.name)) = UPPER(TRIM(%s)))
+                        ORDER BY b.block
+                    """, (request.parent_id, request.parent_id))
                 elif request.level == "panchayats" and request.parent_id:
-                    cur.execute("SELECT id, panchayat, block_id FROM panchayats WHERE block_id = %s ORDER BY panchayat", (request.parent_id,))
+                    cur.execute("""
+                        SELECT p.id, p.panchayat, p.block_id 
+                        FROM panchayats p
+                        WHERE p.block_id::text = %s 
+                           OR p.block_id IN (SELECT b.id FROM blocks b WHERE UPPER(TRIM(b.block)) = UPPER(TRIM(%s)))
+                        ORDER BY p.panchayat
+                    """, (request.parent_id, request.parent_id))
                 else:
                     return pb2.LocationTree(items=[])
+
 
                 rows = cur.fetchall()
                 for row in rows:
