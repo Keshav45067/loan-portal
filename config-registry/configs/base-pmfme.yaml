@@ -278,37 +278,113 @@ interview_graph:
       document_id: "pan"
       manifest_id: "doc_pan_001"
       page_id: "front"
-      text_template: "कृपया अपने पैन कार्ड (PAN Card) की साफ फोटो लें।"
+      text_template: "कृपया अपने पैन कार्ड की साफ फोटो लें।"
       text_template_en: "Please capture a clear photo of your PAN card."
       text_template_mr: "कृपया तुमच्या पॅन कार्डचा फोटो घ्या."
       edges:
         - condition: "is_married == true"
           next: "DOC_SPOUSE_PAN"
         - condition: "always"
-          next: "DOC_ADDRESS_PROOF"
+          next: "Q_ADDRESS_PROOF_TYPE"
 
     DOC_SPOUSE_PAN:
       type: "capture"
       document_id: "spouse_pan"
       manifest_id: "doc_pan_001"
       page_id: "front"
-      text_template: "कृपया अपने पति या पत्नी के पैन कार्ड (Spouse PAN) की फोटो लें।"
+      text_template: "कृपया अपने पति या पत्नी के पैन कार्ड की साफ फोटो लें।"
       text_template_en: "Please capture a photo of your spouse's PAN card."
       text_template_mr: "कृपया तुमच्या पती/पत्नीच्या पॅन कार्डचा फोटो घ्या."
       edges:
         - condition: "always"
-          next: "DOC_ADDRESS_PROOF"
+          next: "Q_ADDRESS_PROOF_TYPE"
 
-    DOC_ADDRESS_PROOF:
-      type: "capture"
-      document_id: "address_proof"
-      manifest_id: "doc_address_proof_001"
-      page_id: "front"
-      text_template: "कृपया अपना एड्रेस प्रूफ रखें, जैसे कि बिजली का बिल, राशन कार्ड, या संपत्ति पंजीकरण दस्तावेज।"
-      text_template_en: "Please capture your address proof document (Electricity Bill, Ration Card, or Property Registration document)."
-      text_template_mr: "कृपया तुमचा पत्याचा पुरावा (वीज बिल, रेशन कार्ड किंवा मालमत्ता नोंदणी दस्तऐवज) चा फोटो घ्या."
+    Q_ADDRESS_PROOF_TYPE:
+      type: "voice-qa"
+      text_template: "पते के प्रमाण (Address Proof) के लिए आप कौन सा दस्तावेज़ देना चाहेंगे—वोटर आईडी, राशन कार्ड, बिजली का बिल, या ड्राइविंग लाइसेंस?"
+      text_template_mr: "पत्याच्या पुराव्यासाठी तुम्ही कोणते दस्तऐवज देऊ इच्छिता—व्होटर आयडी, रेशन कार्ड, वीज बिल, की ड्रायव्हिंग लायसन्स?"
+      text_template_en: "Which document would you like to provide as proof of address—Voter ID, Ration Card, Electricity Bill, or Driving License?"
+      targets: [address_proof_type]
+      routing_prompt: "Identify the user's address proof preference. Set 'routing_decision' to: 'VOTER' if Voter ID/card/EPIC, 'RATION' if Ration Card, 'ELECTRICITY' if Electricity Bill/Bijli Bill, 'DL' if Driving License."
+      inactivity_policy:
+        timeout_seconds: 3.0
+        nudge_guideline: "Ask which address proof document they would like to provide among Voter ID, Ration Card, Electricity Bill, or Driving License."
       edges:
-        - condition: "building_ownership == 'Rented' || land_rental_owned == 'Rented'"
+        - condition: "routing_decision == 'VOTER' || address_proof_type in ['voter_id', 'voter', 'epic', 'voter_card', 'वोटर', 'मतदान']"
+          next: "DOC_VOTER_FRONT"
+        - condition: "routing_decision == 'RATION' || address_proof_type in ['ration_card', 'ration', 'राशन', 'रेशन']"
+          next: "DOC_RATION_CARD"
+        - condition: "routing_decision == 'ELECTRICITY' || address_proof_type in ['electricity_bill', 'electricity', 'bijli_bill', 'बिजली', 'वीज']"
+          next: "DOC_ELECTRICITY_BILL"
+        - condition: "routing_decision == 'DL' || address_proof_type in ['driving_license', 'dl', 'license', 'driving', 'लाइसेंस', 'ड्राइविंग']"
+          next: "DOC_DRIVING_LICENSE"
+        - condition: "always"
+          next: "DOC_VOTER_FRONT"
+
+    DOC_VOTER_FRONT:
+      type: "capture"
+      document_id: "voter_front"
+      manifest_id: doc_voter_001
+      page_id: front
+      text_template: "कृपया अपने वोटर आईडी कार्ड के आगे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या व्होटर आयडी कार्डच्या समोरील बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the front side of your Voter ID card."
+      edges:
+        - condition: "always"
+          next: "DOC_VOTER_BACK"
+
+    DOC_VOTER_BACK:
+      type: "capture"
+      document_id: "voter_back"
+      manifest_id: doc_voter_001
+      page_id: back
+      text_template: "कृपया अपने वोटर आईडी कार्ड के पीछे वाले हिस्से की फोटो लें।"
+      text_template_mr: "कृपया आपल्या व्होटर आयडी कार्डच्या मागच्या बाजूचा फोटो घ्या."
+      text_template_en: "Please take a photo of the back side of your Voter ID card."
+      edges:
+        - condition: "building_ownership == 'Rented'"
+          next: "DOC_LEASE_AGREEMENT"
+        - condition: "always"
+          next: "DOC_BANK_PASSBOOK"
+
+    DOC_RATION_CARD:
+      type: "capture"
+      document_id: "ration_card"
+      manifest_id: doc_ration_001
+      page_id: front
+      text_template: "कृपया अपने राशन कार्ड के मुख्य पृष्ठ की फोटो लें।"
+      text_template_mr: "कृपया आपल्या रेशन कार्डच्या मुख्य पानाचा फोटो घ्या."
+      text_template_en: "Please take a photo of the main page of your Ration Card."
+      edges:
+        - condition: "building_ownership == 'Rented'"
+          next: "DOC_LEASE_AGREEMENT"
+        - condition: "always"
+          next: "DOC_BANK_PASSBOOK"
+
+    DOC_ELECTRICITY_BILL:
+      type: "capture"
+      document_id: "electricity_bill"
+      manifest_id: doc_electricity_001
+      page_id: bill
+      text_template: "कृपया अपने बिजली बिल की साफ फोटो लें।"
+      text_template_mr: "कृपया आपल्या वीज बिलाचा स्पष्ट फोटो घ्या."
+      text_template_en: "Please take a clear photo of your Electricity Bill."
+      edges:
+        - condition: "building_ownership == 'Rented'"
+          next: "DOC_LEASE_AGREEMENT"
+        - condition: "always"
+          next: "DOC_BANK_PASSBOOK"
+
+    DOC_DRIVING_LICENSE:
+      type: "capture"
+      document_id: "driving_license"
+      manifest_id: doc_dl_001
+      page_id: front
+      text_template: "कृपया अपने ड्राइविंग लाइसेंस की साफ फोटो लें।"
+      text_template_mr: "कृपया आपल्या ड्रायव्हिंग लायसन्सचा स्पष्ट फोटो घ्या."
+      text_template_en: "Please take a clear photo of your Driving License."
+      edges:
+        - condition: "building_ownership == 'Rented'"
           next: "DOC_LEASE_AGREEMENT"
         - condition: "always"
           next: "DOC_BANK_PASSBOOK"
@@ -320,7 +396,7 @@ interview_graph:
       page_id: "page_1"
       multipage: true
       max_pages: 3
-      text_template: "कृपया अपने लीज़ या किराया समझौते (Rent Agreement) के पन्नों की फोटो लें।"
+      text_template: "कृपया अपने लीज़ या किराया समझौते के पन्नों की फोटो लें।"
       text_template_en: "Please capture pages of your Lease or Rent Agreement."
       text_template_mr: "कृपया तुमच्या भाडे कराराच्या पानांचे फोटो घ्या."
       edges:
@@ -330,11 +406,11 @@ interview_graph:
     DOC_BANK_PASSBOOK:
       type: "capture"
       document_id: "bank_passbook"
-      manifest_id: "doc_bank_passbook_001"
+      manifest_id: "doc_bank_statement_001"
       page_id: "page_1"
       multipage: true
       max_pages: 3
-      text_template: "कृपया अपनी बैंक पासबुक के मुख्य पृष्ठ (Account Details) की स्पष्ट फोटो लें।"
+      text_template: "कृपया अपनी बैंक पासबुक के मुख्य पृष्ठ की स्पष्ट फोटो लें।"
       text_template_en: "Please capture a clear photo of your bank passbook's front page showing account number and IFSC code."
       text_template_mr: "कृपया तुमच्या बँक पासबुकच्या पहिल्या पानाचा फोटो घ्या ज्यावर खाते क्रमांक आणि IFSC कोड असेल."
       edges:
@@ -389,16 +465,22 @@ interview_graph:
       text_template_mr: "तिथे तुम्ही कशा प्रकारचे बांधकाम केले आहे (टिन शेड, पक्के बांधकाम, गोडाऊन) आणि त्याचे क्षेत्रफळ किती आहे?"
       targets: ["building_type", "building_area"]
       edges:
+        - condition: "building_ownership == 'Rented'"
+          next: "Q_MONTHLY_RENT"
+        - condition: "nature_of_operations == 'Manual'"
+          next: "Q_PRODUCTS_TO_SELL"
         - condition: "always"
-          next: "Q_OWNERSHIP_RENT"
+          next: "Q_MACHINERIES"
 
-    Q_OWNERSHIP_RENT:
+    Q_MONTHLY_RENT:
       type: "voice-qa"
-      text_template: "यह जगह आपकी अपनी है या किराए पर ली गई है? अगर किराए पर है, तो हर महीने कितना किराया देते हैं?"
-      text_template_en: "Is this premises owned or rented? If rented, how much monthly rent do you pay?"
-      text_template_mr: "ही जागा स्वतःची आहे की भाड्याची? भाड्याची असल्यास दरमहा भाडे किती आहे?"
-      targets: ["building_ownership", "monthly_rent"]
+      text_template: "किराए की इस जगह के लिए आप हर महीने कितना किराया देते हैं?"
+      text_template_en: "How much monthly rent do you pay for this rented premises?"
+      text_template_mr: "या भाड्याच्या जागेसाठी तुम्ही दरमहा किती भाडे देता?"
+      targets: ["monthly_rent"]
       edges:
+        - condition: "nature_of_operations == 'Manual'"
+          next: "Q_PRODUCTS_TO_SELL"
         - condition: "always"
           next: "Q_MACHINERIES"
 
@@ -427,6 +509,7 @@ interview_graph:
         - condition: "always"
           next: "Q_PRODUCTS_TO_SELL"
 
+
     Q_PRODUCTS_TO_SELL:
       type: "voice-qa"
       text_template: "आप कौन-कौन से तैयार उत्पाद या सामान बनाकर बेचेंगे?"
@@ -453,6 +536,7 @@ interview_graph:
       text_template_en: "What raw materials and ingredients are required for your food products?"
       text_template_mr: "हा माल तयार करण्यासाठी कोणता कच्चा माल लागेल?"
       targets: ["raw_materials_required"]
+      routing_prompt: "Accept whatever raw materials or input expenses the applicant states (including cattle feed, fodder, agricultural produce, or self-sourced inputs). If the applicant confirms their raw materials or indicates that nothing else is required, accept immediately without asking follow-up questions or debating ingredients."
       edges:
         - condition: "always"
           next: "Q_RAW_MATERIAL_RATES_QTY"
@@ -499,13 +583,28 @@ interview_graph:
 
     # ─── Phase 3: GeoTag Video Verification ───
     DOC_WORKPLACE_VIDEO:
-      type: "capture"
+      type: "video_capture"
       document_id: "workplace_video"
-      manifest_id: "doc_video_001"
-      page_id: "video"
-      text_template: "कृपया अपने कार्यस्थल और मशीनरी का 15-20 सेकंड का स्पष्ट वीडियो रिकॉर्ड करें।"
-      text_template_en: "Please record a 15-20 second clear video showing your business workplace and location."
-      text_template_mr: "कृपया तुमच्या कामाच्या जागेचा १५-२० सेकंदांचा स्पष्ट व्हिडिओ रेकॉर्ड करा."
+      text_template: "कृपया अपने कार्यस्थल का 30 सेकंड का वीडियो बनाएं।"
+      text_template_mr: "कृपया आपल्या कामाच्या जागेचा ३० सेकंदाचा व्हिडिओ बनवा."
+      text_template_en: "Please record a 30-second video of your workplace."
+      geo_tagged: true
+      max_duration_seconds: 30
+      instructions:
+        - offset_seconds: 0
+          text: "कृपया कैमरे को चालू करें और अपनी दुकान/कारखाने के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।"
+          text_hi: "कृपया कैमरे को चालू करें और अपनी दुकान/कारखाने के चारों ओर घुमाकर अपना वर्कप्लेस दिखाएं।"
+          text_en: "Please turn on the camera and pan around your food processing unit to show your workplace."
+          text_mr: "कृपया कॅमेरा सुरू करा आणि आपल्या कारखान्याच्या सर्व बाजूंनी फिरवून कामाची जागा दाखवा."
+        - offset_seconds: 10
+          text: "अब मुख्य मशीनरी, उपकरण या माल वाले हिस्से को करीब से दिखाएं।"
+          text_hi: "अब मुख्य मशीनरी, उपकरण या माल वाले हिस्से को करीब से दिखाएं।"
+          text_en: "Now show the main machineries, equipment, or stock area up close."
+          text_mr: "आता मुख्य मशिन्स किंवा साठवणुकीचा भाग जवळून दाखवा."
+        - offset_seconds: 20
+          text: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।"
+          text_hi: "धन्यवाद। अब वीडियो रिकॉर्डिंग समाप्त कर सकते हैं।"
+          text_en: "Thank you. You may now complete the video recording."
       edges:
         - condition: "always"
           next: "COMPLETE"
@@ -533,23 +632,28 @@ context_map:
   Q_DOC_QA_SPOUSE_PHONE: [Q_DOC_QA_MARRIED]
   DOC_PAN: []
   DOC_SPOUSE_PAN: [Q_DOC_QA_MARRIED]
-  DOC_ADDRESS_PROOF: []
+  Q_ADDRESS_PROOF_TYPE: []
+  DOC_VOTER_FRONT: []
+  DOC_VOTER_BACK: []
+  DOC_RATION_CARD: []
+  DOC_ELECTRICITY_BILL: []
+  DOC_DRIVING_LICENSE: []
   DOC_LEASE_AGREEMENT: [Q_DOC_QA_PROPERTY_OWNED]
   DOC_BANK_PASSBOOK: []
   Q_INTERVIEW_INTRO: []
   Q_TYPE_OF_BUSINESS: []
   Q_ACTIVITIES_OPERATIONS: [Q_TYPE_OF_BUSINESS]
-  Q_LAND_AREA: []
+  Q_LAND_AREA: [Q_ACTIVITIES_OPERATIONS]
   Q_BUILDING_STRUCTURE: [Q_LAND_AREA]
-  Q_OWNERSHIP_RENT: [Q_LAND_AREA, Q_BUILDING_STRUCTURE]
-  Q_MACHINERIES: [Q_TYPE_OF_BUSINESS, Q_ACTIVITIES_OPERATIONS]
+  Q_MONTHLY_RENT: [Q_DOC_QA_PROPERTY_OWNED]
+  Q_MACHINERIES: [Q_ACTIVITIES_OPERATIONS]
   Q_MACHINE_QUOTATION_CAPTURE: [Q_MACHINERIES]
   Q_PRODUCTS_TO_SELL: [Q_TYPE_OF_BUSINESS]
   Q_PRODUCT_RATES_UNITS: [Q_PRODUCTS_TO_SELL]
   Q_RAW_MATERIALS: [Q_PRODUCTS_TO_SELL]
   Q_RAW_MATERIAL_RATES_QTY: [Q_RAW_MATERIALS]
-  Q_WORKING_CAPITAL: []
-  Q_EMPLOYMENT_WAGES: []
+  Q_WORKING_CAPITAL: [Q_PRODUCTS_TO_SELL, Q_RAW_MATERIALS]
+  Q_EMPLOYMENT_WAGES: [Q_TYPE_OF_BUSINESS]
   Q_INTERVIEW_CLOSING: []
   DOC_WORKPLACE_VIDEO: []
   COMPLETE: []
@@ -558,8 +662,9 @@ context_map:
 field_instructions:
   existing_enterprise: "INFER as boolean (true for existing business, false for new business)."
   is_new_business: "INFER as boolean (true if starting new business, false if existing)."
-  land_rental_owned: "INFER as 'Owned' or 'Rented'. If user says 'apni hai' -> 'Owned', 'kiraye par' -> 'Rented'."
-  building_ownership: "INFER as 'Owned' or 'Rented'."
+  land_rental_owned: "INFER strictly as ONE of: 'Owned' or 'Rented'. If applicant owns the land/premises, set 'Owned'. If rented or leased, set 'Rented'."
+  building_ownership: "INFER strictly as ONE of: 'Owned' or 'Rented'. If applicant owns the property/building, set 'Owned'. If rented or leased, set 'Rented'."
+
   has_previous_loan: "INFER as boolean (true if availed previous loan/scheme, false otherwise)."
   previous_loan_scheme: "Extract the name of the previous scheme as string or empty string if none."
   education_qualification: "Extract educational qualification in English (e.g., '10th Pass', '12th Pass', 'Graduate', 'Post Graduate', 'Diploma', 'Illiterate')."
@@ -570,7 +675,7 @@ field_instructions:
   type_of_business: "Extract type of food processing business in English (e.g., 'Atta Chakki (Flour Mill)', 'Pickle Making', 'Masala Manufacturing', 'Dairy Processing', 'Mustard Oil Mill', 'Bakery', 'Papad Making', 'Banana Chips')."
   food_category: "INFER broad food processing category (e.g., 'Grain Processing', 'Spices & Condiments', 'Fruits & Vegetables Processing', 'Dairy Products', 'Edible Oil', 'Bakery & Confectionery')."
   activities_involved: "INFER and summarize key processing activities in English (e.g., 'Grinding wheat into flour, Packaging, Wholesale and retail distribution')."
-  nature_of_operations: "INFER as ONE of: 'Automatic', 'Semi Automatic', 'Manual'. If user says 'machine se' -> 'Semi Automatic', 'khud haath se' -> 'Manual', 'poori tarah automatic' -> 'Automatic'."
+  nature_of_operations: "INFER as ONE of: 'Automatic', 'Semi Automatic', 'Manual'. If operations are done by hand without machines -> 'Manual'. If machinery is used with manual assistance -> 'Semi Automatic'. If fully automated -> 'Automatic'."
   proposed_product_type: "INFER as ONE of: 'Agriculture Produce', 'Food Products Manufacturing', 'MFP (Minor Forest Produce)'."
   
   total_available_land_sqft: "Extract as integer in square feet without decimals or commas. If given in 'gaj' multiply by 9, 'meter' multiply by 10.76."
@@ -586,11 +691,11 @@ field_instructions:
   product_monthly_units: "Extract monthly production/sales volume in integer units."
   product_rate_per_unit: "Extract selling rate per unit in rupees as integer."
   
-  raw_materials_required: "Extract as JSON array of objects: [{\"name\": \"Raw Wheat\"}, {\"name\": \"Packaging Pouches\"}]."
+  raw_materials_required: "Extract as JSON array of objects with English names: [{\"name\": \"Raw Material Name\"}]. ACCEPT whatever raw materials or input expenses the applicant mentions (e.g. grains, spices, milk, or cattle feed/fodder/grass for livestock/dairy units). If the applicant states they source inputs from their own animals or farms and only purchase feed, or confirms that nothing else is needed or no other ingredients are required, ACCEPT IT AS COMPLETE immediately. DO NOT debate, cross-examine, or challenge the applicant regarding recipe ingredients or starter cultures."
   raw_material_monthly_qty: "Extract monthly required raw material quantity as integer."
   raw_material_rate_per_unit: "Extract purchase rate per unit in rupees as integer."
   
-  working_capital_loan_needed: "INFER as 'Yes' or 'No'. If user says 'haan' or 'chahiye' -> 'Yes', else 'No'."
+  working_capital_loan_needed: "INFER as 'Yes' or 'No'. If applicant wants or needs working capital loan -> 'Yes', otherwise 'No'."
   
   total_workers: "Extract total number of workers working with the applicant as integer. Must be reasonable (< 10)."
   worker_roles: "Extract text description in English of employee roles (e.g., 'Machine operator, Packaging helper, Delivery person')."

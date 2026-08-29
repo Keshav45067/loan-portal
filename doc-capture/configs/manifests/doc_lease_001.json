@@ -1,0 +1,78 @@
+{
+  "document_id": "doc_lease_001",
+  "title": {
+    "English": "Lease / Rent Agreement",
+    "Hindi": "लीज़ या किराया समझौता",
+    "Marathi": "भाडे करार"
+  },
+  "proves": [
+    "business_premises_proof",
+    "address"
+  ],
+  "required_when": "conditional",
+  "expects": [
+    "doc_lease_lessor_name",
+    "doc_lease_lessee_name",
+    "doc_lease_premises_address",
+    "doc_lease_monthly_rent",
+    "doc_lease_agreement_date",
+    "doc_lease_period_months"
+  ],
+  "parts": [
+    {
+      "id": "page_1",
+      "name": {
+        "English": "Lease Agreement Main Page",
+        "Hindi": "किराया समझौते का मुख्य पृष्ठ"
+      },
+      "title": {
+        "English": "Lease Agreement Page 1",
+        "Hindi": "किराया समझौता पृष्ठ १"
+      },
+      "anchors": [
+        "LEASE",
+        "RENT",
+        "AGREEMENT",
+        "TENANT",
+        "LANDLORD",
+        "LESSOR",
+        "LESSEE",
+        "PREMISES",
+        "MONTHLY",
+        "STAMP",
+        "किराया",
+        "समझौता",
+        "इकरारनामा",
+        "पट्टा",
+        "भाडे"
+      ],
+      "provides": [
+        "doc_lease_lessor_name",
+        "doc_lease_lessee_name",
+        "doc_lease_premises_address",
+        "doc_lease_monthly_rent",
+        "doc_lease_agreement_date",
+        "doc_lease_period_months"
+      ],
+      "orientation": "portrait",
+      "spotting": false
+    }
+  ],
+  "sources": [
+    {
+      "type": "upload",
+      "formats": [
+        "image/jpeg",
+        "image/png",
+        "application/pdf"
+      ],
+      "max_size_bytes": 10485760
+    },
+    {
+      "type": "camera",
+      "formats": [
+        "image/jpeg"
+      ]
+    }
+  ]
+}

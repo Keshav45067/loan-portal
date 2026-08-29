@@ -252,6 +252,10 @@ const DOCUMENT_METADATA = {
   'electricity_bill': { label: 'Electricity Bill', icon: '⚡', facingMode: 'environment', tips: ['Consumer name and address must be clear', 'Bill should be recent (within 3 months)'] },
   'udyam': { label: 'Udyam Certificate', icon: '📜', facingMode: 'environment', tips: ['Keep full Udyam document ready'] },
   'bank_statement': { label: 'Bank Statement', icon: '🏦', facingMode: 'environment', tips: ['All pages must be included'] },
+  'bank_passbook': { label: 'Bank Passbook', icon: '🏦', facingMode: 'environment', tips: ['Front page with account number and IFSC code must be clear'] },
+  'lease_agreement': { label: 'Lease/Rent Agreement', icon: '📝', facingMode: 'environment', tips: ['All pages must be clear and readable', 'Terms and signatures must be visible'] },
+  'machine_quotation': { label: 'Machinery Quotation', icon: '📑', facingMode: 'environment', tips: ['Quotation details and pricing must be visible'] },
+  'machine_quotations': { label: 'Machinery Quotation', icon: '📑', facingMode: 'environment', tips: ['Quotation details and pricing must be visible'] },
   'company_id': { label: 'Company ID', icon: '🏢', facingMode: 'environment', tips: ['ID should be clear'] },
   'office_id': { label: 'Office ID', icon: '🪪', facingMode: 'environment', tips: ['Office ID should be clear'] },
   'address_proof': { label: 'Address Proof', icon: '📄', facingMode: 'environment', tips: ['Address must be clearly visible'] },
@@ -2120,13 +2124,17 @@ function InterviewContent() {
             <h2 style={{ fontSize: '2rem', fontWeight: 800, background: 'linear-gradient(135deg, #fff 0%, #a5b4fc 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' 
                 ? "Micro-Loan Onboarding & Underwriting" 
-                : "Digital Bank Account Onboarding"
+                : (schemeId.includes('pmfme') 
+                    ? "PMFME Food Processing Enterprise Loan" 
+                    : "Digital Loan Onboarding & Underwriting")
               }
             </h2>
             <p style={{ color: '#94a3b8', fontSize: '1rem', lineHeight: '1.6', maxWidth: '480px' }}>
               {schemeId.includes('mudra') || schemeId === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 ? "Our AI Underwriter will guide you through the Micro-Loan application process. You will be asked to verify documents, answer a few questions, and record a geotagged video of your workplace."
-                : "Our AI Assistant will guide you through the savings account opening process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form."
+                : (schemeId.includes('pmfme')
+                    ? "Our AI Underwriter will guide you through the PMFME application process. You will be asked to verify enterprise documents, answer questions regarding your machinery and production, and record your workplace video."
+                    : "Our AI Assistant will guide you through the application process. You will be asked to upload documents and answer a few questions. Speak naturally to complete the form.")
               }
             </p>
 
