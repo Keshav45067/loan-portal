@@ -1,24 +1,26 @@
 /**
- * Audio Processor — Uses @ricky0123/vad-web for browser-side VAD with RMS Energy Gating.
+ * Audio Processor — 5-Stage Voice DSP Pipeline Engine
  *
  * Implements:
- * 1. 85Hz IIR High-Pass Filter (removes rumble, HVAC, micro-vibrations)
- * 2. Per-frame RMS Energy + dB calculation
- * 3. Rolling Window RMS smoothing
- * 4. Silero VAD + RMS Triage Classification:
+ * 1. Stage 1: Raw 16kHz Mic capture
+ * 2. Stage 2: 85Hz IIR High-Pass Filter (removes rumble, HVAC, micro-vibrations)
+ * 3. Stage 3: RNNoise Neural Denoiser (client-side WASM background noise suppression)
+ * 4. Stage 4: Silero VAD + RMS Energy Gating State Machine:
  *    - SILENT: VAD < negThreshold
  *    - NOISE_ONLY: VAD between neg and pos threshold
  *    - SPEECH_FAR: VAD >= posThreshold, but rolling RMS < rmsHighThreshold
  *    - SPEECH_NEAR: VAD >= posThreshold, and rolling RMS >= rmsHighThreshold
- * 5. Two-layer state machine:
- *    - ENERGY_IDLE: Waiting for VAD
- *    - ENERGY_EVALUATING: VAD started, checking if RMS confirms near-field
- *    - ENERGY_CONFIRMED: Near-field verified, actively streaming audio
- *    - ENERGY_PAUSE: Brief acoustic dip during confirmed speech (keeps streaming!)
- *    - ENERGY_FLAGGED_QUIET: Far-field speech, buffering without streaming + debounced flag
+ * 5. Stage 5: Digital AGC (Dynamic gain boost up to +15dB with soft-knee tanh limiter)
  * 6. Ambient noise level tracker during non-speech frames
  * 7. Strict UX flag debouncing (Speak closer & High bg noise)
  */
+
+import {
+  HighPassFilter,
+  RNNoiseDenoiser,
+  DigitalAGC,
+  calculateRmsMetrics
+} from './rnnoiseProcessor';
 
 export class AudioProcessor {
   /**
@@ -31,6 +33,14 @@ export class AudioProcessor {
    * @param {function} options.onFrameClassified       - Detailed diagnostic frame callback
    * @param {function} options.onSpeechTooQuiet        - Debounced flag when speech is detected too far/quiet
    * @param {function} options.onHighBackgroundNoise   - Debounced flag when ambient noise is high
+   *
+   * DSP & AGC Tuning:
+   * @param {number}   options.hpfCutoff               - HPF cutoff frequency (default 85Hz)
+   * @param {boolean}  options.rnnoiseEnabled          - RNNoise enable/disable (default true)
+   * @param {number}   options.rnnoiseStrength         - RNNoise strength 0.0 - 1.0 (default 1.0)
+   * @param {number}   options.agcTargetRms            - AGC target RMS (default 0.125 ≈ -18 dBFS)
+   * @param {number}   options.agcMaxGain              - AGC maximum boost (default 6.0)
+   * @param {boolean}  options.agcEnabled              - AGC enable/disable (default true)
    *
    * Thresholds & State Machine tuning:
    * @param {number}   options.positiveSpeechThreshold - VAD speech start prob (default 0.75)
@@ -56,6 +66,19 @@ export class AudioProcessor {
     this.onFrameClassified = options.onFrameClassified || (() => {});
     this.onSpeechTooQuiet = options.onSpeechTooQuiet || (() => {});
     this.onHighBackgroundNoise = options.onHighBackgroundNoise || (() => {});
+
+    // DSP Units
+    this.hpf = new HighPassFilter(options.hpfCutoff || 85, this.targetSampleRate);
+    this.rnnoise = new RNNoiseDenoiser({
+      sampleRate: this.targetSampleRate,
+      enabled: options.rnnoiseEnabled ?? true,
+      strength: options.rnnoiseStrength ?? 1.0,
+    });
+    this.agc = new DigitalAGC({
+      targetRms: options.agcTargetRms || 0.125,
+      maxGain: options.agcMaxGain || 6.0,
+      enabled: options.agcEnabled ?? true,
+    });
 
     // Dynamic VAD Options
     this.positiveSpeechThreshold = options.positiveSpeechThreshold ?? 0.75;
@@ -87,10 +110,6 @@ export class AudioProcessor {
     this._chunkBuffer = [];
     this._preSpeechBuffer = [];
     this._evalSpeechBuffer = []; // Buffer held while EVALUATING before confirmation
-
-    // 85Hz IIR High-Pass Filter state
-    this._hpfPrevX = 0;
-    this._hpfPrevY = 0;
 
     // Internal State
     this._energyState = 'ENERGY_IDLE'; // ENERGY_IDLE, ENERGY_EVALUATING, ENERGY_CONFIRMED, ENERGY_PAUSE, ENERGY_FLAGGED_QUIET
@@ -260,20 +279,23 @@ export class AudioProcessor {
           if (!this.isRecording) return;
           this.stats.totalFrames++;
 
-          // 1. Apply High-Pass Filter (85Hz)
-          const cleanFrame = this._applyHighPassFilter(frame);
+          // ─── Stage 2: 85Hz IIR High-Pass Filter ───
+          const hpfFrame = this.hpf.process(frame);
 
-          // 2. Calculate RMS Energy
-          const { rms: rmsEnergy, db: rmsDb } = this._calculateRms(cleanFrame);
+          // ─── Stage 3: RNNoise Neural Denoiser ───
+          const denoisedFrame = this.rnnoise.process(hpfFrame);
 
-          // 3. Update Rolling RMS Window
+          // ─── Stage 4: Silero VAD + Energy Gating Classification ───
+          const { rms: rmsEnergy, db: rmsDb } = calculateRmsMetrics(denoisedFrame);
+
+          // Update Rolling RMS Window
           this._rmsHistory.push(rmsEnergy);
           if (this._rmsHistory.length > this.rmsWindowSize) {
             this._rmsHistory.shift();
           }
           const rollingRms = this._rmsHistory.reduce((a, b) => a + b, 0) / this._rmsHistory.length;
 
-          // 4. Classify Frame
+          // Classify Frame
           const vadProb = probabilities.isSpeech ?? 0;
           let classification;
           if (vadProb < this.negativeSpeechThreshold) {
@@ -290,7 +312,7 @@ export class AudioProcessor {
             this.stats.speechFarFrames++;
           }
 
-          // 5. Track Ambient Noise (only during non-speech)
+          // Track Ambient Noise (only during non-speech)
           if (!this._vadSpeechActive) {
             this._ambientRmsHistory.push(rmsEnergy);
             if (this._ambientRmsHistory.length > 150) { // ~5 seconds window
@@ -301,22 +323,25 @@ export class AudioProcessor {
 
           const ambientRms = this._getAmbientRms();
 
-          // 6. Convert frame to 16-bit PCM
-          const pcmData = this._float32ToInt16(cleanFrame);
+          // ─── Stage 5: Digital AGC (Dynamic Gain Control + Soft-Knee Limiter) ───
+          const { processed: agcFrame, gainApplied, gainDb, isLimiting } = this.agc.process(denoisedFrame);
 
-          // 7. Energy Gate State Machine
+          // Convert leveled audio to 16-bit linear PCM
+          const pcmData = this._float32ToInt16(agcFrame);
+
+          // Energy Gate State Machine
           if (this._vadSpeechActive) {
             this._processEnergyGate(classification, rollingRms, pcmData);
           } else {
             // Maintain rolling pre-speech pad
             this._preSpeechBuffer.push(...pcmData);
-            const maxPreSpeechSamples = cleanFrame.length * this.preSpeechPadFrames;
+            const maxPreSpeechSamples = agcFrame.length * this.preSpeechPadFrames;
             if (this._preSpeechBuffer.length > maxPreSpeechSamples) {
               this._preSpeechBuffer.splice(0, this._preSpeechBuffer.length - maxPreSpeechSamples);
             }
           }
 
-          // 8. Fire Diagnostic Callback
+          // Fire Diagnostic Callback with full 5-stage telemetry
           this.onFrameClassified({
             vadProbability: vadProb,
             rmsEnergy,
@@ -325,11 +350,14 @@ export class AudioProcessor {
             classification,
             energyState: this._energyState,
             ambientRms,
+            gainApplied,
+            gainDb,
+            isLimiting,
             isStreaming: (this._energyState === 'ENERGY_CONFIRMED' || this._energyState === 'ENERGY_PAUSE'),
             timestamp: Date.now(),
           });
 
-          // 9. Emit Volume Level
+          // Emit Volume Level
           this.onVolumeLevel(Math.min(1, rollingRms * 8));
         },
       });
@@ -529,6 +557,9 @@ export class AudioProcessor {
     this._chunkBuffer = [];
     this._preSpeechBuffer = [];
     this._evalSpeechBuffer = [];
+    if (this.hpf) this.hpf.reset();
+    if (this.rnnoise) this.rnnoise.reset();
+    if (this.agc) this.agc.reset();
     if (this.vadInstance) {
       this.vadInstance.pause();
     }

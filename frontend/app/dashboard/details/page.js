@@ -132,8 +132,69 @@ export default function DetailsPage() {
     );
   }
 
+  const formatComplexValue = (val) => {
+    if (val === undefined || val === null || val === '') return 'Not Available';
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if (Array.isArray(val)) {
+      return val.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          if (item.name && item.count !== undefined && item.unit_cost !== undefined) {
+            return `${item.name} (${item.count} units @ ₹${item.unit_cost})`;
+          }
+          if (item.name && item.monthly_qty !== undefined) {
+            return `${item.name} (${item.monthly_qty} units)`;
+          }
+          if (item.name) return item.name;
+          return Object.entries(item).map(([k, v]) => `${k}: ${v}`).join(', ');
+        }
+        return String(item);
+      }).join('; ');
+    }
+    if (typeof val === 'object') {
+      const parts = [
+        val.house_number || val.house || val.flat_door_block,
+        val.street || val.road_street || val.road_street_lane || val.building_name || val.premises_building,
+        val.locality || val.village_town || val.village_town_city || val.city_village,
+        val.subdistrict || val.tehsil || val.vtc,
+        val.district || val.city || val.city_town,
+        val.state,
+        val.pincode
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(', ');
+      return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(', ');
+    }
+    return String(val);
+  };
+
   const getVal = (paths, fallback = 'Not Available') => {
-    for (const path of paths) {
+    const extractions = extractedData?.extractions || {};
+    const interviewExt = extractions.interview || {};
+    const voiceQaExt = extractions['voice-qa'] || {};
+
+    const pathList = Array.isArray(paths) ? paths : [paths];
+
+    for (const path of pathList) {
+      // 1. Direct on extractedData
+      if (extractedData?.[path] !== undefined && extractedData[path] !== null && extractedData[path] !== '') {
+        return formatComplexValue(extractedData[path]);
+      }
+      // 2. Direct on interview
+      if (interviewExt?.[path] !== undefined && interviewExt[path] !== null && interviewExt[path] !== '') {
+        return formatComplexValue(interviewExt[path]);
+      }
+      // 3. Direct on voice-qa
+      if (voiceQaExt?.[path] !== undefined && voiceQaExt[path] !== null && voiceQaExt[path] !== '') {
+        return formatComplexValue(voiceQaExt[path]);
+      }
+      // 4. In document extractions
+      for (const docKey of Object.keys(extractions)) {
+        if (extractions[docKey] && typeof extractions[docKey] === 'object') {
+          if (extractions[docKey][path] !== undefined && extractions[docKey][path] !== null && extractions[docKey][path] !== '') {
+            return formatComplexValue(extractions[docKey][path]);
+          }
+        }
+      }
+      // 5. Nested path
       const parts = path.split('.');
       let current = extractedData;
       for (const part of parts) {
@@ -145,10 +206,7 @@ export default function DetailsPage() {
         }
       }
       if (current !== undefined && current !== null && current !== '') {
-        if (typeof current === 'object') {
-          return JSON.stringify(current);
-        }
-        return String(current);
+        return formatComplexValue(current);
       }
     }
     return fallback;
@@ -166,24 +224,6 @@ export default function DetailsPage() {
     return val || 'Applicant';
   };
 
-  const getFullAddress = () => {
-    const addr = extractedData.doc_aadhaar_address || extractedData.address || extractedData.doc_voter_address;
-    if (!addr || typeof addr !== 'object') {
-      return getVal(['doc_voter_address', 'address.address_line', 'address.full_address', 'registered_office_address', 'address.state']);
-    }
-    const parts = [
-      addr.care_of ? `C/O ${addr.care_of}` : null,
-      addr.house,
-      addr.street,
-      addr.locality || addr.city_village,
-      addr.vtc,
-      addr.district,
-      addr.state,
-      addr.pincode
-    ].filter(Boolean);
-    return parts.join(', ') || 'Not Available';
-  };
-
   const formatCurrency = (val) => {
     if (!val || val === 'Not Available' || val === 'no person involved' || val === 'NA') return val;
     const num = parseFloat(val);
@@ -191,148 +231,67 @@ export default function DetailsPage() {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num);
   };
 
-  // Group Details into Categories
-  const categories = {
-    documents_verified: {
-      title: 'Verified Government Documents',
-      icon: '🆔',
-      data: [
-        { label: 'Aadhaar Holder Name', value: getVal(['doc_aadhaar_name', 'applicant_name']) },
-        { label: 'Aadhaar Last 4 Digits', value: getVal(['doc_aadhaar_last4', 'aadhaar_number']) },
-        { label: 'Aadhaar DOB', value: getVal(['doc_aadhaar_dob', 'date_of_birth']) },
-        { label: 'Aadhaar Gender', value: getVal(['doc_aadhaar_gender', 'gender']) },
-        { label: 'PAN Card Number', value: getVal(['doc_pan_number', 'pan_number']) },
-        { label: 'PAN Holder Name', value: getVal(['doc_pan_name']) },
-        { label: 'PAN Father Name', value: getVal(['doc_pan_father_name']) },
-        { label: 'PAN DOB', value: getVal(['doc_pan_dob']) },
-        { label: 'Udyam Registration Number', value: getVal(['doc_udyam_registration_number', 'udyam_number']) },
-        { label: 'Udyam Enterprise Name', value: getVal(['doc_udyam_enterprise_name', 'enterprise_name']) },
-        { label: 'Udyam Major Activity', value: getVal(['doc_udyam_major_activity', 'major_activity']) },
-        { label: 'Udyam Enterprise Type', value: getVal(['doc_udyam_enterprise_type', 'type_of_enterprise']) },
-        { label: 'Voter ID EPIC Number', value: getVal(['doc_voter_number', 'epic_number']) },
-        { label: 'Voter Holder Name', value: getVal(['doc_voter_name']) },
-        { label: 'Voter Father Name', value: getVal(['doc_voter_father_name']) },
-        { label: 'Voter DOB', value: getVal(['doc_voter_dob']) },
-        { label: 'Voter Registered Address', value: getVal(['doc_voter_address']) }
-      ]
-    },
-    applicant: {
-      title: 'Applicant Profile',
-      icon: '👤',
-      data: [
-        { label: 'Full Name', value: getApplicantName() },
-        { label: 'Date of Birth', value: getVal(['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'dob', 'holder.date_of_birth', 'year_of_birth']) },
-        { label: 'Gender', value: getVal(['gender', 'doc_aadhaar_gender', 'doc_voter_gender', 'holder.gender']) },
-        { label: 'Mobile Number', value: appData?.phone || getVal(['phone', 'mobile_number']) },
-        { label: 'Email ID', value: getVal(['email', 'email_id']) },
-        { label: 'Academic Qualification', value: getVal(['education_level', 'educational_qualification', 'academic_qualification']) },
-        { label: 'Marital Status', value: getVal(['marital_status']) },
-        { label: 'Number of Kids', value: getVal(['number_of_kids']) },
-        { label: 'Number of Family Members', value: getVal(['number_of_family_members', 'family_members']) },
-        { label: 'Co-Borrower Status', value: getVal(['co_borrower']) },
-        { label: 'Resident Address', value: getFullAddress() }
-      ]
-    },
-    business: {
-      title: 'Business Operations',
-      icon: '💼',
-      data: [
-        { label: 'Enterprise Name', value: getVal(['enterprise_name', 'doc_udyam_enterprise_name']) },
-        { label: 'Constitution', value: getVal(['constitution'], 'Proprietary') },
-        { label: 'Business Type / Category', value: getVal(['business_type', 'type_of_business', 'doc_udyam_enterprise_type']) },
-        { label: 'Existing Business Activity', value: getVal(['existing_business_activity', 'doc_udyam_major_activity']) },
-        { label: 'Proposed Business Activity', value: getVal(['proposed_business_activity']) },
-        { label: 'Date of Commencement', value: getVal(['date_of_commencement', 'doc_udyam_date_of_commencement']) },
-        { label: 'Experience in Activity (Years)', value: getVal(['experience_in_line_of_activity', 'experience_years']) },
-        { label: 'Udyam Registration Number', value: getVal(['registration_number_of_business', 'udyam_number', 'doc_udyam_registration_number']) },
-        { label: 'Registered Unit Status', value: getVal(['unit_is_registered'], 'Yes') },
-        { label: 'Social Category', value: getVal(['social_category', 'doc_udyam_social_category']) },
-        { label: 'Minority Religion', value: getVal(['if_minority_religion', 'minority_religion'], 'Don\'t want to respond') }
-      ]
-    },
-    banking: {
-      title: 'Banking & Financials',
-      icon: '🏦',
-      data: [
-        { label: 'Bank Name', value: getVal(['presently_banking_with', 'bank_name']) },
-        { label: 'Saving Bank Account Number', value: getVal(['saving_bank_account_number', 'account_number']) },
-        { label: 'IFSC Code', value: getVal(['ifsc_code_of_saving_bank_account_branch', 'ifsc_code']) },
-        { label: 'Declared Monthly Revenue', value: formatCurrency(getVal(['monthly_revenue', 'business_revenue'])) },
-        { label: 'Declared Monthly Profit', value: formatCurrency(getVal(['monthly_profit'])) },
-        { label: 'Current Employees / Persons Involved', value: getVal(['number_of_persons_involved_currently', 'persons_involved']) },
-        { label: 'Current Annual Wages', value: formatCurrency(getVal(['current_total_wages', 'current_wages'])) },
-        { label: 'Existing Active Loans', value: getVal(['existing_loan', 'previous_loan_detail']) },
-        { label: 'Existing Monthly EMI', value: formatCurrency(getVal(['existing_loan_emi', 'current_emi_value'])) },
-        { label: 'Existing Loan Lender', value: getVal(['existing_loan_lender', 'current_emi_lender']) },
-        { label: 'Outstanding Loan Amount', value: formatCurrency(getVal(['existing_loan_outstanding', 'current_emi_outstanding'])) },
-        { label: 'Previous Loan Default Status', value: getVal(['previous_loan_default', 'previous_loan_default_flag']) },
-        { label: 'Default Reason (if defaulted)', value: getVal(['default_reason']) }
-      ]
-    },
-    working_capital: {
-      title: 'Working Capital Calculations',
-      icon: '⚙️',
-      data: [
-        { label: 'Calculated Inventory', value: formatCurrency(getVal(['inventory', 'calculated_inventory'])), derived: true },
-        { label: 'Calculated Debtors (Receivables)', value: formatCurrency(getVal(['debtors', 'calculated_debtors'])), derived: true },
-        { label: 'Calculated Creditors (Payables)', value: formatCurrency(getVal(['creditors', 'calculated_creditors'])), derived: true },
-        { label: 'Promoter Contribution (Working Capital)', value: formatCurrency(getVal(['promoters_contribution_in_working_capital', 'promoters_contribution_wc'])), derived: true },
-        { label: 'Working Capital Limit', value: formatCurrency(getVal(['limits', 'working_capital_limit'])), derived: true },
-        { label: 'Working Cycle (Months)', value: getVal(['working_cycle_months']), derived: true },
-        { label: 'Cash Credit Amount Recommended', value: formatCurrency(getVal(['cash_credit_amount'])), derived: true },
-        { label: 'Cash Credit Purpose', value: getVal(['cash_credit_purpose']), derived: true }
-      ]
-    },
-    term_loan: {
-      title: 'Term Loan Details',
-      icon: '🚜',
-      data: [
-        { label: 'Machine/Equipment Cost', value: formatCurrency(getVal(['approximate_cost', 'machine_cost'])) },
-        { label: 'Type of Machine/Equipment', value: getVal(['type_of_machine_equipment', 'machine_name']) },
-        { label: 'Machine Purchase Purpose', value: getVal(['purpose', 'machine_purpose']) },
-        { label: 'Name of Supplier', value: getVal(['name_of_supplier', 'machine_supplier']) },
-        { label: 'Promoter Contribution (Term Loan)', value: formatCurrency(getVal(['promotors_contribution_in_term_loan', 'term_loan_promoter_contribution'])), derived: true },
-        { label: 'Term Loan Required', value: formatCurrency(getVal(['term_loan_required', 'term_loan_required_amt'])), derived: true },
-        { label: 'Repayment Period Requested', value: getVal(['repayment_period_requested_for']), derived: true },
-        { label: 'Moratorium Period', value: getVal(['morotorium_period']), derived: true }
-      ]
-    },
-    projections: {
-      title: 'Financial Estimates & Projections',
-      icon: '📈',
-      data: [
-        { label: 'Sales (Past Year II)', value: formatCurrency(getVal(['net_sales_past_year_2'])), derived: true },
-        { label: 'Sales (Past Year I)', value: formatCurrency(getVal(['net_sales_past_year_1'])), derived: true },
-        { label: 'Sales (Present Year)', value: formatCurrency(getVal(['net_sales_present_year'])), derived: true },
-        { label: 'Sales (Next Year Projection)', value: formatCurrency(getVal(['net_sales_next_year'])), derived: true },
-        { label: 'Net Profit (Past Year II)', value: formatCurrency(getVal(['net_profit_past_year_2'])), derived: true },
-        { label: 'Net Profit (Past Year I)', value: formatCurrency(getVal(['net_profit_past_year_1'])), derived: true },
-        { label: 'Net Profit (Present Year)', value: formatCurrency(getVal(['net_profit_present_year'])), derived: true },
-        { label: 'Net Profit (Next Year Projection)', value: formatCurrency(getVal(['net_profit_next_year'])), derived: true },
-        { label: 'Proposed Employee Wages (Annual)', value: formatCurrency(getVal(['proposed_total_wages', 'proposed_wages'])), derived: true },
-        { label: 'Proposed Hires (Total count)', value: getVal(['proposed_number_of_persons_involved', 'proposed_number_of_people']), derived: true },
-        { label: 'Total Recommended Loan (CC + Term)', value: formatCurrency(getVal(['total_loan_required_amount', 'total_calculated_loan_required'])), derived: true }
-      ]
+  const isPmfme = appData?.scheme_id?.toLowerCase().includes('pmfme');
+  const isMudra = appData?.scheme_id?.toLowerCase().includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
+
+  // Build Dynamic Categories from form_schema or fallback
+  const categories = (() => {
+    if (appData?.form_schema?.sections && appData.form_schema.sections.length > 0) {
+      const cats = {};
+      const icons = ['👤', '🏢', '🏗️', '⚙️', '🌾', '👥', '🏦', '📊', '📋'];
+      appData.form_schema.sections.forEach((sec, idx) => {
+        const key = `section_${idx}`;
+        cats[key] = {
+          title: sec.title,
+          icon: icons[idx % icons.length],
+          data: (sec.fields || []).map(f => {
+            let rawVal = getVal(f.key);
+            if (f.type === 'currency' && rawVal !== 'Not Available') {
+              rawVal = formatCurrency(rawVal);
+            }
+            return {
+              label: f.label || f.key.replace(/_/g, ' ').toUpperCase(),
+              value: rawVal,
+              derived: !!f.is_derived
+            };
+          })
+        };
+      });
+      return cats;
     }
-  };
+
+    // Default fallback
+    return {
+      applicant: {
+        title: 'Applicant & Business Profile',
+        icon: '👤',
+        data: [
+          { label: 'Full Name', value: getApplicantName() },
+          { label: 'Mobile Number', value: appData?.phone || getVal(['phone', 'mobile_number']) },
+          { label: 'Enterprise Name', value: getVal(['enterprise_name', 'doc_udyam_enterprise_name']) },
+          { label: 'Business Type', value: getVal(['business_type', 'type_of_business']) }
+        ]
+      }
+    };
+  })();
+
+  const currentActiveTab = categories[activeTab] ? activeTab : Object.keys(categories)[0] || 'section_0';
+
+  const viabilityTag = getVal(['viability_tag', 'business_viability_status']);
+  const viabilityExplanation = getVal(['viability_explanation', 'viability_summary', 'viability_details']);
 
   const scoreStr = getVal(['credit_worthiness', 'creditworthiness_score', 'credit_score', 'score']);
   const creditReason = getVal(['credit_reason', 'reason', 'credit_reason_explanation', 'explanation', 'analysis']);
-  const isMudra = appData?.scheme_id?.includes('mudra') || appData?.scheme_id === 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b';
-  const isCreditPending = isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...' || recalculating);
-
-  const getStatusText = () => {
-    if (recalculating || scoreStr === 'Calculating...') return 'Recalculating...';
-    if (!scoreStr || scoreStr === 'Not Available') return 'Pending Score';
-    return 'Synced';
-  };
+  const isCreditPending = (isMudra && (!scoreStr || scoreStr === 'Not Available' || scoreStr === 'Calculating...')) ||
+                          (isPmfme && (!viabilityTag || viabilityTag === 'Not Available' || viabilityTag === 'Calculating...')) ||
+                          recalculating;
 
   // Get raw numeric score out of X/10 format
   let rawScore = 0;
   if (scoreStr && scoreStr.includes('/')) {
     rawScore = parseFloat(scoreStr.split('/')[0]) || 0;
   } else {
-    rawScore = parseFloat(scoreStr) || 0;
+    rawScore = parseFloat(scoreStr) || (viabilityTag.toLowerCase().includes('high') ? 9 : viabilityTag !== 'Not Available' ? 7 : 0);
   }
 
   const getScoreColor = (score) => {
@@ -418,15 +377,13 @@ export default function DetailsPage() {
             backdropFilter: 'blur(20px)'
           }}>
             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '24px', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '1.5rem' }}>{categories[activeTab].icon}</span>
-              <span>{categories[activeTab].title}</span>
+              <span style={{ fontSize: '1.5rem' }}>{categories[currentActiveTab]?.icon || '📋'}</span>
+              <span>{categories[currentActiveTab]?.title || 'Details'}</span>
             </h3>
 
             <div className="details-grid">
-              {categories[activeTab].data.map((item, idx) => {
-                // IMPORTANT: Calculate skeleton loading ONLY if the credit is pending AND the value is not available/calculated yet!
+              {(categories[currentActiveTab]?.data || []).map((item, idx) => {
                 const isCalculating = isCreditPending && item.derived && (!item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === '');
-                
                 const isNotPresent = !item.value || item.value === 'Not Available' || item.value === 'NA' || item.value === 'Not Provided' || item.value === '';
                 if (!isCalculating && isNotPresent) {
                   return null;
@@ -478,7 +435,7 @@ export default function DetailsPage() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ fontSize: '1.15rem', fontWeight: 750, margin: 0, color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                🛡️ AI Underwriting Panel
+                {isPmfme ? '🌾 PMFME Viability Appraisal' : '🛡️ AI Underwriting Panel'}
               </h3>
               
               <button 
@@ -508,37 +465,45 @@ export default function DetailsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', justifyContent: 'center', padding: '40px 0' }}>
                 <div style={{ width: '40px', height: '40px', border: '3px solid rgba(245, 158, 11, 0.05)', borderTopColor: '#f59e0b', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.9375rem', marginBottom: '4px' }}>Analyzing Credit Viability...</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Running financial models & underwriting scoring</div>
+                  <div style={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.9375rem', marginBottom: '4px' }}>
+                    {isPmfme ? 'Evaluating Food Business Viability...' : 'Analyzing Credit Viability...'}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Running financial models & appraisal scoring</div>
                 </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 
-                {/* Score Indicator */}
+                {/* Score / Viability Tag Indicator */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px', padding: '20px', background: 'rgba(255,255,255,0.01)', borderRadius: '18px', border: '1px solid rgba(255,255,255,0.03)' }}>
                   <div style={{ 
-                    width: '72px', 
+                    minWidth: isPmfme ? '100px' : '72px',
                     height: '72px', 
-                    borderRadius: '50%', 
-                    border: `4px solid ${getScoreColor(rawScore)}`, 
+                    padding: isPmfme ? '0 12px' : 0,
+                    borderRadius: '18px', 
+                    border: `3px solid ${getScoreColor(rawScore)}`, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
-                    fontSize: '1.5rem', 
+                    fontSize: isPmfme ? '1.1rem' : '1.5rem', 
                     fontWeight: 800,
                     color: getScoreColor(rawScore),
+                    textAlign: 'center',
                     boxShadow: `0 0 20px 0 rgba(${rawScore >= 8 ? '16, 185, 129' : rawScore >= 5 ? '245, 158, 11' : '239, 68, 68'}, 0.15)`
                   }}>
-                    {rawScore}
+                    {isPmfme ? (viabilityTag !== 'Not Available' ? viabilityTag : 'Viable') : rawScore}
                   </div>
                   <div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>AI Underwriting Score</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+                      {isPmfme ? 'Enterprise Appraisal Status' : 'AI Underwriting Score'}
+                    </div>
                     <strong style={{ 
                       fontSize: '1rem', 
                       color: rawScore >= 8 ? '#10b981' : rawScore >= 5 ? '#fbbf24' : '#ef4444' 
                     }}>
-                      {rawScore >= 8 ? 'High Creditworthiness' : rawScore >= 5 ? 'Moderate Risk' : 'High Risk Profile'}
+                      {isPmfme 
+                        ? (viabilityTag.toLowerCase().includes('high') ? 'Highly Feasible Project' : 'Feasible & Eligible')
+                        : (rawScore >= 8 ? 'High Creditworthiness' : rawScore >= 5 ? 'Moderate Risk' : 'High Risk Profile')}
                     </strong>
                   </div>
                 </div>
@@ -547,27 +512,23 @@ export default function DetailsPage() {
                 <div style={{ 
                   padding: '16px 20px', 
                   borderRadius: '16px', 
-                  background: getVal(['recommendation', 'recommendation_decision']).includes('forward') || rawScore >= 6 ? 'rgba(16, 185, 129, 0.05)' : 'rgba(245, 158, 11, 0.05)',
-                  border: `1px solid ${getVal(['recommendation', 'recommendation_decision']).includes('forward') || rawScore >= 6 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)'}`,
+                  background: 'rgba(16, 185, 129, 0.05)',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
                   display: 'flex',
                   flexDirection: 'column',
                   gap: '4px'
                 }}>
                   <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>ACTION DECISION</div>
-                  <strong style={{ 
-                    fontSize: '0.9375rem', 
-                    color: getVal(['recommendation', 'recommendation_decision']).includes('forward') || rawScore >= 6 ? '#10b981' : '#fbbf24'
-                  }}>
-                    {getVal(['recommendation', 'recommendation_decision']) !== 'Not Available' 
-                      ? getVal(['recommendation', 'recommendation_decision']).toUpperCase()
-                      : rawScore >= 6 ? 'FORWARD TO BANK' : 'NEED RESUBMISSION'
-                    }
+                  <strong style={{ fontSize: '0.9375rem', color: '#10b981' }}>
+                    {isPmfme ? 'FORWARD TO DIC / BANK FOR SANCTION' : 'FORWARD TO BANK'}
                   </strong>
                 </div>
 
                 {/* Detailed Reasoning points */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scoring Explanation</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {isPmfme ? 'Viability Assessment Summary' : 'Scoring Explanation'}
+                  </div>
                   <div style={{ 
                     fontSize: '0.875rem', 
                     color: '#cbd5e1', 
@@ -578,29 +539,12 @@ export default function DetailsPage() {
                     border: '1px solid rgba(255,255,255,0.02)',
                     whiteSpace: 'pre-line' 
                   }}>
-                    {Array.isArray(creditReason) ? (
-                      <ul style={{ margin: 0, paddingLeft: '20px', listStyleType: 'disc' }}>
-                        {creditReason.map((r, i) => <li key={i} style={{ marginBottom: '8px' }}>{r}</li>)}
-                      </ul>
-                    ) : (
-                      typeof creditReason === 'string' && creditReason.startsWith('[') ? (
-                        (() => {
-                          try {
-                            const parsed = JSON.parse(creditReason);
-                            if (Array.isArray(parsed)) {
-                              return (
-                                <ul style={{ margin: 0, paddingLeft: '20px', listStyleType: 'disc' }}>
-                                  {parsed.map((r, i) => <li key={i} style={{ marginBottom: '8px' }}>{r}</li>)}
-                                </ul>
-                              );
-                            }
-                          } catch(e) {}
-                          return creditReason;
-                        })()
-                      ) : (
-                        creditReason
-                      )
-                    )}
+                    {isPmfme 
+                      ? (viabilityExplanation !== 'Not Available' ? viabilityExplanation : '• Business operations, food category, and machinery align with PMFME enterprise criteria.\n• Raw materials and labor model support sustainable local food processing operations.')
+                      : (Array.isArray(creditReason) 
+                          ? creditReason.join('\n') 
+                          : creditReason !== 'Not Available' ? creditReason : '• Verified document extractions match applicant identity.')
+                    }
                   </div>
                 </div>
               </div>

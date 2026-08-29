@@ -410,185 +410,132 @@ function InterviewContent() {
   // Post-Interview Review Modal State
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewFields, setReviewFields] = useState({});
+  const [formSchema, setFormSchema] = useState(null);
   const [isSavingReview, setIsSavingReview] = useState(false);
 
-  const REVIEW_SECTIONS = [
-    {
-      id: 'personal',
-      title: 'Personal & Identity Information',
-      icon: '👤',
-      keys: ['applicant_name', 'date_of_birth', 'gender', 'phone', 'father_name', 'marital_status', 'education_level', 'number_of_family_members', 'number_of_kids', 'address']
-    },
-    {
-      id: 'documents',
-      title: 'Verified Government ID Details',
-      icon: '📄',
-      keys: ['aadhaar_number', 'pan_number', 'udyam_number', 'epic_number']
-    },
-    {
-      id: 'enterprise',
-      title: 'Enterprise & Business Details',
-      icon: '🏢',
-      keys: ['enterprise_name', 'business_type', 'type_of_enterprise', 'major_activity', 'social_category', 'business_purpose', 'udyam_email', 'udyam_mobile', 'business_address']
-    },
-    {
-      id: 'financials',
-      title: 'Financial & Operations Data',
-      icon: '💰',
-      keys: ['monthly_revenue', 'monthly_profit', 'last_year_monthly_revenue', 'persons_involved', 'number_of_paid_employees', 'current_wages', 'inventory_amount', 'debtors_amount', 'creditors_amount']
-    },
-    {
-      id: 'loan',
-      title: 'Loan & Equipment Requirements',
-      icon: '⚙️',
-      keys: ['needs_machine', 'machine_name', 'machine_purpose', 'machine_supplier', 'machine_cost', 'co_borrower', 'previous_loan_detail', 'previous_loan_default_flag', 'default_reason', 'current_emi_value']
+  const formatComplexValue = (val) => {
+    if (val === undefined || val === null || val === '') return '';
+    if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean') return String(val);
+    if (Array.isArray(val)) {
+      return val.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          if (item.name && item.count !== undefined && item.unit_cost !== undefined) {
+            return `${item.name} (${item.count} units @ ₹${item.unit_cost})`;
+          }
+          if (item.name && item.monthly_qty !== undefined) {
+            return `${item.name} (${item.monthly_qty} units)`;
+          }
+          if (item.name) return item.name;
+          return Object.entries(item).map(([k, v]) => `${k}: ${v}`).join(', ');
+        }
+        return String(item);
+      }).join('; ');
     }
-  ];
-
-  const FRIENDLY_FIELD_LABELS = {
-    applicant_name: 'Full Name',
-    date_of_birth: 'Date of Birth',
-    gender: 'Gender',
-    phone: 'Mobile Number',
-    father_name: "Father / Husband Name",
-    email: 'Email Address',
-    marital_status: 'Marital Status',
-    education_level: 'Qualification',
-    number_of_family_members: 'Family Members Count',
-    number_of_kids: 'Children Count',
-    address: 'Residential Address',
-    aadhaar_number: 'Aadhaar Card Number',
-    pan_number: 'PAN Card Number',
-    udyam_number: 'Udyam Registration Number',
-    epic_number: 'Voter ID EPIC Number',
-    enterprise_name: 'Enterprise Name',
-    business_type: 'Business Type',
-    type_of_enterprise: 'Enterprise Category (Micro/Small)',
-    major_activity: 'Major Activity (Trading/Mfg/Service)',
-    social_category: 'Social Category',
-    business_purpose: 'Business Line / Purpose',
-    udyam_email: 'Business Email',
-    udyam_mobile: 'Business Registered Phone',
-    business_address: 'Business Workplace Address',
-    monthly_revenue: 'Monthly Sales / Revenue (₹)',
-    monthly_profit: 'Monthly Profit (₹)',
-    last_year_monthly_revenue: 'Past Year Monthly Sales (₹)',
-    persons_involved: 'Persons Involved Currently',
-    number_of_paid_employees: 'Paid Employees Count',
-    current_wages: 'Annual Wages Paid (₹)',
-    inventory_amount: 'Inventory Value (₹)',
-    debtors_amount: 'Receivables / Debtors (₹)',
-    creditors_amount: 'Payables / Creditors (₹)',
-    needs_machine: 'Machine Purchase Needed?',
-    machine_name: 'Machine / Equipment Description',
-    machine_purpose: 'Purpose of Machine',
-    machine_supplier: 'Equipment Supplier Name',
-    machine_cost: 'Machine / Equipment Cost (₹)',
-    co_borrower: 'Co-Borrower Present?',
-    previous_loan_detail: 'Previous Loan Details',
-    previous_loan_default_flag: 'Prior Default Record?',
-    default_reason: 'Default Reason (if any)',
-    current_emi_value: 'Current Monthly EMI (₹)'
+    if (typeof val === 'object') {
+      const parts = [
+        val.house_number || val.house || val.flat_door_block,
+        val.street || val.road_street || val.road_street_lane || val.building_name || val.premises_building,
+        val.locality || val.village_town || val.village_town_city || val.city_village,
+        val.subdistrict || val.tehsil || val.vtc,
+        val.district || val.city || val.city_town,
+        val.state,
+        val.pincode
+      ].filter(Boolean);
+      if (parts.length > 0) return parts.join(', ');
+      return Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(', ');
+    }
+    return String(val);
   };
 
-  const buildComprehensiveFieldsMap = (data, phoneArg = '', applicantNameArg = '') => {
+  const buildComprehensiveFieldsMap = (data, schemaToUse, phoneArg = '', applicantNameArg = '') => {
     const extracted = data.extracted_data || data || {};
     const extractions = extracted.extractions || {};
+    const interviewExt = extractions.interview || {};
+    const voiceQaExt = extractions['voice-qa'] || {};
 
-    const getNested = (obj, pathArray) => {
-      let curr = obj;
-      for (const p of pathArray) {
-        if (curr && typeof curr === 'object') {
-          curr = curr[p];
-        } else {
-          return undefined;
+    const getVal = (key) => {
+      // 1. Direct key on extracted root
+      if (extracted[key] !== undefined && extracted[key] !== null && extracted[key] !== '') {
+        return formatComplexValue(extracted[key]);
+      }
+      // 2. In interview extractions
+      if (interviewExt[key] !== undefined && interviewExt[key] !== null && interviewExt[key] !== '') {
+        return formatComplexValue(interviewExt[key]);
+      }
+      // 3. In voice-qa extractions
+      if (voiceQaExt[key] !== undefined && voiceQaExt[key] !== null && voiceQaExt[key] !== '') {
+        return formatComplexValue(voiceQaExt[key]);
+      }
+      // 4. In extractions general
+      if (extractions[key] !== undefined && extractions[key] !== null && extractions[key] !== '') {
+        return formatComplexValue(extractions[key]);
+      }
+      // 5. In document extractions
+      for (const docKey of Object.keys(extractions)) {
+        if (extractions[docKey] && typeof extractions[docKey] === 'object') {
+          if (extractions[docKey][key] !== undefined && extractions[docKey][key] !== null && extractions[docKey][key] !== '') {
+            return formatComplexValue(extractions[docKey][key]);
+          }
         }
       }
-      return curr;
-    };
 
-    const getVal = (paths) => {
-      for (const p of paths) {
-        const parts = p.split('.');
-        let val = getNested(extracted, parts);
-        if (val === undefined || val === null || val === '') {
-          val = getNested(extractions, parts);
-        }
-        if (val !== undefined && val !== null && val !== '') {
-          if (typeof val === 'object') return JSON.stringify(val);
-          return String(val);
+      // Aliases
+      const aliasMap = {
+        applicant_name: ['doc_aadhaar_name', 'doc_pan_name', 'doc_voter_name', 'doc_dl_name', 'holder.full_name'],
+        dob: ['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'doc_dl_dob'],
+        gender: ['doc_aadhaar_gender', 'doc_voter_gender'],
+        phone: ['mobile_number'],
+        father_spouse_name: ['father_name', 'doc_pan_father_name', 'doc_voter_father_name'],
+        education_qualification: ['education_level', 'educational_qualification', 'academic_qualification'],
+        applicant_address: ['address', 'doc_aadhaar_address', 'doc_voter_address', 'doc_dl_address'],
+        enterprise_name: ['doc_udyam_enterprise_name'],
+        udyam_number: ['doc_udyam_registration_number'],
+        enterprise_address: ['business_address', 'doc_udyam_enterprise_address'],
+        pan_number: ['doc_pan_number'],
+        aadhaar_number: ['doc_aadhaar_last4'],
+        epic_number: ['doc_voter_number'],
+        business_type: ['type_of_business', 'doc_udyam_enterprise_type'],
+        monthly_revenue: ['business_revenue', 'net_sales_present_year'],
+        monthly_profit: ['net_profit_present_year'],
+        social_category: ['doc_udyam_social_category'],
+        activities_involved: ['existing_business_activity', 'doc_udyam_major_activity']
+      };
+
+      if (aliasMap[key]) {
+        for (const alias of aliasMap[key]) {
+          const res = getVal(alias);
+          if (res) return res;
         }
       }
+
       return '';
     };
 
-    const formatAddress = (addrObj) => {
-      if (!addrObj) return '';
-      if (typeof addrObj === 'string') return addrObj;
-      if (typeof addrObj === 'object') {
-        const parts = [
-          addrObj.house_number || addrObj.house || addrObj.flat_door_block,
-          addrObj.street || addrObj.road_street_lane || addrObj.building_name,
-          addrObj.locality || addrObj.village_town || addrObj.village_town_city,
-          addrObj.subdistrict || addrObj.tehsil || addrObj.vtc,
-          addrObj.district || addrObj.city,
-          addrObj.state,
-          addrObj.pincode
-        ].filter(Boolean);
-        return parts.join(', ');
+    const fieldsMap = {};
+    if (schemaToUse && schemaToUse.sections) {
+      for (const section of schemaToUse.sections) {
+        for (const field of (section.fields || [])) {
+          if (!field.is_derived) {
+            fieldsMap[field.key] = getVal(field.key);
+          }
+        }
       }
-      return '';
-    };
+    } else {
+      // Fallback if schema is loading: populate all top-level keys
+      for (const [k, v] of Object.entries(extracted)) {
+        if (typeof v !== 'object' || Array.isArray(v)) {
+          fieldsMap[k] = formatComplexValue(v);
+        }
+      }
+      for (const [k, v] of Object.entries(interviewExt)) {
+        fieldsMap[k] = formatComplexValue(v);
+      }
+    }
 
-    return {
-      applicant_name: getVal(['applicant_name', 'doc_aadhaar_name', 'doc_pan_name', 'doc_voter_name', 'doc_dl_name', 'holder.full_name', 'extractions.doc_aadhaar_002.doc_aadhaar_name', 'extractions.doc_pan_001.doc_pan_name', 'extractions.voter_front.doc_voter_name', 'extractions.doc_dl_001.doc_dl_name']) || applicantNameArg,
-      date_of_birth: getVal(['date_of_birth', 'doc_aadhaar_dob', 'doc_pan_dob', 'doc_voter_dob', 'doc_dl_dob', 'holder.date_of_birth', 'extractions.doc_aadhaar_002.doc_aadhaar_dob', 'extractions.doc_pan_001.doc_pan_dob', 'extractions.voter_front.doc_voter_dob', 'extractions.doc_dl_001.doc_dl_dob']),
-      gender: getVal(['gender', 'doc_aadhaar_gender', 'doc_voter_gender', 'holder.gender', 'extractions.doc_aadhaar_002.doc_aadhaar_gender', 'extractions.voter_front.doc_voter_gender']),
-      phone: getVal(['phone', 'mobile_number']) || phoneArg,
-      father_name: getVal(['father_name', 'doc_pan_father_name', 'doc_voter_father_name', 'extractions.doc_pan_001.doc_pan_father_name', 'extractions.voter_front.doc_voter_father_name']),
-      marital_status: getVal(['marital_status', 'is_married']),
-      education_level: getVal(['education_level']),
-      number_of_family_members: getVal(['number_of_family_members']),
-      number_of_kids: getVal(['number_of_kids']),
-      address: formatAddress(extracted.address) || formatAddress(extracted.doc_aadhaar_address) || formatAddress(extracted.doc_voter_address) || formatAddress(extracted.doc_dl_address) || formatAddress(getNested(extractions, ['doc_aadhaar_002', 'doc_aadhaar_address'])) || formatAddress(getNested(extractions, ['doc_voter_001', 'doc_voter_address'])) || formatAddress(getNested(extractions, ['doc_dl_001', 'doc_dl_address'])),
+    if (!fieldsMap.applicant_name && applicantNameArg) fieldsMap.applicant_name = applicantNameArg;
+    if (!fieldsMap.phone && phoneArg) fieldsMap.phone = phoneArg;
 
-      aadhaar_number: getVal(['aadhaar_number', 'doc_aadhaar_last4', 'extractions.doc_aadhaar_002.doc_aadhaar_last4']),
-      pan_number: getVal(['pan_number', 'doc_pan_number', 'extractions.doc_pan_001.doc_pan_number']),
-      udyam_number: getVal(['udyam_number', 'doc_udyam_registration_number', 'extractions.doc_udyam_001.doc_udyam_registration_number']),
-      epic_number: getVal(['epic_number', 'doc_voter_number', 'extractions.voter_front.doc_voter_number']),
-      dl_number: getVal(['dl_number', 'doc_dl_number', 'extractions.doc_dl_001.doc_dl_number', 'driving_license_number']),
-
-      enterprise_name: getVal(['enterprise.enterprise_name', 'enterprise_name', 'doc_udyam_enterprise_name', 'extractions.doc_udyam_001.doc_udyam_enterprise_name']),
-      business_type: getVal(['business_type', 'type_of_business', 'doc_udyam_enterprise_type', 'extractions.doc_udyam_001.doc_udyam_enterprise_type']),
-      type_of_enterprise: getVal(['enterprise.type_of_enterprise', 'type_of_enterprise', 'doc_udyam_enterprise_type', 'extractions.doc_udyam_001.doc_udyam_enterprise_type']),
-      major_activity: getVal(['enterprise.major_activity', 'major_activity', 'doc_udyam_major_activity', 'extractions.doc_udyam_001.doc_udyam_major_activity']),
-      social_category: getVal(['enterprise.social_category', 'social_category', 'doc_udyam_social_category', 'extractions.doc_udyam_001.doc_udyam_social_category']),
-      business_purpose: getVal(['business_purpose', 'existing_business_activity']),
-      udyam_email: getVal(['contact_details.email', 'extractions.doc_udyam_001.contact_details.email']),
-      udyam_mobile: getVal(['contact_details.mobile', 'extractions.doc_udyam_001.contact_details.mobile']),
-      business_address: formatAddress(extracted.business_address) || formatAddress(extracted.doc_udyam_enterprise_address) || formatAddress(getNested(extractions, ['doc_udyam_001', 'doc_udyam_enterprise_address'])),
-
-      monthly_revenue: getVal(['monthly_revenue', 'business_revenue', 'net_sales_present_year']),
-      monthly_profit: getVal(['monthly_profit', 'net_profit_present_year']),
-      last_year_monthly_revenue: getVal(['last_year_monthly_revenue', 'net_sales_past_year_1']),
-      persons_involved: getVal(['persons_involved', 'number_of_persons_involved_currently']),
-      number_of_paid_employees: getVal(['number_of_paid_employees']),
-      current_wages: getVal(['current_wages', 'current_total_wages']),
-      inventory_amount: getVal(['inventory_amount', 'inventory']),
-      debtors_amount: getVal(['debtors_amount', 'debtors']),
-      creditors_amount: getVal(['creditors_amount', 'creditors']),
-
-      needs_machine: getVal(['needs_machine']),
-      machine_name: getVal(['machine_name', 'type_of_machine_equipment']),
-      machine_purpose: getVal(['machine_purpose', 'purpose']),
-      machine_supplier: getVal(['machine_supplier', 'name_of_supplier']),
-      machine_cost: getVal(['machine_cost', 'approximate_cost']),
-      co_borrower: getVal(['co_borrower']),
-      previous_loan_detail: getVal(['previous_loan_detail']),
-      previous_loan_default_flag: getVal(['previous_loan_default_flag']),
-      default_reason: getVal(['default_reason']),
-      current_emi_value: getVal(['current_emi_value'])
-    };
+    return fieldsMap;
   };
 
   const playReviewVoiceAnnouncement = (lang) => {
@@ -659,7 +606,9 @@ function InterviewContent() {
           headers: { 'Authorization': `Bearer ${savedToken}` }
         });
         const data = await res.json();
-        const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
+        const schema = data.form_schema || formSchema;
+        if (schema) setFormSchema(schema);
+        const fieldsMap = buildComprehensiveFieldsMap(data, schema, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
 
         setReviewFields(fieldsMap);
         setShowReviewModal(true);
@@ -704,6 +653,9 @@ function InterviewContent() {
           resolvedSchemeId = data.scheme_id;
         } else if (data.extracted_data && data.extracted_data.scheme_id) {
           resolvedSchemeId = data.extracted_data.scheme_id;
+        }
+        if (data.form_schema) {
+          setFormSchema(data.form_schema);
         }
       } catch (err) {
         console.error('[InterviewPage] Token check failed:', err);
@@ -910,7 +862,9 @@ function InterviewContent() {
                 headers: { 'Authorization': `Bearer ${savedToken}` }
               });
               const data = await res.json();
-              const fieldsMap = buildComprehensiveFieldsMap(data, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
+              const schema = data.form_schema || formSchema;
+              if (schema) setFormSchema(schema);
+              const fieldsMap = buildComprehensiveFieldsMap(data, schema, data.phone || '', data.applicant_name || data.doc_aadhaar_name || '');
 
               setReviewFields(fieldsMap);
               setShowReviewModal(true);
@@ -2186,18 +2140,21 @@ function InterviewContent() {
 
             {/* Categorized Editable Sections */}
             <div className={styles.tableContainer}>
-              {REVIEW_SECTIONS.map((section) => {
-                const sectionKeys = section.keys;
+              {(formSchema?.sections || []).map((section, idx) => {
+                const visibleFields = (section.fields || []).filter(f => !f.is_derived);
+                if (visibleFields.length === 0) return null;
+
                 return (
-                  <div key={section.id} className={styles.reviewSectionBlock}>
+                  <div key={section.title || idx} className={styles.reviewSectionBlock}>
                     <h3 className={styles.sectionHeaderTitle}>
-                      <span>{section.icon}</span>
+                      <span>📋</span>
                       <span>{section.title}</span>
                     </h3>
                     <div className={styles.reviewGrid}>
-                      {sectionKeys.map((key) => {
+                      {visibleFields.map((field) => {
+                        const key = field.key;
                         const val = reviewFields[key];
-                        const label = FRIENDLY_FIELD_LABELS[key] || key.replace(/_/g, ' ').toUpperCase();
+                        const label = field.label || key.replace(/_/g, ' ').toUpperCase();
                         return (
                           <div key={key} className={styles.reviewRow}>
                             <label className={styles.reviewLabel}>

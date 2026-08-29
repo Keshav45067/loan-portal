@@ -1272,6 +1272,7 @@ admin_portal:
           - key: "land_value_per_sqft"
             label: "Land Value (₹/Sq. Ft.)"
             type: "currency"
+            is_derived: true
 
       - title: "4. Machinery & Quotations"
         fields:
@@ -1284,9 +1285,11 @@ admin_portal:
           - key: "furniture_and_fixtures"
             label: "Furniture & Fixtures Cost (₹)"
             type: "currency"
+            is_derived: true
           - key: "contingency_miscellaneous"
             label: "Contingency / Misc Cost (₹)"
             type: "currency"
+            is_derived: true
 
       - title: "5. Production, Raw Materials & Sales"
         fields:
@@ -1302,12 +1305,15 @@ admin_portal:
           - key: "stock_in_process_days"
             label: "Stock in Process (Days)"
             type: "number"
+            is_derived: true
           - key: "finished_goods_days"
             label: "Finished Goods Inventory (Days)"
             type: "number"
+            is_derived: true
           - key: "receivables_days"
             label: "Receivable Collection (Days)"
             type: "number"
+            is_derived: true
 
       - title: "6. Employment & Operations"
         fields:
@@ -1338,24 +1344,31 @@ admin_portal:
           - key: "project_cost"
             label: "Estimated Project Cost (₹)"
             type: "currency"
+            is_derived: true
           - key: "loan_amount_requested"
             label: "Loan Amount Requested (₹)"
             type: "currency"
+            is_derived: true
           - key: "personal_contribution_capex"
             label: "Personal Contribution Capex (%)"
             type: "number"
+            is_derived: true
           - key: "own_contribution_working_capital"
             label: "Own Contribution Working Capital (%)"
             type: "number"
+            is_derived: true
           - key: "preliminary_preoperative_cost"
             label: "Preliminary / Pre-operative Cost (₹)"
             type: "currency"
+            is_derived: true
           - key: "loan_repayment_period"
             label: "Loan Repayment Period (Years)"
             type: "text"
+            is_derived: true
           - key: "rate_of_interest"
             label: "Interest Rate (%)"
             type: "number"
+            is_derived: true
           - key: "bank_name"
             label: "Bank Name"
             type: "text"
@@ -1374,9 +1387,12 @@ admin_portal:
           - key: "viability_tag"
             label: "Business Viability Status"
             type: "text"
+            is_derived: true
           - key: "viability_explanation"
             label: "Viability Evaluation Summary"
             type: "text"
+            is_derived: true
           - key: "documentation_stage"
             label: "Application Stage"
             type: "text"
+            is_derived: true

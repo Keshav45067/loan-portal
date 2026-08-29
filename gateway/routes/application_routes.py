@@ -204,6 +204,41 @@ async def get_my_applications(request: Request, auth: dict = Depends(require_aut
         return {"success": False, "applications": [], "error": str(e)}
 
 
+def load_scheme_form_schema(scheme_id: str) -> dict:
+    try:
+        import yaml
+        base_dir = os.getenv(
+            "CONFIG_REGISTRY_DIR",
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "config-registry", "configs"))
+        )
+        if not os.path.exists(base_dir):
+            for alt in [
+                os.path.abspath("config-registry/configs"),
+                os.path.abspath("services/config-registry/configs"),
+                "/var/www/augmen/testing-services/config-registry/configs"
+            ]:
+                if os.path.exists(alt):
+                    base_dir = alt
+                    break
+
+        clean_id = (scheme_id or "").lower().strip()
+        candidates = [
+            f"{clean_id}.yaml",
+            f"base-{clean_id}.yaml",
+            "base-pmfme.yaml" if "pmfme" in clean_id else "base-mudra.yaml"
+        ]
+        for cand in candidates:
+            cand_path = os.path.join(base_dir, cand)
+            if os.path.exists(cand_path):
+                with open(cand_path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f)
+                    if cfg and "admin_portal" in cfg and "form_schema" in cfg["admin_portal"]:
+                        return cfg["admin_portal"]["form_schema"]
+    except Exception as e:
+        logger.warning(f"Could not load form_schema for scheme {scheme_id}: {e}")
+    return {}
+
+
 @router.get("/{application_id}")
 async def get_application(application_id: str, request: Request,
                           auth: dict = Depends(require_auth)):
@@ -269,6 +304,8 @@ async def get_application(application_id: str, request: Request,
         except Exception as doc_err:
             logger.error(f"Failed to fetch documents: {doc_err}", req_id=req_id)
 
+        form_schema = load_scheme_form_schema(app_resp.scheme_id)
+
         return {
             "application_id": app_resp.application_id,
             "session_id": app_resp.session_id,
@@ -278,11 +315,19 @@ async def get_application(application_id: str, request: Request,
             "phone": app_resp.phone,
             "panchayat": app_resp.panchayat,
             "extracted_data": extracted_json,
-            "documents": docs_list
+            "documents": docs_list,
+            "form_schema": form_schema
         }
     except Exception as e:
         logger.error(f"Get application failed: {e}", req_id=req_id)
         return {"error": str(e), "status": "ERROR"}
+
+
+@router.get("/scheme-schema/{scheme_id}")
+async def get_scheme_form_schema(scheme_id: str, request: Request):
+    """Fetch dynamic form_schema from config registry YAML."""
+    form_schema = load_scheme_form_schema(scheme_id)
+    return {"success": True, "scheme_id": scheme_id, "form_schema": form_schema}
 
 
 @router.post("/calculate-financials")

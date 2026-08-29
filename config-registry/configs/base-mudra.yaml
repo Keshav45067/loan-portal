@@ -1414,18 +1414,23 @@ admin_portal:
           - key: "net_sales_present_year"
             label: "Net Sales (Present Year)"
             type: "currency"
+            is_derived: true
           - key: "net_profit_present_year"
             label: "Net Profit (Present Year)"
             type: "currency"
+            is_derived: true
           - key: "net_sales_next_year"
             label: "Projected Sales (Next Year)"
             type: "currency"
+            is_derived: true
           - key: "net_profit_next_year"
             label: "Projected Profit (Next Year)"
             type: "currency"
+            is_derived: true
           - key: "profit_margin"
             label: "Estimated Profit Margin"
             type: "number"
+            is_derived: true
       - title: "Loan Assessment & Requirements"
         fields:
           - key: "loan_required"
@@ -1434,15 +1439,19 @@ admin_portal:
           - key: "total_loan_required_amount"
             label: "Assessed Total Loan Amount"
             type: "currency"
+            is_derived: true
           - key: "term_loan_required"
             label: "Term Loan (Machinery/Asset)"
             type: "currency"
+            is_derived: true
           - key: "cash_credit_amount"
             label: "Cash Credit (Working Capital)"
             type: "currency"
+            is_derived: true
           - key: "promoters_contribution_in_working_capital"
             label: "Promoter's Contribution (Working Capital)"
             type: "currency"
+            is_derived: true
           - key: "type_of_machine_equipment"
             label: "Equipment / Asset Description"
             type: "text"

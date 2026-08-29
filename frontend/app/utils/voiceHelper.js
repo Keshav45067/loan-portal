@@ -191,6 +191,7 @@ export class VoiceSessionManager {
     this.pendingComplete = null;
     this._waitingForCaptureTransition = false; // Flag to defer capture node advancement until success audio plays
     this.vadOptions = options.vadOptions || {};
+    this.dspOptions = options.dspOptions || {};
   }
 
   async connect() {
@@ -218,10 +219,11 @@ export class VoiceSessionManager {
         throw new Error('VAD library (window.vad.MicVAD) is not loaded. Please reload the page.');
       }
 
-      // ─── Step 2: Initialize AudioProcessor ───
+      // ─── Step 2: Initialize AudioProcessor with 5-stage DSP ───
       this.audioProcessor = new AudioProcessor({
         sampleRate: 16000,
         ...this.vadOptions,
+        ...this.dspOptions,
 
         onAudioChunk: (chunk) => {
           if (this.isRecording && !this._disconnected && !this.isPlayingAudio && this.audioQueue.length === 0 && !this.isProcessing) {
