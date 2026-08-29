@@ -10,6 +10,8 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 const SCHEME_ICONS = {
   'base-mudra': '💼',
+  'base-pmfme': '🌾',
+  'pmfme': '🌾',
   'mudra-grocery': '🛒',
   'mudra-dairy': '🥛',
   'mudra-salon': '💇',
@@ -116,6 +118,9 @@ function DashboardContent() {
 
       const startData = await startRes.json();
       if (startData.success && startData.session_id) {
+        if (startData.token) {
+          localStorage.setItem('token', startData.token);
+        }
         localStorage.setItem('session_id', startData.session_id);
         toast.success(`Starting ${schemeIdToStart.replace('mudra-', '').replace('-', ' ')} application...`);
         router.push('/interview');

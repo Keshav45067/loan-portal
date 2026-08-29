@@ -14,7 +14,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
 from log_utils.logger import get_logger, get_req_id
 
-from middleware.jwt_auth import require_auth
+from middleware.jwt_auth import require_auth, create_token
 
 from grpc_clients.generated import app_orchestrator_pb2
 
@@ -136,8 +136,15 @@ async def start_scheme(body: StartSchemeRequest, request: Request, auth: dict = 
         if not app_resp.session_id:
             return {"success": False, "error": "Failed to initialize scheme session"}
         
+        app_token = create_token(
+            session_id=app_resp.session_id,
+            phone=phone,
+            extra={"scheme_id": app_resp.scheme_id}
+        )
+
         return {
             "success": True,
+            "token": app_token,
             "session_id": app_resp.session_id,
             "application_id": app_resp.application_id or app_resp.session_id,
             "scheme_id": app_resp.scheme_id,

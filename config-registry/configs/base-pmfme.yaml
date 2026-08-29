@@ -559,14 +559,36 @@ interview_graph:
       targets: ["working_capital_loan_needed"]
       edges:
         - condition: "always"
-          next: "Q_EMPLOYMENT_WAGES"
+          next: "Q_HAS_WORKERS"
 
-    Q_EMPLOYMENT_WAGES:
+    Q_HAS_WORKERS:
       type: "voice-qa"
-      text_template: "आपके साथ कुल कितने कर्मचारी काम करेंगे, वे क्या-क्या काम संभालेंगे और उन्हें महीने में कितनी तनख़्वाह देंगे?"
-      text_template_en: "How many total workers will be employed, what will be their roles, and what monthly wages will you pay them?"
-      text_template_mr: "तुमच्याकडे एकूण किती कामगार काम करतील, ते काय काम पाहतील आणि त्यांना दरमहा किती पगार द्याल?"
-      targets: ["total_workers", "worker_roles", "new_employment_generated", "num_skilled_workers", "num_unskilled_workers", "wages_skilled_per_month", "wages_unskilled_per_month"]
+      text_template: "क्या आपके इस काम में आपके अलावा अन्य कर्मचारी या मजदूर भी काम करेंगे?"
+      text_template_en: "Will any other workers, helpers, or employees be working with you in this business?"
+      text_template_mr: "तुमच्या या व्यवसायात तुमच्या व्यतिरिक्त इतर कामगार किंवा कर्मचारी काम करतील का?"
+      targets: ["has_workers"]
+      edges:
+        - condition: "has_workers in ['no', 'No', 'False', 'false']"
+          next: "Q_INTERVIEW_CLOSING"
+        - condition: "always"
+          next: "Q_WORKER_ROLES"
+
+    Q_WORKER_ROLES:
+      type: "voice-qa"
+      text_template: "कुल कितने कर्मचारी काम करेंगे और वे क्या-क्या काम संभालेंगे?"
+      text_template_en: "How many total workers will be employed and what specific job roles or duties will they handle?"
+      text_template_mr: "एकूण किती कामगार काम करतील आणि ते कोणती कामे सांभाळतील?"
+      targets: ["total_workers", "worker_roles", "new_employment_generated", "num_skilled_workers", "num_unskilled_workers"]
+      edges:
+        - condition: "always"
+          next: "Q_WORKER_WAGES"
+
+    Q_WORKER_WAGES:
+      type: "voice-qa"
+      text_template: "उन्हें हर महीने कुल मिलाकर लगभग कितनी तनख़्वाह या मजदूरी देंगे?"
+      text_template_en: "What approximate monthly wages or salary will you pay them in total?"
+      text_template_mr: "त्यांना दरमहा एकूण अंदाजे किती पगार किंवा मजुरी द्याल?"
+      targets: ["wages_skilled_per_month", "wages_unskilled_per_month"]
       edges:
         - condition: "always"
           next: "Q_INTERVIEW_CLOSING"
@@ -653,7 +675,9 @@ context_map:
   Q_RAW_MATERIALS: [Q_PRODUCTS_TO_SELL]
   Q_RAW_MATERIAL_RATES_QTY: [Q_RAW_MATERIALS]
   Q_WORKING_CAPITAL: [Q_PRODUCTS_TO_SELL, Q_RAW_MATERIALS]
-  Q_EMPLOYMENT_WAGES: [Q_TYPE_OF_BUSINESS]
+  Q_HAS_WORKERS: [Q_TYPE_OF_BUSINESS]
+  Q_WORKER_ROLES: [Q_HAS_WORKERS]
+  Q_WORKER_WAGES: [Q_WORKER_ROLES]
   Q_INTERVIEW_CLOSING: []
   DOC_WORKPLACE_VIDEO: []
   COMPLETE: []
@@ -697,6 +721,7 @@ field_instructions:
   
   working_capital_loan_needed: "INFER as 'Yes' or 'No'. If applicant wants or needs working capital loan -> 'Yes', otherwise 'No'."
   
+  has_workers: "INFER as 'Yes' or 'No'. If applicant employs or will employ other workers/helpers -> 'Yes', if working alone/solo -> 'No'."
   total_workers: "Extract total number of workers working with the applicant as integer. Must be reasonable (< 10)."
   worker_roles: "Extract text description in English of employee roles (e.g., 'Machine operator, Packaging helper, Delivery person')."
   new_employment_generated: "Extract integer count of new jobs created by the proposed unit."
@@ -916,6 +941,7 @@ db_mapping:
   products_to_sell: products_to_sell
   raw_materials_required: raw_materials_required
   working_capital_loan_needed: working_capital_loan_needed
+  has_workers: has_workers
   
   total_workers: total_workers
   num_skilled_workers: num_skilled_workers

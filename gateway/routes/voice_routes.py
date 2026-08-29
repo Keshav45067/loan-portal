@@ -58,7 +58,7 @@ async def voice_websocket(websocket: WebSocket):
             return
 
         authenticated = True
-        session_id = payload.get("session_id", init_data.get("session_id", ""))
+        session_id = init_data.get("session_id") or init_data.get("application_id") or payload.get("session_id", "")
         scheme_id = init_data.get("scheme_id", "")
         language = init_data.get("language", "hi")
         applicant_name = init_data.get("applicant_name", "")

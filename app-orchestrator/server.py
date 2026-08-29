@@ -620,8 +620,10 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 # 2. Get or create session
                 SBI_BANK_SCHEME_ID = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
                 cur.execute(
-                    "SELECT id FROM user_data WHERE phone = %s OR phone = %s OR phone = %s",
-                    (full_phone, request.phone, phone_clean)
+                    """SELECT id FROM user_data 
+                       WHERE phone = %s OR phone = %s OR phone = %s OR phone LIKE %s 
+                       ORDER BY updated_at DESC LIMIT 1""",
+                    (full_phone, request.phone, phone_clean, f"%{phone_clean}")
                 )
                 user_row = cur.fetchone()
 
@@ -671,13 +673,20 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                      phone=request.phone)
         try:
             with get_db_cursor(self._db_pool) as cur:
-                phone = request.phone
+                phone = request.phone or ""
+                phone_clean = phone.replace("+91", "").replace(" ", "").replace("-", "").strip()[-10:] if phone else ""
+                full_phone = f"+91{phone_clean}" if phone_clean else phone
+                zero_phone = f"0{phone_clean}" if phone_clean else phone
+                like_phone = f"%{phone_clean}" if phone_clean else phone
+
                 base_profile = {}
                 # 1. Fetch user's base registration details (panchayat, block, district, state, phone, name)
                 # from any existing user_data row for this user
                 cur.execute(
-                    "SELECT data, phone FROM user_data WHERE id = %s OR phone = %s ORDER BY updated_at DESC LIMIT 1",
-                    (request.session_id, phone)
+                    """SELECT data, phone FROM user_data 
+                       WHERE id = %s OR phone = %s OR phone = %s OR phone = %s OR phone LIKE %s 
+                       ORDER BY updated_at DESC LIMIT 1""",
+                    (request.session_id, phone, full_phone, phone_clean, like_phone)
                 )
                 row = cur.fetchone()
                 if row:
@@ -689,8 +698,11 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
 
                 # 2. Check if an application already exists for this specific (phone, scheme_id)
                 cur.execute(
-                    "SELECT id, data FROM user_data WHERE phone = %s AND (scheme_id = %s OR data->>'scheme_id' = %s) ORDER BY updated_at DESC LIMIT 1",
-                    (phone, request.scheme_id, request.scheme_id)
+                    """SELECT id, data FROM user_data 
+                       WHERE (phone = %s OR phone = %s OR phone = %s OR phone LIKE %s) 
+                         AND (scheme_id = %s OR data->>'scheme_id' = %s) 
+                       ORDER BY updated_at DESC LIMIT 1""",
+                    (phone, full_phone, phone_clean, like_phone, request.scheme_id, request.scheme_id)
                 )
                 existing_app_row = cur.fetchone()
 
