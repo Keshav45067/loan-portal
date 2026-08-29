@@ -192,14 +192,14 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
     """Run background LLM credit evaluations using scheme configuration pipelines."""
     logger.info("Starting background post-processing evaluations", session_id=session_id)
     try:
-        # 1. Fetch user_data row
+        # 1. Fetch applications_data row
         user_data_json = {}
         phone = None
         with get_db_cursor(db_pool) as cur:
-            cur.execute("SELECT data, phone FROM user_data WHERE id = %s", (session_id,))
+            cur.execute("SELECT data, phone FROM applications_data WHERE id = %s", (session_id,))
             row = cur.fetchone()
             if not row:
-                logger.error(f"Post-processing failed: Session {session_id} not found in user_data")
+                logger.error(f"Post-processing failed: Session {session_id} not found in applications_data")
                 return
             user_data_json = row[0] or {}
             phone = row[1]
@@ -318,18 +318,18 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 except Exception as db_sync_err:
                     logger.error(f"Failed to sync fields to mudra_user_data: {db_sync_err}", exc_info=True)
 
-        # Update user_data JSON
+        # Update applications_data JSON
         for k, v in all_fields.items():
             user_data_json[k] = v
         try:
             with get_db_cursor(db_pool) as cur:
                 cur.execute(
-                    "UPDATE user_data SET data = %s::json WHERE id = %s",
+                    "UPDATE applications_data SET data = %s::json WHERE id = %s",
                     (json.dumps(user_data_json, ensure_ascii=False), session_id)
                 )
-                logger.info("Updated user_data JSON with derived and mapped fields", session_id=session_id)
+                logger.info("Updated applications_data JSON with derived and mapped fields", session_id=session_id)
         except Exception as json_sync_err:
-            logger.error(f"Failed to update user_data JSON: {json_sync_err}")
+            logger.error(f"Failed to update applications_data JSON: {json_sync_err}")
 
         # Now proceed with post-processing pipelines
         pipelines = config.get("post_processing_pipelines", {})
@@ -476,18 +476,18 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                         cur.execute(query, tuple(update_params))
                         logger.info("Updated mudra_user_data evaluations dynamically", session_id=session_id)
 
-                # Update user_data.data JSON
-                cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
+                # Update applications_data.data JSON
+                cur.execute("SELECT data FROM applications_data WHERE id = %s", (session_id,))
                 row = cur.fetchone()
                 if row:
                     u_data = row[0] or {}
                     for k, v in evaluation_results.items():
                         u_data[k] = v
                     cur.execute(
-                        "UPDATE user_data SET data = %s::json WHERE id = %s",
+                        "UPDATE applications_data SET data = %s::json WHERE id = %s",
                         (json.dumps(u_data, ensure_ascii=False), session_id)
                     )
-                    logger.info("Updated user_data JSON evaluations", session_id=session_id)
+                    logger.info("Updated applications_data JSON evaluations", session_id=session_id)
 
     except Exception as eval_err:
         logger.error(f"Error running post-processing evaluations: {eval_err}", error=traceback.format_exc())
@@ -617,10 +617,10 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     (full_phone, phone_clean, request.phone)
                 )
 
-                # 2. Get or create session
-                SBI_BANK_SCHEME_ID = 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
+                # 2. Get or create user in user_data
                 cur.execute(
-                    """SELECT id FROM user_data 
+                    """SELECT id, phone, applicant_name, cadre_id, state, district, block, panchayat 
+                       FROM user_data 
                        WHERE phone = %s OR phone = %s OR phone = %s OR phone LIKE %s 
                        ORDER BY updated_at DESC LIMIT 1""",
                     (full_phone, request.phone, phone_clean, f"%{phone_clean}")
@@ -630,28 +630,16 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 requires_panchayat = False
                 registration_completed = False
                 if user_row:
-                    session_id = user_row[0]
-                    cur.execute("SELECT data FROM user_data WHERE id = %s", (session_id,))
-                    u_row = cur.fetchone()
-                    if u_row and u_row[0]:
-                        u_data = u_row[0]
-                        if isinstance(u_data, dict):
-                            registration_completed = bool(u_data.get("registration_completed") or bool(u_data.get("panchayat")))
+                    session_id = str(user_row[0])
+                    registration_completed = bool(user_row[7] or user_row[6])
                 else:
                     session_id = str(uuid.uuid4())
                     cur.execute(
-                        """INSERT INTO user_data (id, phone, data) 
-                           VALUES (%s, %s, %s::json)""",
-                        (session_id, request.phone, json.dumps({
-                            "scheme_id": "",
-                            "completion_status": "NEW",
-                            "onboarding_finished": False,
-                            "registration_completed": False,
-                            "created_at": datetime.datetime.now().isoformat(),
-                            "updated_at": datetime.datetime.now().isoformat()
-                        }, ensure_ascii=False))
+                        """INSERT INTO user_data (id, phone, created_at, updated_at) 
+                           VALUES (%s, %s, NOW(), NOW())""",
+                        (session_id, request.phone)
                     )
-                    logger.info(f"Created new session {session_id} for user {request.phone}", req_id=req_id)
+                    logger.info(f"Created new user account {session_id} for {request.phone}", req_id=req_id)
 
                 return pb2.VerifyOtpResponse(
                     success=True,
@@ -680,29 +668,43 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 like_phone = f"%{phone_clean}" if phone_clean else phone
 
                 base_profile = {}
-                # 1. Fetch user's base registration details (panchayat, block, district, state, phone, name)
-                # from any existing user_data row for this user
+                # 1. Fetch user's base registration details from user_data table
                 cur.execute(
-                    """SELECT data, phone FROM user_data 
+                    """SELECT id, phone, applicant_name, cadre_id, state, district, block, panchayat 
+                       FROM user_data 
                        WHERE id = %s OR phone = %s OR phone = %s OR phone = %s OR phone LIKE %s 
                        ORDER BY updated_at DESC LIMIT 1""",
                     (request.session_id, phone, full_phone, phone_clean, like_phone)
                 )
                 row = cur.fetchone()
                 if row:
-                    prev_data = row[0] or {}
+                    user_id = str(row[0])
                     phone = row[1] or phone
-                    for k in ["panchayat", "block", "district", "state", "cadre_id", "rseti", "applicant_name", "registration_completed"]:
-                        if k in prev_data and prev_data[k]:
-                            base_profile[k] = prev_data[k]
+                    base_profile = {
+                        "applicant_name": row[2] or "",
+                        "cadre_id": str(row[3]) if row[3] else "",
+                        "state": row[4] or "",
+                        "district": row[5] or "",
+                        "block": row[6] or "",
+                        "panchayat": row[7] or "",
+                        "registration_completed": bool(row[7] or row[6]),
+                    }
+                else:
+                    user_id = str(uuid.uuid4())
+                    cur.execute(
+                        """INSERT INTO user_data (id, phone, created_at, updated_at) 
+                           VALUES (%s, %s, NOW(), NOW())""",
+                        (user_id, phone)
+                    )
+                    base_profile = {"registration_completed": False}
 
-                # 2. Check if an application already exists for this specific (phone, scheme_id)
+                # 2. Check if an application already exists for this specific user/phone and scheme_id
                 cur.execute(
-                    """SELECT id, data FROM user_data 
-                       WHERE (phone = %s OR phone = %s OR phone = %s OR phone LIKE %s) 
-                         AND (scheme_id = %s OR data->>'scheme_id' = %s) 
+                    """SELECT id, data FROM applications_data 
+                       WHERE ((user_id = %s OR phone = %s OR phone = %s OR phone = %s OR phone LIKE %s) 
+                          AND (scheme_id = %s OR data->>'scheme_id' = %s))
                        ORDER BY updated_at DESC LIMIT 1""",
-                    (phone, full_phone, phone_clean, like_phone, request.scheme_id, request.scheme_id)
+                    (user_id, phone, full_phone, phone_clean, like_phone, request.scheme_id, request.scheme_id)
                 )
                 existing_app_row = cur.fetchone()
 
@@ -715,8 +717,8 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             app_data[k] = v
                     app_data["updated_at"] = now_iso
                     cur.execute(
-                        "UPDATE user_data SET data = %s::json, scheme_id = %s, updated_at = NOW() WHERE id = %s",
-                        (json.dumps(app_data, ensure_ascii=False), request.scheme_id, target_session_id)
+                        "UPDATE applications_data SET data = %s::json, scheme_id = %s, user_id = %s, updated_at = NOW() WHERE id = %s",
+                        (json.dumps(app_data, ensure_ascii=False), request.scheme_id, user_id, target_session_id)
                     )
                     logger.info(f"Reusing existing application session {target_session_id} for scheme {request.scheme_id}", req_id=req_id)
                 else:
@@ -724,6 +726,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     target_session_id = str(uuid.uuid4())
                     app_data = {
                         "scheme_id": request.scheme_id,
+                        "user_id": user_id,
                         "phone": phone,
                         "applicant_name": request.name or base_profile.get("applicant_name", ""),
                         "completion_status": "NEW",
@@ -736,9 +739,9 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     app_data.update(base_profile)
 
                     cur.execute(
-                        """INSERT INTO user_data (id, phone, scheme_id, stage, completion_status, data, created_at, updated_at) 
-                           VALUES (%s, %s, %s, %s, %s, %s::json, NOW(), NOW())""",
-                        (target_session_id, phone, request.scheme_id, "REGISTRATION" if not app_data.get("registration_completed") else "INTERVIEW", "NEW", json.dumps(app_data, ensure_ascii=False))
+                        """INSERT INTO applications_data (id, user_id, phone, scheme_id, stage, completion_status, data, created_at, updated_at) 
+                           VALUES (%s, %s, %s, %s, %s, %s, %s::json, NOW(), NOW())""",
+                        (target_session_id, user_id, phone, request.scheme_id, "REGISTRATION" if not app_data.get("registration_completed") else "INTERVIEW", "NEW", json.dumps(app_data, ensure_ascii=False))
                     )
                     logger.info(f"Created new isolated application session {target_session_id} for scheme {request.scheme_id}", req_id=req_id)
 
@@ -766,7 +769,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 cur.execute(
-                    "SELECT id, phone, data FROM user_data WHERE id = %s OR data->>'application_id' = %s", 
+                    "SELECT id, phone, data FROM applications_data WHERE id = %s OR data->>'application_id' = %s", 
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
@@ -794,7 +797,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 cur.execute(
-                    "SELECT id, phone, data FROM user_data WHERE id = %s OR data->>'application_id' = %s", 
+                    "SELECT id, phone, data FROM applications_data WHERE id = %s OR data->>'application_id' = %s", 
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
@@ -808,7 +811,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 data["updated_at"] = datetime.datetime.now().isoformat()
 
                 cur.execute(
-                    "UPDATE user_data SET data = %s::json WHERE id = %s",
+                    "UPDATE applications_data SET data = %s::json WHERE id = %s",
                     (json.dumps(data, ensure_ascii=False), session_id)
                 )
                 return pb2.Application(
@@ -825,7 +828,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 cur.execute(
-                    "SELECT id, data FROM user_data WHERE id = %s OR data->>'application_id' = %s", 
+                    "SELECT id, data FROM applications_data WHERE id = %s OR data->>'application_id' = %s", 
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
@@ -861,7 +864,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 # 1. Generate application ID
                 now = datetime.datetime.now()
                 prefix = f"{now.year}/{now.month:02d}/{block_name}"
-                cur.execute("SELECT COUNT(*) FROM user_data WHERE data->>'application_id' LIKE %s", (f"{prefix}%",))
+                cur.execute("SELECT COUNT(*) FROM applications_data WHERE data->>'application_id' LIKE %s", (f"{prefix}%",))
                 cnt = cur.fetchone()[0]
                 application_id = f"{prefix}-{(cnt + 1):03d}"
 
@@ -945,35 +948,41 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                                 target_cadre_id = str(r[0])
                                 admin_found = True
 
-                # Fetch existing data from user_data
-                cur.execute("SELECT data, phone FROM user_data WHERE id = %s", (request.session_id,))
-                db_row = cur.fetchone()
-                existing_data = {}
-                phone = ""
-                if db_row:
-                    existing_data = db_row[0] or {}
-                    phone = db_row[1] or ""
+                # 2. Update user_data typed columns
+                try:
+                    cur.execute(
+                        """UPDATE user_data 
+                           SET panchayat = %s, block = %s, district = %s, state = %s, 
+                               cadre_id = %s, updated_at = NOW() 
+                           WHERE id = %s""",
+                        (request.panchayat, request.block, request.district, request.state, 
+                         target_cadre_id or None, request.session_id)
+                    )
+                except Exception as u_err:
+                    logger.warning(f"user_data update warning: {u_err}")
 
-                # 2. Update user_data json fields
-                existing_data["panchayat"] = request.panchayat
-                existing_data["block"] = request.block
-                existing_data["district"] = request.district
-                existing_data["state"] = request.state
-                existing_data["cadre_id"] = target_cadre_id or ""
-                existing_data["application_id"] = application_id
-                existing_data["rseti"] = request.rseti or ""
-                existing_data["onboarding_finished"] = False
-                existing_data["registration_completed"] = True
-                existing_data["updated_at"] = now.isoformat()
-
-                if is_rseti_user:
-                    existing_data["status"] = 'APPROVED_BY_LVL_1'
-                
-                cur.execute(
-                    """INSERT INTO user_data (id, phone, data) VALUES (%s, %s, %s::json)
-                       ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data""",
-                    (request.session_id, phone, json.dumps(existing_data, ensure_ascii=False))
-                )
+                # 3. Also update applications_data if this session or user has active applications
+                try:
+                    cur.execute(
+                        """UPDATE applications_data 
+                           SET cadre_id = %s, 
+                               data = data || %s::jsonb, 
+                               updated_at = NOW() 
+                           WHERE id = %s OR user_id = %s""",
+                        (target_cadre_id or None, json.dumps({
+                            "panchayat": request.panchayat,
+                            "block": request.block,
+                            "district": request.district,
+                            "state": request.state,
+                            "cadre_id": target_cadre_id or "",
+                            "application_id": application_id,
+                            "rseti": request.rseti or "",
+                            "onboarding_finished": False,
+                            "registration_completed": True
+                        }, ensure_ascii=False), request.session_id, request.session_id)
+                    )
+                except Exception as a_err:
+                    logger.warning(f"applications_data update warning: {a_err}")
 
             return pb2.SavePanchayatResponse(
                 success=True,
@@ -1077,8 +1086,8 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                     reset_docs = fields.get("reset_documents") is True or fields.get("reset_all") is True
                     if reset_docs:
                         try:
-                            cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
-                            cur.execute("UPDATE user_data SET last_node = NULL WHERE id = %s", (session_id,))
+                            cur.execute("ALTER TABLE applications_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
+                            cur.execute("UPDATE applications_data SET last_node = NULL WHERE id = %s", (session_id,))
                         except Exception as ln_err:
                             logger.warning(f"Failed to reset last_node: {ln_err}")
 
@@ -1168,27 +1177,27 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                         }
                         extracted_last_node = src_map.get(str(request.source).lower())
 
-                    # Upsert into user_data
+                    # Upsert into applications_data
                     merged_json_str = json.dumps(existing_data, ensure_ascii=False)
                     cur_scheme = existing_data.get("scheme_id")
                     cur_stage = existing_data.get("stage")
                     cur_status = existing_data.get("completion_status")
                     if extracted_last_node:
                         cur.execute(
-                            """UPDATE user_data 
+                            """UPDATE applications_data 
                                SET phone = %s, data = %s::json, last_node = %s, scheme_id = COALESCE(%s, scheme_id), stage = COALESCE(%s, stage), completion_status = COALESCE(%s, completion_status), updated_at = NOW() 
                                WHERE id = %s OR data->>'application_id' = %s""",
                             (phone or None, merged_json_str, extracted_last_node, cur_scheme, cur_stage, cur_status, session_id, session_id)
                         )
                     else:
                         cur.execute(
-                            """UPDATE user_data 
+                            """UPDATE applications_data 
                                SET phone = %s, data = %s::json, scheme_id = COALESCE(%s, scheme_id), stage = COALESCE(%s, stage), completion_status = COALESCE(%s, completion_status), updated_at = NOW() 
                                WHERE id = %s OR data->>'application_id' = %s""",
                             (phone or None, merged_json_str, cur_scheme, cur_stage, cur_status, session_id, session_id)
                         )
                     conn.commit()
-                    logger.info(f"Upserted {len(fields)} fields to user_data (last_node={extracted_last_node})", req_id=req_id)
+                    logger.info(f"Upserted {len(fields)} fields to applications_data (last_node={extracted_last_node})", req_id=req_id)
                     
                     # Trigger evaluations if onboarding_finished is True or trigger_evaluations is True
                     if existing_data.get("onboarding_finished") is True or fields.get("trigger_evaluations") is True:
@@ -1213,11 +1222,11 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 try:
-                    cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
+                    cur.execute("ALTER TABLE applications_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
                 except Exception:
                     pass
                 cur.execute(
-                    "SELECT id, phone, data, last_node FROM user_data WHERE id = %s OR data->>'application_id' = %s",
+                    "SELECT id, phone, data, last_node FROM applications_data WHERE id = %s OR data->>'application_id' = %s",
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
@@ -1313,11 +1322,11 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 try:
-                    cur.execute("ALTER TABLE user_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
+                    cur.execute("ALTER TABLE applications_data ADD COLUMN IF NOT EXISTS last_node VARCHAR(255) DEFAULT NULL;")
                 except Exception:
                     pass
                 cur.execute(
-                    "UPDATE user_data SET last_node = %s WHERE id = %s OR data->>'application_id' = %s",
+                    "UPDATE applications_data SET last_node = %s WHERE id = %s OR data->>'application_id' = %s",
                     (target_node, app_id, app_id)
                 )
                 logger.info(f"UpdateLastNode: app_id={app_id} last_node={target_node}", req_id=req_id)
@@ -1371,11 +1380,11 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 limit = request.limit if request.limit > 0 else 50
                 offset = request.offset if request.offset >= 0 else 0
                 
-                cur.execute(f"SELECT id, phone, data FROM user_data {where_sql} ORDER BY updated_at DESC LIMIT %s OFFSET %s", 
+                cur.execute(f"SELECT id, phone, data FROM applications_data {where_sql} ORDER BY updated_at DESC LIMIT %s OFFSET %s", 
                             tuple(params + [limit, offset]))
                 rows = cur.fetchall()
                 
-                cur.execute(f"SELECT COUNT(*) FROM user_data {where_sql}", tuple(params))
+                cur.execute(f"SELECT COUNT(*) FROM applications_data {where_sql}", tuple(params))
                 total = cur.fetchone()[0]
 
                 summaries = []
@@ -1404,7 +1413,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
         try:
             with get_db_cursor(self._db_pool) as cur:
                 cur.execute(
-                    "SELECT id, phone, data FROM user_data WHERE id = %s OR data->>'application_id' = %s",
+                    "SELECT id, phone, data FROM applications_data WHERE id = %s OR data->>'application_id' = %s",
                     (request.application_id, request.application_id)
                 )
                 row = cur.fetchone()
@@ -1418,7 +1427,7 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                 data["updated_at"] = datetime.datetime.now().isoformat()
 
                 cur.execute(
-                    "UPDATE user_data SET data = %s::json WHERE id = %s",
+                    "UPDATE applications_data SET data = %s::json WHERE id = %s",
                     (json.dumps(data, ensure_ascii=False), session_id)
                 )
                 return pb2.Application(
