@@ -40,11 +40,31 @@ sys.path.insert(0, os.path.dirname(__file__))
 import psycopg2
 from psycopg2 import pool
 
+from decimal import Decimal
+from datetime import date, datetime
+from uuid import UUID
+
 from generated import app_orchestrator_pb2 as pb2
 from generated import app_orchestrator_pb2_grpc as pb2_grpc
 from config import APP_ORCHESTRATOR_PORT, DATABASE_URL
 
 logger = get_logger("app-orchestrator")
+
+
+def json_default_serializer(obj):
+    if isinstance(obj, Decimal):
+        return int(obj) if obj % 1 == 0 else float(obj)
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, UUID):
+        return str(obj)
+    return str(obj)
+
+
+def safe_json_dumps(obj, **kwargs):
+    kwargs.setdefault("default", json_default_serializer)
+    kwargs.setdefault("ensure_ascii", False)
+    return json.dumps(obj, **kwargs)
 
 
 @contextmanager
@@ -292,24 +312,24 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             columns = ["user_id"]
             values = [session_id]
             placeholders = ["%s"]
-            seen_cols = set()
+            seen_cols = {"user_id", "id", "created_at", "updated_at"}
 
             # Map all_fields keys to DB columns
             for k, v in all_fields.items():
                 db_col = db_mapping.get(k, k)
-                if db_col in valid_cols and db_col not in seen_cols and db_col not in ("created_at", "updated_at", "id"):
+                if db_col in valid_cols and db_col not in seen_cols:
                     if v is not None and v != "":
                         col_type = valid_cols[db_col]
                         columns.append(db_col)
                         if col_type in ("json", "jsonb"):
                             if isinstance(v, (dict, list)):
-                                values.append(json.dumps(v))
+                                values.append(safe_json_dumps(v))
                             else:
                                 try:
                                     json.loads(str(v))
                                     values.append(str(v))
                                 except Exception:
-                                    values.append(json.dumps(str(v)))
+                                    values.append(safe_json_dumps(str(v)))
                         elif col_type == "boolean":
                             values.append(True if str(v).lower() in ("true", "1", "yes") else False)
                         else:
@@ -328,6 +348,15 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 """
                 try:
                     with get_db_cursor(db_pool) as cur:
+                        # Ensure parent user exists for FK constraint
+                        try:
+                            cur.execute(
+                                "INSERT INTO users (id, phone, status, completion_status, created_at, updated_at) "
+                                "VALUES (%s, %s, 'PENDING', 'NEW', NOW(), NOW()) ON CONFLICT (id) DO NOTHING",
+                                (session_id, phone or "0000000000")
+                            )
+                        except Exception:
+                            pass
                         cur.execute(sql, tuple(values))
                         logger.info(f"Synced {len(seen_cols)} fields to {target_table} dynamically in post-processing", session_id=session_id)
                 except Exception as db_sync_err:
@@ -340,7 +369,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             with get_db_cursor(db_pool) as cur:
                 cur.execute(
                     "UPDATE applications_data SET data = %s::json WHERE id = %s",
-                    (json.dumps(user_data_json, ensure_ascii=False), session_id)
+                    (safe_json_dumps(user_data_json), session_id)
                 )
                 logger.info("Updated applications_data JSON with derived and mapped fields", session_id=session_id)
         except Exception as json_sync_err:
@@ -379,6 +408,9 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             
             input_data_str = "\n".join(input_lines)
             prompt = prompt_template.replace("{input_data}", input_data_str)
+            for ph_key, ph_val in all_fields.items():
+                if isinstance(ph_val, (str, int, float)) and f"{{{ph_key}}}" in prompt:
+                    prompt = prompt.replace(f"{{{ph_key}}}", str(ph_val))
 
             # Call LLM Service
             try:
@@ -415,6 +447,9 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                     result_json = json.loads(raw_text)
                     for src_field, target_db_field in output_mapping.items():
                         val = result_json.get(src_field)
+                        if val is None:
+                            # Check target_db_field directly as fallback
+                            val = result_json.get(target_db_field)
                         if val is None and src_field == "creditworthiness_score":
                             val = (
                                 result_json.get("credit_worthiness_score") or
@@ -428,11 +463,15 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                                 result_json.get("explanation") or
                                 result_json.get("analysis")
                             )
+                        if val is None and src_field == "viability_tag":
+                            val = result_json.get("viability") or result_json.get("tag") or result_json.get("financial_viability")
+                        if val is None and src_field == "explanation":
+                            val = result_json.get("viability_explanation") or result_json.get("summary") or result_json.get("reason")
                         
                         if val is not None:
                             if isinstance(val, list):
                                 val = "\n".join(f"• {item}" for item in val)
-                            evaluation_results[target_db_field] = str(val)
+                            evaluation_results[target_db_field] = val
 
             except Exception as llm_err:
                 logger.error(f"LLM call failed for pipeline {pipeline_name}: {llm_err}")
@@ -467,6 +506,12 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                     "• Recommended for DIC and banking appraisal."
                 )
 
+            v_tag = str(evaluation_results.get("viability_tag", "Viable"))
+            evaluation_results["financial_viability"] = "No" if "not" in v_tag.lower() else "Yes"
+            evaluation_results["business_status"] = "not_viable" if "not" in v_tag.lower() else ("highly_viable" if "high" in v_tag.lower() else "viable")
+            if "viability_explanation" in evaluation_results:
+                evaluation_results["business_status_explanation"] = evaluation_results["viability_explanation"]
+
             # Ensure all PMFME financial derivations are present
             default_financial_map = {
                 "land_value_per_sqft": 800,
@@ -496,6 +541,14 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 if k not in evaluation_results and (k not in all_fields or all_fields[k] is None or all_fields[k] == ""):
                     evaluation_results[k] = def_val
 
+            # Re-calculate project cost and financial equations with newly evaluated parameters
+            all_fields.update(evaluation_results)
+            derived_final = calculate_derived_fields(all_fields, scheme_config=config)
+            if derived_final:
+                for k, v in derived_final.items():
+                    if k not in evaluation_results:
+                        evaluation_results[k] = v
+
         # 5. Save results to Database
         if evaluation_results:
             logger.info("Saving evaluation results to DB", results=evaluation_results)
@@ -514,6 +567,10 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                                 update_params.append(v_clean)
                             elif k == "business_status" and v is not None:
                                 update_params.append(str(v).lower())
+                            elif valid_cols[k] in ("json", "jsonb"):
+                                update_params.append(safe_json_dumps(v) if isinstance(v, (dict, list)) else str(v))
+                            elif valid_cols[k] == "boolean":
+                                update_params.append(True if str(v).lower() in ("true", "1", "yes") else False)
                             else:
                                 update_params.append(str(v) if v is not None else None)
                                 
@@ -532,7 +589,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                         u_data[k] = v
                     cur.execute(
                         "UPDATE applications_data SET data = %s::json WHERE id = %s",
-                        (json.dumps(u_data, ensure_ascii=False), session_id)
+                        (safe_json_dumps(u_data), session_id)
                     )
                     logger.info("Updated applications_data JSON evaluations", session_id=session_id)
 
@@ -1291,14 +1348,18 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             top_keys=list(data.keys()),
                             raw_json_sample=json.dumps(data, ensure_ascii=False)[:300])
 
-                # On-the-fly derived fields calculation for Mudra schemes if they are missing
+                # On-the-fly derived fields calculation for any scheme
                 scheme_id = data.get("scheme_id", "")
+                config = load_resolved_scheme_config(scheme_id) if scheme_id else None
                 is_mudra_scheme = (
                     "mudra" in str(scheme_id).lower() or 
-                    scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b'
+                    scheme_id == 'a74b1b43-7cc6-4385-8a8c-12af64cddb2b' or
+                    (config and "mudra" in str(config.get("scheme_id", "")).lower()) or
+                    (config and "mudra" in str(config.get("display_name", "")).lower())
                 )
-                if is_mudra_scheme:
-                    logger.info("Mudra derived fields calculation in GetExtractedData. Calculating on the fly...", session_id=session_id)
+                target_table = "mudra_user_data" if is_mudra_scheme else "pmfme_user_data"
+
+                if config:
                     from calculations import calculate_derived_fields
                     try:
                         all_fields = {}
@@ -1307,23 +1368,25 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             all_fields["phone"] = phone
                             all_fields["mobile_number"] = phone
                         
-                        cur.execute("SELECT * FROM mudra_user_data WHERE user_id = %s", (session_id,))
-                        m_row = cur.fetchone()
-                        if m_row:
-                            col_names = [desc[0] for desc in cur.description]
-                            for name, val in zip(col_names, m_row):
-                                if name in ("id", "user_id", "created_at", "updated_at"):
-                                    continue
-                                if val is not None and val != "":
-                                    is_db_zero = str(val).strip() in ("0", "0.0", "None", "Null")
-                                    voice_val = all_fields.get(name)
-                                    is_voice_valid = voice_val is not None and str(voice_val).strip() not in ("0", "0.0", "Not Available", "NA", "")
-                                    
-                                    if is_db_zero and is_voice_valid:
+                        try:
+                            cur.execute(f"SELECT * FROM {target_table} WHERE user_id = %s", (session_id,))
+                            t_row = cur.fetchone()
+                            if t_row:
+                                col_names = [desc[0] for desc in cur.description]
+                                for name, val in zip(col_names, t_row):
+                                    if name in ("id", "user_id", "created_at", "updated_at"):
                                         continue
-                                    all_fields[name] = val
+                                    if val is not None and val != "":
+                                        is_db_zero = str(val).strip() in ("0", "0.0", "None", "Null")
+                                        voice_val = all_fields.get(name)
+                                        is_voice_valid = voice_val is not None and str(voice_val).strip() not in ("0", "0.0", "Not Available", "NA", "")
+                                        
+                                        if is_db_zero and is_voice_valid:
+                                            continue
+                                        all_fields[name] = val
+                        except Exception as read_t_err:
+                            logger.warning(f"Could not read from {target_table}: {read_t_err}")
                         
-                        config = load_resolved_scheme_config(scheme_id)
                         db_mapping = config.get("db_mapping", {}) if config else {}
                         mapped_fields = {}
                         for k, v in all_fields.items():
@@ -1339,23 +1402,29 @@ class ApplicationOrchestratorServicer(pb2_grpc.ApplicationOrchestratorServicer):
                             data[k] = v
                             
                         cur.execute(
-                            "UPDATE user_data SET data = %s::json WHERE id = %s",
-                            (json.dumps(data, ensure_ascii=False), session_id)
+                            "UPDATE applications_data SET data = %s::json WHERE id = %s",
+                            (safe_json_dumps(data), session_id)
                         )
-                        logger.info("Successfully updated missing derived fields on the fly in GetExtractedData", session_id=session_id)
+                        logger.info(f"Successfully updated derived fields on the fly in GetExtractedData for {scheme_id}", session_id=session_id)
                     except Exception as calc_otf_err:
                         logger.error(f"Failed to calculate derived fields on the fly: {calc_otf_err}")
 
-                # Trigger background evaluations if onboarding is finished but credit evaluation is missing/pending
-                if data.get("onboarding_finished") is True:
-                    cw = data.get("credit_worthiness")
-                    if not cw or cw in ["Calculating...", "Not Available"]:
+                # Trigger background evaluations if onboarding is finished or requested but evaluations are pending
+                if data.get("onboarding_finished") is True or data.get("trigger_evaluations") is True:
+                    if is_mudra_scheme:
+                        cw = data.get("credit_worthiness")
+                        is_eval_pending = not cw or cw in ["Calculating...", "Not Available"]
+                    else:
+                        vt = data.get("viability_tag") or data.get("financial_viability")
+                        is_eval_pending = not vt or vt in ["Calculating...", "Not Available"]
+
+                    if is_eval_pending:
                         logger.info("Triggering background post-processing evaluations on demand from GetExtractedData", session_id=session_id)
                         asyncio.create_task(run_post_processing_evaluations(session_id, self._db_pool))
 
                 return pb2.ExtractedData(
                     application_id=request.application_id,
-                    json_data=json.dumps(data, ensure_ascii=False),
+                    json_data=safe_json_dumps(data),
                     last_node=str(last_node or "")
                 )
         except Exception as e:

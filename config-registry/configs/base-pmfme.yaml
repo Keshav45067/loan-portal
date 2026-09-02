@@ -904,6 +904,8 @@ db_mapping:
   applicant_district: applicant_district
   applicant_state: applicant_state
   applicant_pincode: applicant_pincode
+  applicant_block: applicant_block
+  block: applicant_block
   applicant_mobile: applicant_mobile
   applicant_email: applicant_email
   pan_number: pan_number
@@ -911,25 +913,33 @@ db_mapping:
   is_married: is_married
   spouse_phone: spouse_phone
   education_qualification: education_qualification
+  documentation_stage: documentation_stage
   
   enterprise_name: enterprise_name
   enterprise_address: enterprise_address
   enterprise_city: enterprise_city
+  enterprise_block: enterprise_block
   enterprise_district: enterprise_district
   enterprise_state: enterprise_state
   enterprise_pincode: enterprise_pincode
   udyam_number: udyam_number
+  fssai_license_number: fssai_license_number
   enterprise_type: enterprise_type
   type_of_business: type_of_business
   food_category: food_category
+  product_type: product_type
+  proposed_product_type: proposed_product_type
   legal_status_of_business: legal_status_of_business
   latitude_longitude: latitude_longitude
   type_of_property: type_of_property
   land_rental_owned: land_rental_owned
+  existing_enterprise: existing_enterprise
+  is_new_business: is_new_business
+  has_previous_loan: has_previous_loan
+  previous_loan_scheme: previous_loan_scheme
   
   activities_involved: activities_involved
   nature_of_operations: nature_of_operations
-  proposed_product_type: proposed_product_type
   total_available_land_sqft: total_available_land_sqft
   building_type: building_type
   building_area: building_area
@@ -946,9 +956,12 @@ db_mapping:
   total_workers: total_workers
   num_skilled_workers: num_skilled_workers
   num_unskilled_workers: num_unskilled_workers
+  number_of_employees: number_of_employees
+  worker_roles: worker_roles
   new_employment_generated: new_employment_generated
   wages_skilled_per_month: wages_skilled_per_month
   wages_unskilled_per_month: wages_unskilled_per_month
+  wages_details: wages_details
   
   bank_ifsc_code: bank_ifsc_code
   bank_name: bank_name
@@ -956,11 +969,22 @@ db_mapping:
   bank_account_number: bank_account_number
   
   land_value_per_sqft: land_value_per_sqft
+  building_rate_per_sqft: building_rate_per_sqft
   personal_contribution_capex: personal_contribution_capex
+  own_contribution: own_contribution
   own_contribution_working_capital: own_contribution_working_capital
   preliminary_preoperative_cost: preliminary_preoperative_cost
   furniture_and_fixtures: furniture_and_fixtures
   contingency_miscellaneous: contingency_miscellaneous
+  project_cost: project_cost
+  loan_amount_requested: loan_amount_requested
+  subsidy_amount: subsidy_amount
+  annual_turnover: annual_turnover
+  sales_estimate: sales_estimate
+  raw_material_estimate: raw_material_estimate
+  project_report_key: project_report_key
+  project_report_response: project_report_response
+
   stock_in_process_days: stock_in_process_days
   finished_goods_days: finished_goods_days
   receivables_days: receivables_days
@@ -1094,30 +1118,57 @@ post_processing_pipelines:
       land_value_per_sqft: "land_value_per_sqft"
       personal_contribution_capex: "personal_contribution_capex"
       preliminary_cost: "preliminary_preoperative_cost"
+      preliminary_preoperative_cost: "preliminary_preoperative_cost"
       furniture_fixture_cost: "furniture_and_fixtures"
+      furniture_and_fixtures: "furniture_and_fixtures"
       contingency_cost: "contingency_miscellaneous"
+      contingency_miscellaneous: "contingency_miscellaneous"
       stock_in_process_days: "stock_in_process_days"
       finished_goods_days: "finished_goods_days"
       receivable_days: "receivables_days"
+      receivables_days: "receivables_days"
       repair_maintenance_pct: "misc_expenditure_repair_maintenance"
+      misc_expenditure_repair_maintenance: "misc_expenditure_repair_maintenance"
       power_fuel_pct: "misc_expenditure_power_fuel"
+      misc_expenditure_power_fuel: "misc_expenditure_power_fuel"
       other_overhead_pct: "misc_expenditure_overheads"
+      misc_expenditure_overheads: "misc_expenditure_overheads"
       telephone_pct: "misc_expenditure_telephone"
+      misc_expenditure_telephone: "misc_expenditure_telephone"
       stationery_pct: "misc_expenditure_stationery"
+      misc_expenditure_stationery: "misc_expenditure_stationery"
       advertisement_pct: "misc_expenditure_advertisement"
+      misc_expenditure_advertisement: "misc_expenditure_advertisement"
       misc_expenditure_pct: "misc_expenditure_other"
+      misc_expenditure_other: "misc_expenditure_other"
       depreciation_building_pct: "depreciation_building_percent"
+      depreciation_building_percent: "depreciation_building_percent"
       depreciation_machinery_pct: "depreciation_machinery_percent"
+      depreciation_machinery_percent: "depreciation_machinery_percent"
       loan_repayment_years: "loan_repayment_period"
+      loan_repayment_period: "loan_repayment_period"
       project_implementation_months: "project_implementation_period"
+      project_implementation_period: "project_implementation_period"
       rate_of_interest: "rate_of_interest"
       own_contribution_working_capital: "own_contribution_working_capital"
+      building_rate_per_sqft: "building_rate_per_sqft"
 
 # ─── Declarative Derived Fields Calculation Engine ───
 derived_fields:
   experience_in_line_of_activity: "years_since(date_of_commencement, default=1)"
   legal_status_of_business: "legal_status_of_business or 'Proprietary'"
   type_of_property: "if_truthy(building_ownership == 'Owned' or land_rental_owned == 'Owned', 'Owned', 'Rented')"
+  applicant_block: "applicant_block or block or ''"
+  enterprise_block: "enterprise_block or business_block or applicant_block or block or ''"
+  existing_enterprise: "if_truthy(is_new_business == False or is_new_business == 'NO' or is_new_business == 'No' or is_new_business == 'no', True, False)"
+  is_new_business: "if_truthy(existing_enterprise == True, False, is_new_business if is_new_business is not None else True)"
+  product_type: "product_type or proposed_product_type or type_of_business or ''"
+
+  # Workforce & wage derivations
+  total_workers: "total_workers or (num_skilled_workers + num_unskilled_workers) or 1"
+  number_of_employees: "number_of_employees or total_workers or (num_skilled_workers + num_unskilled_workers) or 1"
+  new_employment_generated: "new_employment_generated or total_workers or 1"
+  wages_details: "wages_details or (str(num_skilled_workers or 0) + ' skilled @ ₹' + str(wages_skilled_per_month or 0) + '/mo, ' + str(num_unskilled_workers or 0) + ' unskilled @ ₹' + str(wages_unskilled_per_month or 0) + '/mo')"
 
   # Financial parameter derivations
   personal_contribution_capex: "personal_contribution_capex or 10.0"
@@ -1142,6 +1193,15 @@ derived_fields:
   project_implementation_period: "project_implementation_period or project_implementation_months or '3'"
   rate_of_interest: "rate_of_interest or 9.5"
   own_contribution_working_capital: "own_contribution_working_capital or 25.0"
+
+  # Project cost, subsidy, and loan amount derivations
+  project_cost: "project_cost or (sum_machinery_cost(machineries, default=200000) + preliminary_preoperative_cost + furniture_and_fixtures + contingency_miscellaneous)"
+  subsidy_amount: "subsidy_amount or calc_pmfme_subsidy(project_cost)"
+  own_contribution: "own_contribution or calc_pmfme_own_contribution(project_cost, personal_contribution_capex)"
+  loan_amount_requested: "loan_amount_requested or calc_pmfme_loan_amount(project_cost, own_contribution, subsidy_amount)"
+  sales_estimate: "sales_estimate or (product_monthly_units and product_rate_per_unit and str(product_monthly_units * product_rate_per_unit)) or str(sum_products_sales(products_to_sell, default=50000))"
+  raw_material_estimate: "raw_material_estimate or (raw_material_monthly_qty and raw_material_rate_per_unit and str(raw_material_monthly_qty * raw_material_rate_per_unit)) or str(sum_raw_materials(raw_materials_required, default=25000))"
+  annual_turnover: "annual_turnover or (sales_estimate and parse_float(sales_estimate) * 12) or 600000"
 
 # ─── Admin Portal Configuration ───
 admin_portal:

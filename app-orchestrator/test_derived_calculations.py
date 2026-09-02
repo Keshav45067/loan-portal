@@ -151,5 +151,69 @@ class TestYAMLCalculations(unittest.TestCase):
             expected_msg = 'Coborrower is present and the corresponding relevant documents are in place' if is_present else 'Coborrower is not present'
             self.assertEqual(derived['co_borrower'], expected_msg, f'Failed for co_borrower={cb_val}')
 
+class TestPMFMECalculations(unittest.TestCase):
+    def setUp(self):
+        self.config = load_resolved_scheme_config('base-pmfme')
+        self.sample_pmfme_input = {
+            'applicant_name': 'Ramesh Kumar',
+            'enterprise_name': 'Ramesh Spices & Flour Mills',
+            'type_of_business': 'Spice & Flour Processing',
+            'food_category': 'Spices & Condiments',
+            'building_ownership': 'Owned',
+            'total_available_land_sqft': 2000,
+            'building_area': 1200,
+            'machineries': [
+                {'name': 'Heavy Pulverizer', 'count': 1, 'unit_cost': 180000},
+                {'name': 'Sealing Machine', 'count': 2, 'unit_cost': 35000}
+            ],
+            'num_skilled_workers': 2,
+            'wages_skilled_per_month': 16000,
+            'num_unskilled_workers': 3,
+            'wages_unskilled_per_month': 11000,
+            'products_to_sell': [{'name': 'Turmeric Powder', 'monthly_qty': 400, 'rate_per_unit': 250}],
+            'raw_materials_required': [{'name': 'Raw Turmeric', 'monthly_qty': 500, 'rate_per_unit': 110}]
+        }
+
+    def test_pmfme_derived_fields(self):
+        derived = calculate_derived_fields(self.sample_pmfme_input, scheme_config=self.config)
+        self.assertEqual(derived['type_of_property'], 'Owned')
+        self.assertEqual(derived['legal_status_of_business'], 'Proprietary')
+        self.assertEqual(derived['total_workers'], 5.0)
+        self.assertEqual(derived['number_of_employees'], 5.0)
+        self.assertIn('2 skilled @ ₹16000/mo', derived['wages_details'])
+        self.assertIn('3 unskilled @ ₹11000/mo', derived['wages_details'])
+        
+        # Machinery total = 180000 + (2 * 35000) = 250000
+        # Preliminary (15000) + Furniture (25000) + Contingency (15000) = 55000
+        # Project Cost = 250000 + 55000 = 305000
+        self.assertEqual(derived['project_cost'], 305000.0)
+        
+        # Subsidy = 35% of 305000 = 106750
+        self.assertEqual(derived['subsidy_amount'], 106750.0)
+        
+        # Own Contribution = 10% of 305000 = 30500
+        self.assertEqual(derived['own_contribution'], 30500.0)
+        
+        # Loan Amount = 305000 - 30500 - 106750 = 167750
+        self.assertEqual(derived['loan_amount_requested'], 167750.0)
+        
+        # Sales = 400 * 250 = 100000
+        self.assertEqual(derived['sales_estimate'], '100000.0')
+        # Annual turnover = 100000 * 12 = 1200000
+        self.assertEqual(derived['annual_turnover'], 1200000.0)
+
+    def test_pmfme_empty_and_fallback(self):
+        derived = calculate_derived_fields({}, scheme_config=self.config)
+        self.assertEqual(derived['legal_status_of_business'], 'Proprietary')
+        self.assertEqual(derived['type_of_property'], 'Rented')
+        self.assertEqual(derived['total_workers'], 1)
+        self.assertEqual(derived['number_of_employees'], 1)
+        # Default machinery (200000) + 15000 + 25000 + 15000 = 255000
+        self.assertEqual(derived['project_cost'], 255000.0)
+        self.assertEqual(derived['subsidy_amount'], 89250.0)
+        self.assertEqual(derived['own_contribution'], 25500.0)
+        self.assertEqual(derived['loan_amount_requested'], 140250.0)
+
+
 if __name__ == '__main__':
     unittest.main()

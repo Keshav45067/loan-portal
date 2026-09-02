@@ -149,6 +149,85 @@ def safe_float(v: Any, default: float = 0.0) -> float:
     return parse_float(v)
 
 
+def sum_machinery_cost(machineries: Any, default: float = 200000.0) -> float:
+    if not machineries:
+        return float(default)
+    import json as _json
+    if isinstance(machineries, str):
+        try:
+            machineries = _json.loads(machineries)
+        except Exception:
+            return float(default)
+    if not isinstance(machineries, (list, tuple)):
+        return float(default)
+    total = 0.0
+    for item in machineries:
+        if isinstance(item, dict):
+            qty = parse_float(item.get("count") or item.get("qty") or item.get("quantity") or 1)
+            cost = parse_float(item.get("unit_cost") or item.get("cost") or item.get("rate") or item.get("price") or 0)
+            total += qty * cost
+        elif isinstance(item, (int, float)):
+            total += parse_float(item)
+    return total if total > 0 else float(default)
+
+def sum_raw_materials(raw_materials: Any, default: float = 25000.0) -> float:
+    if not raw_materials:
+        return float(default)
+    import json as _json
+    if isinstance(raw_materials, str):
+        try:
+            raw_materials = _json.loads(raw_materials)
+        except Exception:
+            return float(default)
+    if not isinstance(raw_materials, (list, tuple)):
+        return float(default)
+    total = 0.0
+    for item in raw_materials:
+        if isinstance(item, dict):
+            qty = parse_float(item.get("monthly_qty") or item.get("qty") or item.get("count") or 1)
+            rate = parse_float(item.get("rate_per_unit") or item.get("rate") or item.get("cost") or item.get("price") or 0)
+            total += qty * rate
+        elif isinstance(item, (int, float)):
+            total += parse_float(item)
+    return total if total > 0 else float(default)
+
+def sum_products_sales(products_to_sell: Any, default: float = 50000.0) -> float:
+    if not products_to_sell:
+        return float(default)
+    import json as _json
+    if isinstance(products_to_sell, str):
+        try:
+            products_to_sell = _json.loads(products_to_sell)
+        except Exception:
+            return float(default)
+    if not isinstance(products_to_sell, (list, tuple)):
+        return float(default)
+    total = 0.0
+    for item in products_to_sell:
+        if isinstance(item, dict):
+            qty = parse_float(item.get("monthly_qty") or item.get("qty") or item.get("count") or 1)
+            rate = parse_float(item.get("rate_per_unit") or item.get("rate") or item.get("price") or item.get("cost") or 0)
+            total += qty * rate
+        elif isinstance(item, (int, float)):
+            total += parse_float(item)
+    return total if total > 0 else float(default)
+
+def calc_pmfme_subsidy(project_cost: Any) -> float:
+    pc = parse_float(project_cost)
+    return min(0.35 * pc, 1000000.0)
+
+def calc_pmfme_own_contribution(project_cost: Any, capex_pct: Any = 10.0) -> float:
+    pc = parse_float(project_cost)
+    pct = parse_float(capex_pct or 10.0)
+    return (pct / 100.0) * pc
+
+def calc_pmfme_loan_amount(project_cost: Any, own_contrib: Any = 0.0, subsidy: Any = 0.0) -> float:
+    pc = parse_float(project_cost)
+    oc = parse_float(own_contrib)
+    sub = parse_float(subsidy)
+    return max(0.0, pc - oc - sub)
+
+
 PREDEFINED_FUNCTIONS = {
     "parse_float": parse_float,
     "round_to": round_to,
@@ -168,6 +247,12 @@ PREDEFINED_FUNCTIONS = {
     "if_match": if_match,
     "min_non_zero": min_non_zero,
     "calc_inventory": calc_inventory,
+    "sum_machinery_cost": sum_machinery_cost,
+    "sum_raw_materials": sum_raw_materials,
+    "sum_products_sales": sum_products_sales,
+    "calc_pmfme_subsidy": calc_pmfme_subsidy,
+    "calc_pmfme_own_contribution": calc_pmfme_own_contribution,
+    "calc_pmfme_loan_amount": calc_pmfme_loan_amount,
     "abs": abs,
     "min": min,
     "max": max,
@@ -286,12 +371,43 @@ class SafeExpressionEvaluator(ast.NodeVisitor):
                 matched = (left in right) if right is not None else False
             elif isinstance(op, ast.NotIn):
                 matched = (left not in right) if right is not None else True
+            elif isinstance(op, ast.Is):
+                matched = (left is right)
+            elif isinstance(op, ast.IsNot):
+                matched = (left is not right)
             else:
                 raise ValueError(f"Unsupported comparison operator: {type(op)}")
             if not matched:
                 return False
             left = right
         return True
+
+    def visit_IfExp(self, node: ast.IfExp):
+        test_val = self.visit(node.test)
+        if test_val:
+            return self.visit(node.body)
+        else:
+            return self.visit(node.orelse)
+
+    def visit_Subscript(self, node: ast.Subscript):
+        val = self.visit(node.value)
+        slice_val = self.visit(node.slice)
+        try:
+            return val[slice_val]
+        except Exception:
+            return None
+
+    def visit_Index(self, node: Any):
+        # Python < 3.9 compatibility for ast.Index
+        if hasattr(node, "value"):
+            return self.visit(node.value)
+        return None
+
+    def visit_Attribute(self, node: ast.Attribute):
+        val = self.visit(node.value)
+        if isinstance(val, dict):
+            return val.get(node.attr)
+        return getattr(val, node.attr, None)
 
     def visit_Call(self, node: ast.Call):
         func = self.visit(node.func)
