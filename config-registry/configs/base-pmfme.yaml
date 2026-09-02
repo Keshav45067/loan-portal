@@ -1117,7 +1117,31 @@ post_processing_pipelines:
 derived_fields:
   experience_in_line_of_activity: "years_since(date_of_commencement, default=1)"
   legal_status_of_business: "legal_status_of_business or 'Proprietary'"
-  type_of_property: "if_truthy(building_ownership == 'Owned' || land_rental_owned == 'Owned', 'Owned', 'Rented')"
+  type_of_property: "if_truthy(building_ownership == 'Owned' or land_rental_owned == 'Owned', 'Owned', 'Rented')"
+
+  # Financial parameter derivations
+  personal_contribution_capex: "personal_contribution_capex or 10.0"
+  land_value_per_sqft: "land_value_per_sqft or 800"
+  building_rate_per_sqft: "building_rate_per_sqft or 800"
+  preliminary_preoperative_cost: "preliminary_preoperative_cost or preliminary_cost or 15000"
+  furniture_and_fixtures: "furniture_and_fixtures or furniture_fixture_cost or 25000"
+  contingency_miscellaneous: "contingency_miscellaneous or contingency_cost or 15000"
+  stock_in_process_days: "stock_in_process_days or 7"
+  finished_goods_days: "finished_goods_days or 15"
+  receivables_days: "receivables_days or receivable_days or 30"
+  misc_expenditure_repair_maintenance: "misc_expenditure_repair_maintenance or repair_maintenance_pct or 2.0"
+  misc_expenditure_power_fuel: "misc_expenditure_power_fuel or power_fuel_pct or 5.0"
+  misc_expenditure_overheads: "misc_expenditure_overheads or other_overhead_pct or 1.0"
+  misc_expenditure_telephone: "misc_expenditure_telephone or telephone_pct or 0.5"
+  misc_expenditure_stationery: "misc_expenditure_stationery or stationery_pct or 0.5"
+  misc_expenditure_advertisement: "misc_expenditure_advertisement or advertisement_pct or 1.5"
+  misc_expenditure_other: "misc_expenditure_other or misc_expenditure_pct or 1.0"
+  depreciation_building_percent: "depreciation_building_percent or depreciation_building_pct or 5.0"
+  depreciation_machinery_percent: "depreciation_machinery_percent or depreciation_machinery_pct or 15.0"
+  loan_repayment_period: "loan_repayment_period or loan_repayment_years or '5'"
+  project_implementation_period: "project_implementation_period or project_implementation_months or '3'"
+  rate_of_interest: "rate_of_interest or 9.5"
+  own_contribution_working_capital: "own_contribution_working_capital or 25.0"
 
 # ─── Admin Portal Configuration ───
 admin_portal:

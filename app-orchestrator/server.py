@@ -223,16 +223,18 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             (config and "mudra" in str(config.get("display_name", "")).lower())
         )
 
-        # Fetch valid columns in mudra_user_data
-        valid_cols = set()
+        target_table = "mudra_user_data" if is_mudra_scheme else "pmfme_user_data"
+
+        # Fetch valid columns and data types in target_table
+        valid_cols = {}
         try:
             with get_db_cursor(db_pool) as cur:
-                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'mudra_user_data'")
-                valid_cols = {r[0] for r in cur.fetchall()}
+                cur.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{target_table}'")
+                valid_cols = {r[0]: r[1] for r in cur.fetchall()}
         except Exception as e:
-            logger.warning(f"Could not read columns from mudra_user_data: {e}")
+            logger.warning(f"Could not read columns from {target_table}: {e}")
 
-        # Gather all current data (both from user_data JSON and mudra_user_data columns)
+        # Gather all current data (both from user_data JSON and target table columns)
         all_fields = {}
         if user_data_json:
             all_fields.update(user_data_json)
@@ -240,10 +242,10 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
             all_fields["phone"] = phone
             all_fields["mobile_number"] = phone
 
-        # Read current mudra_user_data row
+        # Read current target table row
         try:
             with get_db_cursor(db_pool) as cur:
-                cur.execute("SELECT * FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                cur.execute(f"SELECT * FROM {target_table} WHERE user_id = %s", (session_id,))
                 row = cur.fetchone()
                 if row:
                     col_names = [desc[0] for desc in cur.description]
@@ -260,7 +262,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                                 continue
                             all_fields[name] = val
         except Exception as e:
-            logger.warning(f"Could not read from mudra_user_data: {e}")
+            logger.warning(f"Could not read from {target_table}: {e}")
 
         db_mapping = config.get("db_mapping", {})
 
@@ -285,7 +287,7 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
         except Exception as calc_err:
             logger.error(f"Failed to run derived calculations: {calc_err}", exc_info=True)
 
-        # Sync all fields to mudra_user_data dynamically
+        # Sync all fields to target table dynamically
         if valid_cols:
             columns = ["user_id"]
             values = [session_id]
@@ -297,15 +299,28 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 db_col = db_mapping.get(k, k)
                 if db_col in valid_cols and db_col not in seen_cols and db_col not in ("created_at", "updated_at", "id"):
                     if v is not None and v != "":
+                        col_type = valid_cols[db_col]
                         columns.append(db_col)
-                        values.append(str(v))
+                        if col_type in ("json", "jsonb"):
+                            if isinstance(v, (dict, list)):
+                                values.append(json.dumps(v))
+                            else:
+                                try:
+                                    json.loads(str(v))
+                                    values.append(str(v))
+                                except Exception:
+                                    values.append(json.dumps(str(v)))
+                        elif col_type == "boolean":
+                            values.append(True if str(v).lower() in ("true", "1", "yes") else False)
+                        else:
+                            values.append(str(v))
                         placeholders.append("%s")
                         seen_cols.add(db_col)
 
             if len(columns) > 1:
                 update_clauses = [f"{c} = EXCLUDED.{c}" for c in columns if c != "user_id"]
                 sql = f"""
-                    INSERT INTO mudra_user_data (id, {', '.join(columns)}, created_at, updated_at)
+                    INSERT INTO {target_table} (id, {', '.join(columns)}, created_at, updated_at)
                     VALUES (gen_random_uuid(), {', '.join(placeholders)}, NOW(), NOW())
                     ON CONFLICT (user_id) DO UPDATE SET
                         {', '.join(update_clauses)},
@@ -314,9 +329,9 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 try:
                     with get_db_cursor(db_pool) as cur:
                         cur.execute(sql, tuple(values))
-                        logger.info(f"Synced {len(seen_cols)} fields to mudra_user_data dynamically in post-processing", session_id=session_id)
+                        logger.info(f"Synced {len(seen_cols)} fields to {target_table} dynamically in post-processing", session_id=session_id)
                 except Exception as db_sync_err:
-                    logger.error(f"Failed to sync fields to mudra_user_data: {db_sync_err}", exc_info=True)
+                    logger.error(f"Failed to sync fields to {target_table}: {db_sync_err}", exc_info=True)
 
         # Update applications_data JSON
         for k, v in all_fields.items():
@@ -423,39 +438,71 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                 logger.error(f"LLM call failed for pipeline {pipeline_name}: {llm_err}")
 
         # 4. Fallback if LLM evaluation results were empty or failed
-        if is_mudra_scheme and ("credit_worthiness" not in evaluation_results or not evaluation_results["credit_worthiness"]):
-            logger.info("Generating financial heuristic fallback score for credit_worthiness", session_id=session_id)
-            rev = float(all_fields.get("monthly_revenue") or all_fields.get("business_revenue") or 0)
-            prof = float(all_fields.get("monthly_profit") or 0)
-            
-            calc_score = 7
-            if rev > 100000 and prof > 30000:
-                calc_score = 8
-            elif rev < 30000 or prof < 10000:
-                calc_score = 5
+        if is_mudra_scheme:
+            if "credit_worthiness" not in evaluation_results or not evaluation_results["credit_worthiness"]:
+                logger.info("Generating financial heuristic fallback score for credit_worthiness", session_id=session_id)
+                rev = float(all_fields.get("monthly_revenue") or all_fields.get("business_revenue") or 0)
+                prof = float(all_fields.get("monthly_profit") or 0)
+                
+                calc_score = 7
+                if rev > 100000 and prof > 30000:
+                    calc_score = 8
+                elif rev < 30000 or prof < 10000:
+                    calc_score = 5
 
-            evaluation_results["credit_worthiness"] = f"{calc_score}/10"
-            evaluation_results["credit_reason"] = (
-                f"• Calculated based on monthly business revenue (₹{int(rev):,}) and net profit (₹{int(prof):,}).\n"
-                f"• Verified document extractions (Aadhaar, PAN, Udyam, Voter ID) match applicant identity.\n"
-                f"• Cash flow and repayment capacity support Mudra loan eligibility."
-            )
-        elif not is_mudra_scheme and ("viability_tag" not in evaluation_results or not evaluation_results["viability_tag"]):
-            logger.info("Generating PMFME viability heuristic assessment", session_id=session_id)
-            evaluation_results["viability_tag"] = "Viable"
-            evaluation_results["viability_explanation"] = (
-                "• Business operations, food category, and machinery align with PMFME enterprise criteria.\n"
-                "• Proposed scale of operations and equipment quotations support sustainable food processing enterprise viability.\n"
-                "• Recommended for DIC and banking appraisal."
-            )
+                evaluation_results["credit_worthiness"] = f"{calc_score}/10"
+                evaluation_results["credit_reason"] = (
+                    f"• Calculated based on monthly business revenue (₹{int(rev):,}) and net profit (₹{int(prof):,}).\n"
+                    f"• Verified document extractions (Aadhaar, PAN, Udyam, Voter ID) match applicant identity.\n"
+                    f"• Cash flow and repayment capacity support Mudra loan eligibility."
+                )
+        else:
+            # PMFME scheme fallback & financial derivations
+            if "viability_tag" not in evaluation_results or not evaluation_results["viability_tag"]:
+                logger.info("Generating PMFME viability heuristic assessment", session_id=session_id)
+                evaluation_results["viability_tag"] = "Viable"
+                evaluation_results["viability_explanation"] = (
+                    "• Business operations, food category, and machinery align with PMFME enterprise criteria.\n"
+                    "• Proposed scale of operations and equipment quotations support sustainable food processing enterprise viability.\n"
+                    "• Recommended for DIC and banking appraisal."
+                )
+
+            # Ensure all PMFME financial derivations are present
+            default_financial_map = {
+                "land_value_per_sqft": 800,
+                "personal_contribution_capex": 10.0,
+                "preliminary_preoperative_cost": 15000,
+                "furniture_and_fixtures": 25000,
+                "contingency_miscellaneous": 15000,
+                "stock_in_process_days": 7,
+                "finished_goods_days": 15,
+                "receivables_days": 30,
+                "misc_expenditure_repair_maintenance": 2.0,
+                "misc_expenditure_power_fuel": 5.0,
+                "misc_expenditure_overheads": 1.0,
+                "misc_expenditure_telephone": 0.5,
+                "misc_expenditure_stationery": 0.5,
+                "misc_expenditure_advertisement": 1.5,
+                "misc_expenditure_other": 1.0,
+                "depreciation_building_percent": 5.0,
+                "depreciation_machinery_percent": 15.0,
+                "loan_repayment_period": "5",
+                "project_implementation_period": "3",
+                "rate_of_interest": 9.5,
+                "own_contribution_working_capital": 25.0,
+                "building_rate_per_sqft": 800,
+            }
+            for k, def_val in default_financial_map.items():
+                if k not in evaluation_results and (k not in all_fields or all_fields[k] is None or all_fields[k] == ""):
+                    evaluation_results[k] = def_val
 
         # 5. Save results to Database
         if evaluation_results:
             logger.info("Saving evaluation results to DB", results=evaluation_results)
             
             with get_db_cursor(db_pool) as cur:
-                # Update mudra_user_data
-                cur.execute("SELECT id FROM mudra_user_data WHERE user_id = %s", (session_id,))
+                # Update target table (mudra_user_data / pmfme_user_data)
+                cur.execute(f"SELECT id FROM {target_table} WHERE user_id = %s", (session_id,))
                 if cur.fetchone():
                     update_parts = []
                     update_params = []
@@ -471,10 +518,10 @@ async def run_post_processing_evaluations(session_id: str, db_pool):
                                 update_params.append(str(v) if v is not None else None)
                                 
                     if update_parts:
-                        query = f"UPDATE mudra_user_data SET {', '.join(update_parts)}, updated_at = NOW() WHERE user_id = %s"
+                        query = f"UPDATE {target_table} SET {', '.join(update_parts)}, updated_at = NOW() WHERE user_id = %s"
                         update_params.append(session_id)
                         cur.execute(query, tuple(update_params))
-                        logger.info("Updated mudra_user_data evaluations dynamically", session_id=session_id)
+                        logger.info(f"Updated {target_table} evaluations dynamically", session_id=session_id)
 
                 # Update applications_data.data JSON
                 cur.execute("SELECT data FROM applications_data WHERE id = %s", (session_id,))

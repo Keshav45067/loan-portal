@@ -311,6 +311,8 @@ def evaluate_expression(expr_str: str, context: Dict[str, Any]) -> Any:
     expr_clean = expr_str.strip()
     if not expr_clean:
         return ""
+    # Normalize JavaScript-style logical operators to Python equivalents
+    expr_clean = expr_clean.replace("||", " or ").replace("&&", " and ")
     try:
         tree = ast.parse(expr_clean, mode="eval")
         evaluator = SafeExpressionEvaluator(context)
