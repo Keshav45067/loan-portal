@@ -300,6 +300,13 @@ export default function DetailsPage() {
     return '#ef4444'; // Red
   };
 
+  const getStatusText = () => {
+    if (recalculating) return 'Recalculating...';
+    if (isPmfme) return 'Evaluating Viability...';
+    if (isMudra) return 'Evaluating Credit...';
+    return 'Calculating...';
+  };
+
   const toggleMapVisibility = (docId) => {
     setShowMap(prev => ({ ...prev, [docId]: !prev[docId] }));
   };
