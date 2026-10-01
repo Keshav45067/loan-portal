@@ -256,6 +256,37 @@ export class VoiceSessionManager {
           if (typeof this.onVolumeLevelCallback === 'function') {
             this.onVolumeLevelCallback(level);
           }
+        },
+
+        onHighBackgroundNoise: (data) => {
+          // Send real-time noise telemetry control signal to voice-engine backend
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            try {
+              this.ws.send(JSON.stringify({
+                signal: `bg_noise:${data.active ? 'true' : 'false'}`,
+                active: !!data.active,
+                ambient_rms: data.ambientRms || 0
+              }));
+            } catch (e) {
+              console.warn('[voiceHelper] Failed to send bg_noise signal:', e);
+            }
+          }
+
+          if (typeof this.onHighBackgroundNoise === 'function') {
+            this.onHighBackgroundNoise(data);
+          }
+        },
+
+        onSpeechTooQuiet: (data) => {
+          if (typeof this.onSpeechTooQuiet === 'function') {
+            this.onSpeechTooQuiet(data);
+          }
+        },
+
+        onFrameClassified: (diag) => {
+          if (typeof this.onDiagnostics === 'function') {
+            this.onDiagnostics(diag);
+          }
         }
       });
 
